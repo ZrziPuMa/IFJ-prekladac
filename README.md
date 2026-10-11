@@ -1,1 +1,1 @@
-# IJC-prekladac
+# IFJ-prekladac
