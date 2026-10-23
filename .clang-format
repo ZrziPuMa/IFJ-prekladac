@@ -1,0 +1,99 @@
+# Autor: Martin Chlubna (xchlubm00)
+
+# =========================
+# KONFIGURACE CLANG-FORMAT
+# =========================
+#
+# UPOZORNĚNÍ: Tento konfigurační soubor byl upraven a vygenerován pomocí AI (Gemini).
+#
+# PŮVODNÍ PROMPT:
+# "podobnym stylem jeste uprav nas .clang-format soubor at to neni takovej mess"
+
+
+# ------------------------------------------------------------------------------
+# 1. ZÁKLADNÍ NASTAVENÍ A STANDARD
+# ------------------------------------------------------------------------------
+# Výchozí styl, ze kterého se dědí nezmíněná pravidla
+BasedOnStyle: LLVM
+
+# Cílový jazyk (pro C i C++ se v clang-format vždy používá hodnota Cpp)
+Language: Cpp
+
+# Standard syntaxe pro správné parsování konstrukcí C11
+Standard: Latest
+
+
+# ------------------------------------------------------------------------------
+# 2. ODSAZENÍ, TABULÁTORY A ŠÍŘKA ŘÁDKU
+# ------------------------------------------------------------------------------
+# Velikost jednoho logického odsazení v mezerách
+IndentWidth: 4
+
+# Šířka zarážky tabulátoru (pro konzistenci zobrazení)
+TabWidth: 4
+
+# Striktní zákaz tabulátorů (\t), kód používá výhradně mezery
+UseTab: Never
+
+# Maximální šířka řádku před automatickým zalomením
+ColumnLimit: 100
+
+
+# ------------------------------------------------------------------------------
+# 3. SLOŽENÉ ZÁVORKY A ZKRÁCENÉ KONSTRUKCE
+# ------------------------------------------------------------------------------
+# Umístění otevírací složené závorky na témže řádku (za funkcí, if, while)
+BreakBeforeBraces: Attach
+
+# Zákaz jednořádkových funkcí (tělo funkce musí mít vždy vlastní řádky)
+AllowShortFunctionsOnASingleLine: None
+
+# Zákaz jednořádkových podmínek if (tělo podmínky musí být na novém řádku)
+AllowShortIfStatementsOnASingleLine: Never
+
+# Zákaz jednořádkových cyklů (tělo for/while musí být na novém řádku)
+AllowShortLoopsOnASingleLine: false
+
+# Zákaz jednořádkových bloků
+AllowShortBlocksOnASingleLine: Never
+
+
+# ------------------------------------------------------------------------------
+# 4. PŘEPÍNAČE (SWITCH-CASE) – KLÍČOVÉ PRO PŘEKLADAČ
+# ------------------------------------------------------------------------------
+# Odsazení klauzulí 'case' uvnitř bloku 'switch' o 4 mezery
+IndentCaseLabels: true
+
+
+# ------------------------------------------------------------------------------
+# 5. UKAZATELE, PŘETYPOVÁNÍ A MEZERY
+# ------------------------------------------------------------------------------
+# Přichycení znaku '*' k názvu proměnné: int *ptr (standardní C styl)
+PointerAlignment: Right
+
+# Mezera před závorkou pouze u řídicích struktur (if (x)), nikoliv u funkcí (foo(x))
+SpaceBeforeParens: ControlStatements
+
+# Zákaz mezery za C-style přetypováním: (int *)ptr namísto (int *) ptr
+SpaceAfterCStyleCast: false
+
+# Zákaz nadbytečných mezer uvnitř závorek podmínek: if (a == b) namísto if ( a == b )
+SpacesInConditionalStatement: false
+
+
+# ------------------------------------------------------------------------------
+# 6. ORGANIZACE HLAVIČKOVÝCH SOUBORŮ (#include)
+# ------------------------------------------------------------------------------
+# Abecední řazení bloků #include s ohledem na velikost písmen
+SortIncludes: CaseSensitive
+
+# Automatické seskupení hlaviček (systémové <...> vs. projektové "...")
+IncludeBlocks: Regroup
+
+
+# ------------------------------------------------------------------------------
+# 7. ZAROVNÁNÍ KOMENTÁŘŮ
+# ------------------------------------------------------------------------------
+# Zarovnávání komentářů na konci řádků do stejného sloupce
+AlignTrailingComments: true
+...
