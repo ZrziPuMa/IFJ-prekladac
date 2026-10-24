@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Hlavní program překladače IFJcode26.
+ * @brief Hlavní program překladače IFJ26 -> IFJcode26.
  * @author František Bilavčík (<xbilavf00>)
  */
 int main(void) {
