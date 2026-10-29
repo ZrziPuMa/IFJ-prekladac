@@ -5,6 +5,7 @@
  * @author Daniela Sladká, xsladkd00
  */
 
+ 
 #ifndef ISYMTABLE_H
 #define ISYMTABLE_H
 
