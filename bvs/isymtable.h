@@ -83,4 +83,4 @@ void symtable_search(bt_node **root, char *key, tBtContentType **content);
  */
 void symtable_free(bt_node **root);
 
-#endif
+#endif //ISYMTABLE_H
