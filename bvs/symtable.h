@@ -72,17 +72,17 @@ tBtNode symtable_pop_scope(tStack *stack);
  * @brief Vložení nového prvku do stromu
  * @param root Ukazatel na kořen (pod)stromu, do kterého se prvek vloží
  * @param key Klíč, pod kterým se prvek uloží
- * @param content Data uloženého prvku
+ * @param data Data uloženého prvku
  */
-void symtable_insert(tBtNode **root, char *key, tBtContentType content);
+void symtable_insert(tBtNode **root, char *key, tBtNodeData data);
 
 /**
  * @brief Vyhledávání v tabulce symbolů
  * @param root Ukazatel na kořen (pod)stromu, ve kterém se bude vyhledávat
  * @param key Klíč vyhledávaného prvku
- * @param content Ukazatel, ve kterém se vrátí umístění nalezeného prvku
+ * @param location Ukazatel, ve kterém se vrátí umístění nalezeného prvku
  */
-void symtable_search(tBtNode **root, char *key, tBtContentType **content);
+void symtable_search(tBtNode **root, char *key, tBtNode **location);
 
 /**
  * @brief Uvolnění alokovaných zdrojů
