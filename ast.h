@@ -23,16 +23,16 @@
  * ========================================================================== */
 
 typedef enum {
-    TYPE_UNIT,     // jediná hodnota (), nenese informaci
-    TYPE_INT,      // celočíselný typ
-    TYPE_DOUBLE,   // desetinný typ
-    TYPE_STRING,   // řetězec
-    TYPE_BOOLEAN,  // rozšíření BOOLTHEN: Logický typ, bez rozšíření jen výsledek porovnání
-    TYPE_UNION,    // rozšíření ALGEBDT: Sjednocení (např. Int | String). Porovnává se jako množina
+    TYPE_UNIT,   // jediná hodnota (), nenese informaci
+    TYPE_INT,    // celočíselný typ
+    TYPE_DOUBLE, // desetinný typ
+    TYPE_STRING, // řetězec
+    TYPE_BOOLEAN, // rozšíření BOOLTHEN: Logický typ, bez rozšíření jen výsledek porovnání
+    TYPE_UNION, // rozšíření ALGEBDT: Sjednocení (např. Int | String). Porovnává se jako množina
     TYPE_FUNCTION, // k základu i rozšíření LAMBDAS: Funkční typ (např. (Int) => Boolean)
     TYPE_LIST,     // rozšíření LISTS: Homogenní seznam (např. List[Int])
     TYPE_CUSTOM,   // rozšíření ALGEBDT: Datové třídy nebo aliasy
-    TYPE_ANY,      // jakýkoliv typ, je používaný jen ve vestavěných funkcích (např. print(x: Any))
+    TYPE_ANY, // jakýkoliv typ, je používaný jen ve vestavěných funkcích (např. print(x: Any))
     TYPE_NOTHING // výraz, který nedoběhne (return, i s hodnotou); přenese se výš do bloku, if a
                  // match, pokud jím končí všechny cesty. Je kompatibilní s každým typem,
                  // lub(Nothing, T) = T (least upper bound)
@@ -220,9 +220,9 @@ struct ASTNode {
             ASTNode *iter_var; // AST_VAR_DEF řídicí proměnné (NE AST_IDENTIFIER): is_mutable =
                                // false, initializer = NULL, declared_type = NULL (typ doplní
                                // sémantika do expr_type)
-            ASTNode *source; // zdroj generátoru: AST_RANGE, nebo výraz typu List[T] (LISTS)
-            ASTNode *guards; // CONTROL: if stráže (seznam výrazů)
-            ASTNode *body;   // vždy AST_BLOCK
+            ASTNode *source;   // zdroj generátoru: AST_RANGE, nebo výraz typu List[T] (LISTS)
+            ASTNode *guards;   // CONTROL: if stráže (seznam výrazů)
+            ASTNode *body;     // vždy AST_BLOCK
         } for_loop;
 
         // data.func_call: AST_FUNC_CALL
@@ -327,7 +327,7 @@ struct ASTNode {
                                           // nemění.
                     ASTNode *args; // seznam AST_VAR_DEF a, b (přes next): DEKLARACE nových
                                    // proměnných, is_mutable = false, declared_type = NULL,
-                                   // initializer = NULL; var_id a typ (expr_type) doplní sémantika.
+                    // initializer = NULL; var_id a typ (expr_type) doplní sémantika.
                 } constructor; // PATTERN_CONSTRUCTOR: např.: case Point(a, b) =>
             } detail;
         } pattern;
@@ -373,7 +373,7 @@ struct ASTNode {
                         // LF@<identifier>$<var_id> -1 = deklarace, která není lokální proměnnou:
                         // atribut třídy (čte se přes p.x). Po sémantice tedy žádný VAR_DEF nemá 0
             char *identifier; // jméno proměnné, identifikátor (kopie řetězce, uvolní ast_free)
-            bool is_mutable;  // true = var, false = val
+            bool is_mutable;         // true = var, false = val
             TypeInfo *declared_type; // typ napsaný v kódu; NULL = nenapsán. Zapisuje parser,
                                      // sémantika ho NIKDY nemění (ani alias nenahrazuje). Skutečný
                                      // typ proměnné je v expr_type tohoto uzlu
@@ -510,8 +510,9 @@ ASTNode *ast_create_program(ASTNode *definitions, int line);
 ASTNode *ast_create_block(ASTNode *statements, int line);
 
 /**
- * @brief Zajistí, že tělo je AST_BLOCK: jeden výraz nebo příkaz na stejném řádku (def f(x: Int) = x
- * + 5) zabalí do nového bloku; už hotový AST_BLOCK (odsazené tělo na dalších řádcích) vrátí beze
+ * @brief Zajistí, že tělo je AST_BLOCK: jeden výraz
+ * nebo příkaz na stejném řádku (def f(x: Int) = x* + 5)
+ *  zabalí do nového bloku; už hotový AST_BLOCK (odsazené tělo na dalších řádcích) vrátí beze
  * změny.
  * @param stmt Jednořádkové tělo, nebo už hotový AST_BLOCK.
  * @param line Číslo řádku ve zdrojovém souboru.
@@ -700,6 +701,15 @@ ASTNode *ast_create_pattern_wildcard(int line);
 ASTNode *ast_create_param_list(ASTNode *params, int line);
 
 /**
+ * @brief Vytvoří uzel literálu seznamu (AST_LIST_LITERAL).
+ * @param items Seznam prvků seznamu přes next; NULL = prázdný seznam.
+ * @param line Číslo řádku ve zdrojovém souboru.
+ * @return Nový uzel literálu seznamu nebo NULL v případě chyby.
+ * @note List.range(...) není literál: parser vytvoří FUNC_CALL s cílem IDENTIFIER "List.range".
+ */
+ASTNode *ast_create_list_literal(ASTNode *items, int line);
+
+/**
  * @brief Vytvoří uzel seznamu argumentů (AST_ARG_LIST).
  * @param args Argumenty (výrazy) přes next; NULL = prázdné závorky ().
  * @param line Číslo řádku ve zdrojovém souboru.
@@ -766,15 +776,6 @@ TypeInfo *type_append(TypeInfo *head, TypeInfo *item);
  * @note Nic nealokuje, nemůže selhat.
  */
 ASTNode *ast_append(ASTNode *head, ASTNode *item);
-
-/**
- * @brief Vytvoří uzel literálu seznamu (AST_LIST_LITERAL).
- * @param items Seznam prvků seznamu přes next; NULL = prázdný seznam.
- * @param line Číslo řádku ve zdrojovém souboru.
- * @return Nový uzel literálu seznamu nebo NULL v případě chyby.
- * @note List.range(...) není literál: parser vytvoří FUNC_CALL s cílem IDENTIFIER "List.range".
- */
-ASTNode *ast_create_list_literal(ASTNode *items, int line);
 
 /**
  * @brief Sémantika: zabalí uzel na místě *slot (answer, x.twice) do nového AST_FUNC_CALL.
