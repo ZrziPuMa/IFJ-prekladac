@@ -1,59 +1,58 @@
-# Autor: Martin Chlubna (xchlubm00)
+# file: Makefile
+# brief: Soubor s direktivy pro překlad a spuštění nástrojů pro vývoj
+# author: Martin Chlubna (<xchlubm00>)
 
 # UPOZORNĚNÍ NA VYUŽITÍ AI
-# Tento Makefile byl rozšířen a doplněn pomocí nástroje umělé inteligence (Gemini).
-#
-# Použité prompty:
-# 1. "Chtel bych Makefile, ve kterem budou 3 hlavni cile: build (vychozi, kterym
-#    budou prekladat ucitele), check (provede nasledujici kontroly: clang-tidy,
-#    cpp-check, clang-format check,) a nakonec build-check, ktery nejdriv udela
-#    check a potom build. nasledne bych pak chtel jeste udelat dalsi cile jako
-#    memcheck, ktery projede program valgrindem a pak jeste server-test, ktery
-#    otestuje kod na skolnim serveru. muzu ti poslat muj aktualni Makefile a ze
-#    ty bys tam tyto veci doplnil?"
-# 2. "Nahral jsem ti i zadani projektu i Makefile. dopln ho tedy a nezapomen se
-#    na zacatku Makefile zminit, ze to bylo doplneno pomoci AI"
-# 3. "pomoz mi tedy upravit ten makefile pro tento setup"
+# Tento Makefile byl navržen, strukturován a optimalizován za pomoci nástroje 
+# umělé inteligence (Google Gemini). Vzhledem k iterativnímu vývoji a velkému 
+# množství dílčích promptů (odladění závislostí, testů a Valgrindu) nejsou 
+# konkrétní dotazy v komentářích detailně vypisovány.
 # ==============================================================================
+
+# Explicitní určení výchozího cíle (zaručí spuštění 'build' i při změně pořadí cílů)
+.DEFAULT_GOAL := build
 
 # --- Základní nastavení překladu ---
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -pedantic -std=c11 -g
-# -Werror raději odstranit před odevzdáním
+# Poznámka: -Werror doporučujeme odstranit před finálním odevzdáním
 
 DEPFLAGS = -MMD -MP
 TARGET = prekladac
-# Sem přidejte jakýkoli .c soubor, co nově přidáte:
-SRCS = main.c 
-# Automatické načtení hlavičkových souborů pro formátování a statickou analýzu:
+
+# Automatické načtení všech .c a .h souborů v projektu (není nutné nic ručně dopisovat)
+SRCS = $(wildcard *.c)
 HDRS = $(wildcard *.h)
 
 OBJS = $(SRCS:.c=.o)
 DEPS = $(SRCS:.c=.d)
 
 # ==============================================================================
-# NASTAVENÍ NÁSTROJŮ PRO KONTROLU, VALGRIND A ŠKOLNÍ SERVER (ZDE UPRAVTE)
+# NASTAVENÍ NÁSTROJŮ PRO KONTROLU, VALGRIND A ŠKOLNÍ SERVER
 # ==============================================================================
 
-# Styl pro clang-format (povinný dle sekce 2.5 zadání: např. Google, LLVM, nebo file)
 FORMAT_STYLE = file
-
-# Vstupní soubor pro Valgrind (překladač čte ze stdin):
-TEST_INPUT = test.ifj26
+TEST_INPUT = factorial.scala
 
 # Nastavení pro testování na školním serveru Merlin:
 FIT_LOGIN = xlogin00
 SERVER_HOST = merlin.fit.vutbr.cz
-REMOTE_DIR = ~/ifj26_test_build
+REMOTE_DIR = ifj26_test_build
+REMOTE = $(FIT_LOGIN)@$(SERVER_HOST)
+
+# Společné přepínače pro Valgrind:
+VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=99
+
+# Vstup pro Valgrind a Merlin: pokud existuje TEST_INPUT, použije se, jinak /dev/null
+MEM_INPUT = $(if $(wildcard $(TEST_INPUT)),$(TEST_INPUT),/dev/null)
 
 # ==============================================================================
 # 1. HLAVNÍ CÍLE PRO PŘEKLAD (výchozí cíl 'build' pro vyučující a Merlin)
 # ==============================================================================
 
 .PHONY: build all check check-format check-tidy check-cppcheck build-check \
-        format memcheck server-test clean
+        format memcheck server-test test clean help
 
-# Výchozí cíl při spuštění samotného příkazu 'make'
 build: $(TARGET)
 
 all: build
@@ -67,82 +66,176 @@ $(TARGET): $(OBJS)
 # ==============================================================================
 # 2. KONTROLY KVALITY KÓDU (pro lokální vývoj a CI/CD)
 # ==============================================================================
-# Poznámka: Tyto cíle jsou oddělené od 'build', aby překlad nezkolaboval na
-# stroji, kde tyto nástroje nejsou nainstalované (viz sekce 2.5 a 2.7 zadání).
+# Volitelně lze předat soubor: make check FILE=stack.c
+CHECK_FILES ?= $(if $(FILE),$(FILE),$(SRCS) $(HDRS))
+CHECK_C_SRCS = $(filter %.c,$(CHECK_FILES))
 
 check: check-format check-tidy check-cppcheck
-	@echo "KONEC KONTROL"
+	@echo "✅ Všechny kontroly kvality kódu dokončeny!"
 
-# Kontrola formátování (nic nepřepisuje, pouze vrátí chybu při špatném formátu)
+# Kontrola formátování (pouze ověřuje, nic nepřepisuje)
 check-format:
-	@echo "--> Spouštím kontrolu formátování (clang-format)..."
-	clang-format --style=$(FORMAT_STYLE) --dry-run --Werror $(SRCS) $(HDRS)
+	@if [ -n "$(CHECK_FILES)" ]; then \
+		echo "--> Kontrola formátování (clang-format) pro: $(CHECK_FILES)..."; \
+		clang-format --style=$(FORMAT_STYLE) --dry-run --Werror $(CHECK_FILES); \
+	fi
 
-# Statická analýza pomocí clang-tidy (využívá soubor .clang-tidy v repozitáři)
+# Statická analýza clang-tidy (spouští se pouze na .c soubory, hlavičky analyzuje přes include)
 check-tidy:
-	@echo "--> Spouštím statickou analýzu (clang-tidy)..."
-	-clang-tidy $(SRCS) $(HDRS) -- $(CFLAGS)
+	@if [ -n "$(CHECK_C_SRCS)" ]; then \
+		echo "--> Statická analýza (clang-tidy) pro: $(CHECK_C_SRCS)..."; \
+		clang-tidy $(CHECK_C_SRCS) -- $(CFLAGS); \
+	else \
+		echo "--> Přeskakuji clang-tidy (žádné .c soubory k analýze)."; \
+	fi
 
-# Statická analýza pomocí cppcheck
+# Statická analýza cppcheck
 check-cppcheck:
-	@echo "--> Spouštím statickou analýzu (cppcheck)..."
-	-cppcheck --enable=warning,style,performance,portability \
-	         --suppress=missingIncludeSystem \
-	         --std=c11 $(SRCS) $(HDRS)
+	@if [ -n "$(CHECK_FILES)" ]; then \
+		echo "--> Statická analýza (cppcheck) pro: $(CHECK_FILES)..."; \
+		cppcheck --enable=warning,style,performance,portability \
+		         --suppress=missingIncludeSystem \
+		         --std=c11 $(CHECK_FILES); \
+	fi
 
-# Pomocný cíl: Automaticky naformátuje všechny .c a .h soubory
+# Automatické naformátování zadaného souboru nebo celého projektu
 format:
-	@echo "--> Formátuji zdrojové soubory pomocí clang-format..."
-	clang-format --style=$(FORMAT_STYLE) -i $(SRCS) $(HDRS)
+	@if [ -n "$(CHECK_FILES)" ]; then \
+		echo "--> Formátuji zdrojové soubory (clang-format): $(CHECK_FILES)..."; \
+		clang-format --style=$(FORMAT_STYLE) -i $(CHECK_FILES); \
+	fi
 
 # ==============================================================================
 # 3. KOMBINOVANÝ CÍL PRO VÝVOJÁŘE (nejdříve check, poté build)
 # ==============================================================================
-# Sekvenční volání $(MAKE) zaručí, že se 'check' provede striktně před 'build'
-# i v případě, že někdo spustí paralelní překlad (např. make -j4 build-check).
-
 build-check:
 	$(MAKE) check
 	$(MAKE) build
 
 # ==============================================================================
-# 4. KONTROLA PAMĚTI (Valgrind) A TESTOVÁNÍ NA SERVERU MERLIN
+# 4. KONTROLA PAMĚTI CELÉHO PŘEKLADAČE A SERVER MERLIN
 # ==============================================================================
 
-# Spustí překladač pod Valgrindem. Jelikož je překladač filtr (čte ze stdin),
-# přesměruje do něj soubor $(TEST_INPUT), nebo prázdný vstup, pokud soubor neexistuje.
 memcheck: build
-	@echo "--> Spouštím kontrolu paměti (Valgrind)..."
-	@if [ -f "$(TEST_INPUT)" ]; then \
-		valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
-		         --error-exitcode=99 ./$(TARGET) < "$(TEST_INPUT)" > /dev/null; \
-	else \
-		echo "Upozornění: Soubor $(TEST_INPUT) nenalezen, testuji s prázdným vstupem."; \
-		valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
-		         --error-exitcode=99 ./$(TARGET) < /dev/null > /dev/null; \
-	fi
-	@echo "✅ Valgrind nezjistil žádné úniky paměti ani chyby!"
+	@echo "--> Valgrind: testuji celý překladač se vstupem '$(MEM_INPUT)'..."
+	$(VALGRIND) ./$(TARGET) < $(MEM_INPUT) > /dev/null
+	@echo "✅ Valgrind nezjistil žádné úniky paměti v překladači!"
 
-# Nahraje zdrojové kódy na školní server Merlin, přeloží projekt výchozím cílem
-# 'build' a ověří, že výsledná binárka jde spustit.
 server-test:
-	@if [ "$(FIT_LOGIN)" = "xlogin00" ]; then \
-		echo "❌ CHYBA: Nejprve nastavte svůj FIT_LOGIN (např. make server-test FIT_LOGIN=xnovak00)"; \
-		exit 1; \
+	@test "$(FIT_LOGIN)" != "xlogin00" || \
+		{ echo "❌ CHYBA: Zadejte FIT_LOGIN (např. make server-test FIT_LOGIN=xnovak00)"; exit 1; }
+	@echo "--> Odesílám soubory na server Merlin..."
+	ssh $(REMOTE) "mkdir -p $(REMOTE_DIR)"
+	scp Makefile $(SRCS) $(HDRS) $(wildcard $(TEST_INPUT)) $(REMOTE):$(REMOTE_DIR)/
+	@echo "--> Spouštím překlad a test na serveru Merlin..."
+	ssh $(REMOTE) "cd $(REMOTE_DIR) && make clean build && ./$(TARGET) < $(MEM_INPUT) > /dev/null"
+	@echo "✅ Test překladu na serveru Merlin úspěšně prošel!"
+
+# ==============================================================================
+# 5. GOOGLE TEST (Jednotkové a izolované testy)
+# ==============================================================================
+CXX ?= g++
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -g -I.
+GTEST_LIBS = -lgtest -lgtest_main -pthread
+
+TEST_DIR = tests
+TEST_SRCS = $(wildcard $(TEST_DIR)/test_*.cpp)
+TEST_BINS = $(patsubst $(TEST_DIR)/test_%.cpp, bin_test_%, $(TEST_SRCS))
+
+# Spuštění všech existujících testů najednou: make test
+test: $(TEST_BINS)
+	@if [ -z "$(TEST_BINS)" ]; then \
+		echo "⚠️  Žádné testy k dispozici (v '$(TEST_DIR)/' nebyl nalezen žádný 'test_*.cpp')."; \
+	else \
+		for bin in $(TEST_BINS); do \
+			echo "--> Spouštím test: $$bin"; \
+			./$$bin || exit 1; \
+		done; \
+		echo "✅ Všechny jednotkové testy úspěšně prošly!"; \
 	fi
-	@echo "--> Kopíruji soubory na $(FIT_LOGIN)@$(SERVER_HOST):$(REMOTE_DIR)..."
-	ssh $(FIT_LOGIN)@$(SERVER_HOST) "mkdir -p $(REMOTE_DIR)"
-	scp Makefile $(SRCS) $(HDRS) $(FIT_LOGIN)@$(SERVER_HOST):$(REMOTE_DIR)/
-	@echo "--> Spouštím čistý překlad a test na serveru Merlin..."
-	ssh $(FIT_LOGIN)@$(SERVER_HOST) "cd $(REMOTE_DIR) && make clean && make build && ./$(TARGET) < /dev/null; echo 'Návratový kód překladače:' \$$?"
-	@echo "✅ Test překladu na serveru Merlin dokončen!"
+
+# Vnitřní překlad testovací binárky: bin_test_<modul>
+bin_test_%: $(TEST_DIR)/test_%.cpp
+	$(CXX) $(CXXFLAGS) $^ $(GTEST_LIBS) -o $@
+
+# Spuštění jednoho testu (funguje jak 'make test-stack', tak 'make test_stack')
+test-%: bin_test_%
+	./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
+
+test_%: bin_test_%
+	./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
+
+# Kontrola paměti izolovaného testu pod Valgrindem: make memcheck-<nazev>
+memcheck-%: bin_test_%
+	@echo "--> Spouštím Valgrind nad testem $<..."
+	$(VALGRIND) ./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
+	@echo "✅ Modul $< prošel bez úniků paměti!"
+
+# ------------------------------------------------------------------------------
+# NÁVOD PRO TÝM: JAK PŘIDAT TEST PRO NOVÝ MODUL
+# ------------------------------------------------------------------------------
+# 1. Ve složce tests/ vytvořte soubor test_<nazev>.cpp (např. tests/test_stack.cpp).
+#    Uvnitř includujte hlavičky překladače v bloku: extern "C" { #include "stack.h" }
+# 2. Sem dolů připište jeden řádek se seznamem .o souborů, které modul potřebuje:
+#       bin_test_<nazev>: <modul>.o error.o
+# 3. Spusťte: make test-<nazev> nebo make memcheck-<nazev>
+# ------------------------------------------------------------------------------
+
+# ZDE PŘIPISUJTE ZÁVISLOSTI PRO VAŠE TESTY:
+# bin_test_dynamic_string: dynamic_string.o error.o
+# bin_test_stack:          stack.o error.o
+
+# Příklady pro další vrstvy (odkomentujte a upravte při implementaci):
+# bin_test_token:        token.o dynamic_string.o error.o
+# bin_test_lexer:        lexer.o token.o dynamic_string.o error.o
+# bin_test_symtable:     symtable.o dynamic_string.o error.o
+# bin_test_expression:   expression.o stack.o token.o ast.o dynamic_string.o error.o
+# bin_test_parser:       parser.o expression.o ast.o symtable.o lexer.o token.o dynamic_string.o error.o
+# bin_test_generator:    generator.o ast.o symtable.o dynamic_string.o error.o
 
 # ==============================================================================
-# 5. ÚKLID PŘELOŽENÝCH SOUBORŮ
+# 6. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
-# Důležité před zabalením odevzdávaného archivu (sekce 6 zadání zakazuje binárky).
-
 clean:
-	rm -f $(OBJS) $(DEPS) $(TARGET)
+	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS)
+
+
+# ------------------------------------------------------------------------------
+# INTERAKTIVNÍ NÁPOVĚDA V TERMINÁLU: make help
+# ------------------------------------------------------------------------------
+help:
+	@echo "======================================================================"
+	@echo "             PŘÍRUČKA PRO VÝVOJ PŘEKLADAČE (Makefile)                "
+	@echo "======================================================================"
+	@echo ""
+	@echo "1. PŘEKLAD A SESTAVENÍ:"
+	@echo "  make (nebo make build)     Přeloží celý překladač (výchozí cíl)"
+	@echo "  make clean                 Smaže všechny .o, .d a přeložené binárky"
+	@echo "  make build-check           Nejprve provede kontrolu kvality, poté překlad"
+	@echo ""
+	@echo "2. JEDNOTKOVÉ TESTY (Google Test):"
+	@echo "  make test                  Zkompiluje a spustí všechny testy v tests/"
+	@echo "  make test-<modul>          Izolovaně přeloží a spustí test jednoho modulu"
+	@echo "                             (Příklad: make test-stack nebo make test-lexer)"
+	@echo "  make test-<modul> FILTER=\"<vzor>\""
+	@echo "                             Spustí jen konkrétní test z daného modulu"
+	@echo "                             (Příklad: make test-stack FILTER=\"StackTest.Push*\")"
+	@echo ""
+	@echo "3. KONTROLY KVALITY KÓDU:"
+	@echo "  make check                 Spustí clang-format, clang-tidy a cppcheck"
+	@echo "  make check FILE=<soubor>   Zkontroluje pouze jeden soubor (např. FILE=stack.c)"
+	@echo "  make format                Automaticky naformátuje všechny soubory"
+	@echo "  make format FILE=<soubor>  Naformátuje pouze jeden zadaný soubor"
+	@echo ""
+	@echo "4. KONTROLA PAMĚTI (Valgrind):"
+	@echo "  make memcheck              Zkontroluje celý překladač se vstupem <soubor>.scala"
+	@echo "  make memcheck-<modul>      Otestuje úniky paměti v izolovaném testu modulu"
+	@echo "                             (Příklad: make memcheck-stack)"
+	@echo ""
+	@echo "5. ŠKOLNÍ SERVER MERLIN:"
+	@echo "  make server-test FIT_LOGIN=<váš_login>"
+	@echo "                             Odešle kód na Merlin a ověří čistý překlad"
+	@echo "======================================================================"
 
 -include $(DEPS)
+
