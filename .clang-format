@@ -1,4 +1,7 @@
-# Autor: Martin Chlubna (xchlubm00)
+# file: .clang_format
+# brief: Konfigurační soubor pro clang_format
+# author: Martin Chlubna (<xchlubm00>)
+
 
 # =========================
 # KONFIGURACE CLANG-FORMAT
@@ -96,4 +99,3 @@ IncludeBlocks: Regroup
 # ------------------------------------------------------------------------------
 # Zarovnávání komentářů na konci řádků do stejného sloupce
 AlignTrailingComments: true
-...

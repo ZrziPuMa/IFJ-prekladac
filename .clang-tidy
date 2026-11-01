@@ -1,4 +1,7 @@
-# Autor: Martin Chlubna (xchlubm00)
+# file: .clang_tidy
+# brief: Konfigurační soubor pro clang_tidy
+# author: Martin Chlubna (<xchlubm00>)
+
 
 # ==============================================================================
 # KONFIGURACE CLANG-TIDY
