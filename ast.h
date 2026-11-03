@@ -734,7 +734,7 @@ TypeInfo *type_create_basic(TypeClass type_class);
  * String.
  * @param left Levý typ.
  * @param right Pravý typ.
- * @return Nový TypeInfo pro sjednocení typů nebo NULL v případě chyby.
+ * @return Nový TypeInfo pro sjednocení typů nebo NULL v případě chyby nebo NULL parametru.
  */
 TypeInfo *type_create_union(TypeInfo *left, TypeInfo *right);
 
@@ -823,6 +823,9 @@ TypeInfo *type_info_clone(const TypeInfo *src);
  * @param owned Nový typ; funkce ho převezme (předávej vlastní kopii, např. z type_info_clone).
  * @note Zachová řetěz parametrů: owned->next = (*slot)->next, starý se před uvolněním odpojí.
  *       Používá se jen na kopiích v expr_type, nikdy na declared_type ani return_type.
+ *      Pro slot == NULL neudělí nic a jen uvolní owned
+ *      Pro owned == NULL neudělá nic
+ *      Pro *slot == NULL přenese owned na místo *slot a nic neuvolní
  */
 void type_replace(TypeInfo **slot, TypeInfo *owned);
 
