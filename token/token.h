@@ -4,7 +4,7 @@
  * @brief Hlavičkový soubor tokenů
  * @author Daniela Sladká, xsladkd00
  * @author František Bilavčík, xbilavf00
- */
+*/
 
 #ifndef TOKEN_H
 #define TOKEN_H
@@ -109,6 +109,7 @@ typedef enum {
     BF_chr,
 } bBuiltinFuncs;
 
+
 /**
  * @brief Datový typ pro hodnotu tokenu
  */
@@ -119,6 +120,7 @@ typedef struct {
     bool isBuiltinFunc;
     bBuiltinFuncs BuiltInFunc;
 } tTokenVal;
+
 
 /**
  * @brief Datový typ pro token
@@ -131,11 +133,13 @@ typedef struct
     bool newline_before;
 } tToken;
 
+
 /**
  * @brief Uvolní token
  * @param t Ukazatel na token
  */
 void token_free(tToken *t);
+
 
 /**
  * @brief Vrátí název tokenu jako řetězec
@@ -143,6 +147,7 @@ void token_free(tToken *t);
  * @return Název tokenu jako řetězec ("ASSIGN", "ID", …)
  */
 const char *token_type_name(tTokenType type);
+
 
 /**
  * @brief Vypíše token na výstup pro účely ladění
