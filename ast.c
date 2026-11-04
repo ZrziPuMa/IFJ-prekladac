@@ -10,8 +10,7 @@
 
 #include "ast.h"
 
-// TODO(token.h): odkomentovat, až bude token.h ve větvi (TOK_* pro operátory).
-// #include "token.h"
+#include "token.h"
 
 #include <stdarg.h>
 #include <stdint.h>
@@ -1083,7 +1082,6 @@ static const char *node_kind_name(ASTNodeType type) {
  */
 static const char *op_text(int op) {
     switch (op) {
-#if 0 // TODO(token.h): bez token.h nejsou TOK_*; do té doby se operátor vypíše jako op?<číslo>.
         case TOK_PLUS:
             return "+";
         case TOK_MINUS:
@@ -1112,13 +1110,11 @@ static const char *op_text(int op) {
             return "&&";
         case TOK_OR:
             return "||";
-#endif
         default:
             return NULL;
     }
 }
 
-#if 0 // TODO(token.h): kontrola platnosti operátorů potřebuje TOK_* z token.h.
 /** @brief true, když op smí stát v AST_BINARY_OP. */
 static bool is_binary_op(int op) {
     return op_text(op) != NULL && op != TOK_NOT;
@@ -1128,7 +1124,6 @@ static bool is_binary_op(int op) {
 static bool is_unary_op(int op) {
     return op == TOK_MINUS || op == TOK_PLUS || op == TOK_NOT;
 }
-#endif
 
 /** @brief Jméno druhu volání bez předpony CALL_, nebo NULL pro neplatnou hodnotu. */
 static const char *call_kind_name(CallKind kind) {
@@ -2000,10 +1995,8 @@ static void chk_children(AstChecker *c, const ASTNode *n, CheckSlot slot) {
             chk_one(c, n, n->data.assignment.value, SLOT_EXPR, "value", true);
             break;
         case AST_BINARY_OP:
-#if 0 // TODO(token.h): kontrola operátoru (is_binary_op)
             if (!is_binary_op(n->data.bin_op.operator_token))
                 chk_report(c, n, "neplatný binární operátor %d", n->data.bin_op.operator_token);
-#endif
             chk_one(c, n, n->data.bin_op.left, SLOT_EXPR, "left", true);
             chk_one(c, n, n->data.bin_op.right, SLOT_EXPR, "right", true);
             break;
@@ -2104,10 +2097,8 @@ static void chk_children(AstChecker *c, const ASTNode *n, CheckSlot slot) {
             chk_type_one(c, n, n->data.type_alias.aliased, "aliased", true, true);
             break;
         case AST_UNARY_OP:
-#if 0 // TODO(token.h): kontrola operátoru (is_unary_op)
             if (!is_unary_op(n->data.unary_op.operator_token))
                 chk_report(c, n, "neplatný unární operátor %d", n->data.unary_op.operator_token);
-#endif
             chk_one(c, n, n->data.unary_op.operand, SLOT_EXPR, "operand", true);
             break;
         case AST_VAR_DEF:
