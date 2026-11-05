@@ -60,8 +60,9 @@ void symtable_init(tBtNode **root);
 /**
  * @brief Vložení nového lokálního rozsahu platnosti (scope) na vrchol zásobníku
  * @param root Ukazatel na kořen stromu reprezentujícího nový lokální rozsah
+ * @param stack Ukazatel na zásobník, na jehož vrchol se nový rozsah vloží
  */
-void symtable_push_scope(tBtNode **root);
+void symtable_push_scope(tBtNode **root, tStack *stack);
 
 /**
  * @brief Odebrání aktuálního lokálního rozsahu platnosti z vrcholu zásobníku
