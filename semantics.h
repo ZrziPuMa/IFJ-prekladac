@@ -13,6 +13,8 @@
 #include "ast.h"
 #include "isymtable.h"
 
+#include <stdbool.h>
+
 /**
  * @brief Stav zpracování definice funkce během sémantické analýzy
  *
