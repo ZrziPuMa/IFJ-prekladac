@@ -39,7 +39,7 @@ typedef struct node_data{
  */
 struct bt_node{
     tBtNodeData *data;
-    tBtContentType type;
+    char *key;
     tBtNode *left_child;
     tBtNode *right_child;
 };
