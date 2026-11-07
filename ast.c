@@ -45,6 +45,9 @@ static ASTNode *ast_new_node(ASTNodeType type, int line) {
  * (AI) prompt: Naimplementuj strdup
  */
 static char *ast_strdup(const char *src) {
+    if (src == NULL) {
+        return NULL;
+    }
     size_t len = strlen(src) + 1; // včetně posledního charu '\0'
     char *copy = malloc(len);
     if (copy != NULL)
@@ -53,6 +56,9 @@ static char *ast_strdup(const char *src) {
 }
 
 ASTNode *ast_create_binop(int op_token, ASTNode *left, ASTNode *right, int line) {
+    if (left == NULL || right == NULL) {
+        return NULL;
+    }
 
     ASTNode *node = ast_new_node(AST_BINARY_OP, line);
     if (node == NULL) {
@@ -66,6 +72,10 @@ ASTNode *ast_create_binop(int op_token, ASTNode *left, ASTNode *right, int line)
 }
 
 ASTNode *ast_create_func_call(ASTNode *target, ASTNode *arg_groups, int line) {
+    if (target == NULL) {
+        return NULL;
+    }
+
     ASTNode *node = ast_new_node(AST_FUNC_CALL, line);
     if (node == NULL) {
         return NULL;
@@ -79,6 +89,10 @@ ASTNode *ast_create_func_call(ASTNode *target, ASTNode *arg_groups, int line) {
 }
 
 ASTNode *ast_create_if_expr(ASTNode *cond, ASTNode *then_blk, ASTNode *else_blk, int line) {
+    if (cond == NULL || then_blk == NULL) {
+        return NULL;
+    }
+
     ASTNode *node = ast_new_node(AST_IF_EXPR, line);
     if (node == NULL) {
         return NULL;
@@ -91,6 +105,10 @@ ASTNode *ast_create_if_expr(ASTNode *cond, ASTNode *then_blk, ASTNode *else_blk,
 }
 
 ASTNode *ast_create_match(ASTNode *expr, ASTNode *cases, int line) {
+    if (expr == NULL || cases == NULL) {
+        return NULL;
+    }
+
     ASTNode *node = ast_new_node(AST_MATCH_EXPR, line);
     if (node == NULL) {
         return NULL;
@@ -102,6 +120,10 @@ ASTNode *ast_create_match(ASTNode *expr, ASTNode *cases, int line) {
 }
 
 ASTNode *ast_create_lambda(ASTNode *params, ASTNode *body, int line) {
+    if (params == NULL || body == NULL) {
+        return NULL;
+    }
+
     ASTNode *node = ast_new_node(AST_LAMBDA, line);
     if (node == NULL) {
         return NULL;
@@ -372,9 +394,8 @@ ASTNode *ast_create_func_def(const char *name, bool is_main, ASTNode *param_grou
 ASTNode *ast_create_var_def(const char *identifier, bool is_mutable, TypeInfo *declared_type,
                             ASTNode *initializer, int line) {
 
-    // "_" ve Point(_, y) je povolené, to značí, že i identifier i initializer mohou být NULL. Jinak
-    // nelze mit proměnnou bez jména.
-    if (identifier == NULL && initializer != NULL) {
+    // (AI) review Point(_, 0): jméno je povinné; `_` ve vzoru Point(_, y) je PATTERN_WILDCARD
+    if (identifier == NULL) {
         return NULL;
     }
 
@@ -383,14 +404,10 @@ ASTNode *ast_create_var_def(const char *identifier, bool is_mutable, TypeInfo *d
         return NULL;
     }
 
-    if (identifier != NULL) {
-        node->data.var_def.identifier = ast_strdup(identifier);
-        if (node->data.var_def.identifier == NULL) {
-            free(node);
-            return NULL;
-        }
-    } else {
-        node->data.var_def.identifier = NULL; // pro `_` ve vzoru Point(_, y)
+    node->data.var_def.identifier = ast_strdup(identifier);
+    if (node->data.var_def.identifier == NULL) {
+        free(node);
+        return NULL;
     }
     node->data.var_def.is_mutable = is_mutable;
     node->data.var_def.declared_type = declared_type;
@@ -855,6 +872,9 @@ void type_replace(TypeInfo **slot, TypeInfo *owned) {
         *slot = owned;
         return;
     }
+    if (*slot == owned) {
+        return;
+    }
 
     TypeInfo *old_type = *slot;
     owned->next = old_type->next;
@@ -927,7 +947,7 @@ void ast_free(ASTNode *root) {
                 ast_free(root->data.func_def.body);
                 break;
             case AST_VAR_DEF:
-                free(root->data.var_def.identifier); // může být NULL pro `_` ve vzoru Point(_, y)
+                free(root->data.var_def.identifier);
                 type_info_free(root->data.var_def.declared_type);
                 ast_free(root->data.var_def.initializer);
                 break;
@@ -1461,7 +1481,7 @@ static void dump_node_data(const ASTNode *n, FILE *out) {
             break;
         case AST_VAR_DEF:
             fputs(n->data.var_def.is_mutable ? " var " : " val ", out);
-            fputs(n->data.var_def.identifier != NULL ? n->data.var_def.identifier : "_", out);
+            dump_name(n->data.var_def.identifier, out);
             if (n->data.var_def.declared_type != NULL) {
                 fputs(" : ", out);
                 dump_type(n->data.var_def.declared_type, out, false, false);
@@ -1677,7 +1697,7 @@ typedef enum {
     SLOT_PARAM,       // VAR_DEF parametru
     SLOT_FIELD,       // VAR_DEF atributu třídy
     SLOT_ITER_VAR,    // VAR_DEF řídicí proměnné for
-    SLOT_PAT_ARG,     // VAR_DEF ve vzoru Point(a, _)
+    SLOT_PAT_ARG,     // argument vzoru Point(a, 0, _): VAR_DEF, nebo PATTERN literál či _
     SLOT_RECEIVER,    // VAR_DEF příjemce extension
     SLOT_METHOD,      // FUNC_DEF v extension
     SLOT_CASE,        // CASE_BRANCH v match
@@ -1746,10 +1766,11 @@ static bool slot_allows(CheckSlot slot, ASTNodeType t) {
             return t == AST_PARAM_LIST;
         case SLOT_ARG_LIST:
             return t == AST_ARG_LIST;
+        case SLOT_PAT_ARG:
+            return t == AST_VAR_DEF || t == AST_PATTERN;
         case SLOT_PARAM:
         case SLOT_FIELD:
         case SLOT_ITER_VAR:
-        case SLOT_PAT_ARG:
         case SLOT_RECEIVER:
             return t == AST_VAR_DEF;
         case SLOT_METHOD:
@@ -1930,13 +1951,17 @@ static void chk_annotations(AstChecker *c, const ASTNode *n, CheckSlot slot) {
     }
 }
 
-/** @brief VAR_DEF podle místa: příkaz v bloku má jméno a inicializaci, ostatní použití ne. */
+/**
+ * @brief VAR_DEF podle místa: příkaz v bloku má jméno a inicializaci, ostatní použití ne;
+ *        parametr, atribut třídy a příjemce extension mají vždy napsaný typ.
+ */
 static void chk_var_def(AstChecker *c, const ASTNode *n, CheckSlot slot) {
     bool in_block = slot == SLOT_STMT;
 
-    if (n->data.var_def.identifier == NULL && slot != SLOT_PAT_ARG)
-        chk_report(c, n, "chybí jméno (NULL smí být jen _ ve vzoru)");
-    chk_type_one(c, n, n->data.var_def.declared_type, "declared_type", true, slot == SLOT_RECEIVER);
+    if (n->data.var_def.identifier == NULL)
+        chk_report(c, n, "chybí jméno (_ ve vzoru je PATTERN_WILDCARD, ne VAR_DEF)");
+    bool type_required = slot == SLOT_PARAM || slot == SLOT_FIELD || slot == SLOT_RECEIVER;
+    chk_type_one(c, n, n->data.var_def.declared_type, "declared_type", true, type_required);
 
     if (in_block || slot == SLOT_ROOT) {
         chk_one(c, n, n->data.var_def.initializer, SLOT_EXPR, "initializer", in_block);
@@ -1950,9 +1975,16 @@ static void chk_var_def(AstChecker *c, const ASTNode *n, CheckSlot slot) {
         chk_report(c, n, "declared_type má být NULL");
 }
 
-/** @brief Vzor podle druhu: co musí mít a co mít nesmí. */
-static void chk_pattern(AstChecker *c, const ASTNode *n) {
+/**
+ * @brief Vzor podle druhu: co musí mít a co mít nesmí.
+ * @param slot SLOT_PAT_ARG = argument vzoru třídy: smí to být jen literál nebo _ (gramatika
+ *             nepřipouští vnořené vzory ani n: T v argumentu).
+ */
+static void chk_pattern(AstChecker *c, const ASTNode *n, CheckSlot slot) {
     PatternType kind = n->data.pattern.pat_type;
+
+    if (slot == SLOT_PAT_ARG && kind != PATTERN_LITERAL && kind != PATTERN_WILDCARD)
+        chk_report(c, n, "argument vzoru třídy smí být jen proměnná, literál nebo _");
 
     if (kind != PATTERN_TYPE_BINDING && n->data.pattern.bound_identifier != NULL)
         chk_report(c, n, "bound_identifier u vzoru, který nic neváže");
@@ -2078,7 +2110,7 @@ static void chk_children(AstChecker *c, const ASTNode *n, CheckSlot slot) {
                 chk_report(c, n, "chybí jméno členu");
             break;
         case AST_PATTERN:
-            chk_pattern(c, n);
+            chk_pattern(c, n, slot);
             break;
         case AST_PROGRAM:
             chk_list(c, n->data.program.definitions, SLOT_DEF, "definitions");

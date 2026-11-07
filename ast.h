@@ -325,10 +325,14 @@ struct ASTNode {
                 struct {
                     TypeInfo *class_type; // TYPE_CUSTOM se jménem třídy podle zápisu; sémantika ho
                                           // nemění.
-                    ASTNode *args; // seznam AST_VAR_DEF a, b (přes next): DEKLARACE nových
-                                   // proměnných, is_mutable = false, declared_type = NULL,
-                    // initializer = NULL; var_id a typ (expr_type) doplní sémantika.
-                } constructor; // PATTERN_CONSTRUCTOR: např.: case Point(a, b) =>
+                    ASTNode *args; // argumenty podle pořadí atributů (přes next), každý je:
+                                   // - AST_VAR_DEF: nová proměnná (a), is_mutable = false,
+                    //   declared_type = NULL, initializer = NULL; var_id a typ
+                    //   (expr_type) doplní sémantika,
+                    // - AST_PATTERN s PATTERN_LITERAL (0, -1, "x"): porovnání,
+                    // - AST_PATTERN s PATTERN_WILDCARD (_): hodnota se ignoruje.
+                    // Jiný vzor (vnořený Point(...), n: T) v argumentu není.
+                } constructor; // PATTERN_CONSTRUCTOR: např.: case Point(a, 0) =>, Point(_, y) =>
             } detail;
         } pattern;
 
@@ -611,7 +615,8 @@ ASTNode *ast_create_func_def(const char *name, bool is_main, ASTNode *param_grou
 /**
  * @brief Vytvoří uzel deklarace (AST_VAR_DEF): proměnná val/var, parametr, řídicí proměnná for,
  *        atribut třídy, proměnná ve vzoru Point(a, b) nebo příjemce extension.
- * @param identifier Jméno; NULL jen pro `_` ve vzoru Point(_, y) (nepovinné, případný bonus).
+ * @param identifier Jméno (povinné, NULL = funkce vrátí NULL). `_` ve vzoru Point(_, y) není
+ *                   VAR_DEF, ale vzor ast_create_pattern_wildcard.
  * @param is_mutable True = var, false = val i všechna ostatní použití.
  * @param declared_type Napsaný typ; NULL = nenapsán.
  * @param initializer Výraz za = u val/var (povinný); u ostatních použití NULL.
@@ -679,7 +684,8 @@ ASTNode *ast_create_pattern_binding(const char *name, TypeInfo *type_bind, int l
 /**
  * @brief Vytvoří uzel konstruktoru vzoru (AST_PATTERN).
  * @param class_type Typ třídy podle zápisu (TYPE_CUSTOM).
- * @param args Seznam AST_VAR_DEF přes next; NULL = bez argumentů.
+ * @param args Argumenty přes next: AST_VAR_DEF (nová proměnná), nebo AST_PATTERN s literálem
+ *             či _ (ast_create_pattern_literal, ast_create_pattern_wildcard); NULL = bez argumentů.
  * @param line Číslo řádku ve zdrojovém souboru.
  * @return Nový uzel konstruktoru vzoru nebo NULL v případě chyby.
  */
