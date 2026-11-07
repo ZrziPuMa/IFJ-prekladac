@@ -1,5 +1,5 @@
 /**
- * @file isemantics.c
+ * @file isemantics.h
  * @brief Veřejný hlavičkový soubor pro sémantickou analýzu
  * @author Natalie Morávková (<xmoravn00>)
  */
