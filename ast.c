@@ -1,4 +1,5 @@
 /**
+ * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file ast.c
  * @brief Implementace AST.
  * @author František Bilavčík (<xbilavf00>)
