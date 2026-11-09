@@ -104,6 +104,14 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
  }
 
  void symtable_node_free(tBtNode **root) {
+    if (!root) {
+        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        return;
+    }
+
+    if ((* root)->data->type == VARIABLE) {
+        free((*root)->data->value);
+    }
     return;
  }  
 
@@ -121,5 +129,59 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
     symtable_node_free(root);
     free(*root);
     *root = NULL;
+}
+
+void rotate_left(tBtNode **root) {
+    if (!root){
+        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        return;
+    }
+    if (!(*root)) return;
+
+    tBtNode *new_root = (*root)->right_child;
+    new_root->left_child = *root;
+    (*root)->right_child = new_root->left_child;
+    *root = new_root;
+}
+
+void rotate_right(tBtNode **root) {
+    if (!root) {
+        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        return;
+    }
+    if (!(*root)) return;
+
+    tBtNode *new_root = (*root)->left_child;
+    (*root)->left_child = new_root->right_child;
+    new_root->right_child = *root;
+    *root = new_root;
+}
+
+void rotate_left_right(tBtNode **root) {
+    if (!root) {
+        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        return;
+    }
+    if (!(*root)) return;
+
+    tBtNode *new_root_A = (*root)->left_child;
+    tBtNode *new_root_B = (*root);
+
+    rotate_left(new_root_A);
+    rotate_right(new_root_B);
+}
+
+void rotate_right_left(tBtNode **root) {
+    if (!root) {
+        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        return;
+    }
+    if (!(*root)) return;
+
+    tBtNode *new_root_A = (*root)->right_child;
+    tBtNode *new_root_B = (*root);
+
+    rotate_right(new_root_A);
+    rotate_left(new_root_B);
 }
 
