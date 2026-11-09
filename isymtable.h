@@ -58,20 +58,6 @@ typedef struct stack {
 void symtable_init(tBtNode **root);
 
 /**
- * @brief Vložení nového lokálního rozsahu platnosti (scope) na vrchol zásobníku
- * @param root Ukazatel na kořen stromu reprezentujícího nový lokální rozsah
- * @param stack Ukazatel na zásobník, na jehož vrchol se nový rozsah vloží
- */
-void symtable_push_scope(tBtNode **root, tStack *stack);
-
-/**
- * @brief Odebrání aktuálního lokálního rozsahu platnosti z vrcholu zásobníku
- * @param stack Ukazatel na zásobník, ze kterého se odebere aktuální rozsah platnosti
- * @return Tabulka symbolů (uzel) opuštěného rozsahu platnosti
- */
-tBtNode *symtable_pop_scope(tStack *stack);
-
-/**
  * @brief Vložení nového prvku do stromu
  * @param root Ukazatel na kořen (pod)stromu, do kterého se prvek vloží
  * @param key Klíč, pod kterým se prvek uloží
@@ -88,9 +74,23 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data);
 void symtable_search(tBtNode **root, char *key, tBtNode **location);
 
 /**
- * @brief Uvolnění alokovaných zdrojů
+ * @brief Odstranění prvku z tabulky symbolů
+ * @param root Ukazatel na kořen (pod)stromu, ze kterého se prvek odstraní
+ * @param key Klíč odstraňovaného prvku
+ * @param stack Ukazatel na zásobník, který obsahuje cestu k odstraněnému uzlu
+ */
+void symtable_delete(tBtNode **root, char *key, tStack *stack);
+
+/**
+ * @brief Uvolnění alokovaných zdrojů v uzlu
  * @param root Ukazatel na kořen (pod)stromu, který se bude uvolňovat
  */
-void symtable_free(tBtNode **root);
+void symtable_node_free(tBtNode **root);
+
+/**
+ * @brief Systematické uvolnění alokovaných zdrojů v tabulce symbolů
+ * @param root Ukazatel na kořen (pod)stromu, který se bude uvolňovat
+ */
+void symtable_dispose(tBtNode **root);
 
 #endif //ISYMTABLE_H
