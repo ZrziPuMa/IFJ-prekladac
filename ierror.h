@@ -46,24 +46,24 @@ typedef enum {
  *
  */
 
-#define print_error(...) print_error_impl((Params){__VA_ARGS__})
+#define print_error(...) print_error_impl((ErrInfo){__VA_ARGS__})
 
 /**
- * @brief
+ * @brief Struktura s informacemi pro vypsání chyby na stderr
  *
  */
 
 typedef struct {
-    ErrorCode code;
-    int line;
-    const char *msg;
+    ErrorCode code;  // Typ chyby
+    int line;        // Číslo řádku chyby
+    const char *msg; // Volitelná hláška k vypsání
 } ErrInfo;
 
 /**
  * @brief Interní funkce error modulu pro výpis na stderr
  *
- * @param err
- * @return ErrorCode Predani stejneho error_codu zpět pro předání mainu
+ * @param err Struktura typu ErrInfo (viz výše)
+ * @return ErrorCode Předání stejného chyb. kódu zpět pro předání do main()
  */
 
 ErrorCode print_error_impl(ErrInfo err);
