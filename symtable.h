@@ -64,4 +64,5 @@ void check_height(tBtNode **root);
  */
 void realign_tree(tBtNode **root, tStack *stack);
 
+
 #endif // SYMTABLE_H
