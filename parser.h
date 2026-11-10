@@ -3,7 +3,6 @@
  * @file parser.h
  * @brief Interní rozhraní pro syntaktický analyzátor (parser) (Top-down, rekurzivní sestup)
  * @author František Bilavčík (<xbilavf00>)
- *
  */
 
 #ifndef PARSER_H
@@ -127,7 +126,7 @@ void parse_prolog(ParserState *pstate);
  * FUNC_DEF / TYPE_ALIAS / EXTENSION_DEF / CLASS_DEF
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_declaration(ParserState *pstate);
 
@@ -135,7 +134,7 @@ ASTNode *parse_declaration(ParserState *pstate);
  * @brief Pravidlo 7 <type_def> TYPE ID ASSIGN <type>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_type_def(ParserState *pstate);
 
@@ -143,7 +142,7 @@ ASTNode *parse_type_def(ParserState *pstate);
  * @brief Pravidlo 8 <extension>, 9.1/9.2 <extension_body>, 10 <methd_list>, 11.1/11.2 <method_rest>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_extension(ParserState *pstate);
 
@@ -152,7 +151,7 @@ ASTNode *parse_extension(ParserState *pstate);
  *
  * @param pstate Ukazatel na parser
  * @param is_main true, pokud se jedná o funkci main, jinak false
- * @return Úspešně sestavný podstrom
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_func_def(ParserState *pstate, bool is_main);
 
@@ -160,7 +159,7 @@ ASTNode *parse_func_def(ParserState *pstate, bool is_main);
  * @brief Pravidlo 13 <case_class>: CASE CLASS ID LPAR <params> RPAR, vede na CLASS_DEF
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_case_class(ParserState *pstate);
 
@@ -169,8 +168,8 @@ ASTNode *parse_case_class(ParserState *pstate);
  * značí bez závorek, například (def do)
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, nebo NULL pokud je funkce bez závorek. Error
- * pstate->error_code
+ * @return Úspešně sestavný podstrom, nebo NULL pokud je funkce bez závorek.
+ * Při erroru také NULL, o chybě rozhoduje pstate->error_code.
  */
 ASTNode *parse_param_list(ParserState *pstate);
 
@@ -178,8 +177,8 @@ ASTNode *parse_param_list(ParserState *pstate);
  * @brief pravidlo 15.1/15.2 <params>, 16.1/16.2 <param_next>,17 <param>.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, nebo NULL pokud je prázdný (). Error určí
- * pstate->error_code
+ * @return Úspešně sestavný podstrom, nebo NULL pokud je prázdný ().
+ * Při erroru také NULL, o chybě rozhoduje pstate->error_code.
  */
 ASTNode *parse_params(ParserState *pstate);
 
@@ -187,8 +186,8 @@ ASTNode *parse_params(ParserState *pstate);
  * @brief  pravidlo 18.1/18.2 <ret_type>, napsaný typ, pokud není napsán tak = NULL
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom typu TypeInfo, nebo NULL pokud není napsaný typ. Error určí
- * pstate->error_code
+ * @return Úspešně sestavný podstrom typu TypeInfo, nebo NULL pokud není napsaný typ.
+ * Při erroru také NULL, o chybě rozhoduje pstate->error_code.
  */
 TypeInfo *parse_ret_type(ParserState *pstate);
 
@@ -197,8 +196,8 @@ TypeInfo *parse_ret_type(ParserState *pstate);
  * ukazatele next. NULL značí prázdný seznam.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom typu TypeInfo, nebo NULL u (). Error určí
- * pstate->error_code
+ * @return Úspešně sestavný podstrom typu TypeInfo, nebo NULL u ().
+ * Při erroru také NULL, o chybě rozhoduje pstate->error_code.
  */
 TypeInfo *parse_type_list(ParserState *pstate);
 
@@ -206,7 +205,8 @@ TypeInfo *parse_type_list(ParserState *pstate);
  * @brief 21.1/21.2 <type>, 22.1/22.2 <type_rest>.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom typu TypeInfo
+ * @return Úspešně sestavný podstrom typu TypeInfo, při erroru vrací NULL, chyba je v
+ * pstate->error_code.
  */
 TypeInfo *parse_type(ParserState *pstate);
 
@@ -214,7 +214,8 @@ TypeInfo *parse_type(ParserState *pstate);
  * @brief 23.1-23.7 <simple_type>.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom typu TypeInfo
+ * @return Úspešně sestavný podstrom typu TypeInfo, při erroru vrací NULL, chyba je v
+ * pstate->error_code.
  */
 TypeInfo *parse_simple_type(ParserState *pstate);
 
@@ -224,7 +225,7 @@ TypeInfo *parse_simple_type(ParserState *pstate);
  * @param pstate Ukazatel na parser
  * @param left Levý operand
  * @return Úspešně sestavný podstrom typu TypeInfo, při epsylon vrací left beze změny, u erroru
- * uvolní left a chyba je v pstate->error_code
+ * uvolní left a vrací NULL, chyba je v pstate->error_code.
  */
 TypeInfo *parse_union_rest(ParserState *pstate, TypeInfo *left);
 
@@ -232,7 +233,8 @@ TypeInfo *parse_union_rest(ParserState *pstate, TypeInfo *left);
  * @brief 25.1/25.2 <union_member>.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom typu TypeInfo
+ * @return Úspešně sestavný podstrom typu TypeInfo, při erroru vrací NULL, chyba je v
+ * pstate->error_code.
  */
 TypeInfo *parse_union_member(ParserState *pstate);
 
@@ -333,7 +335,7 @@ ASTNode *parse_lambda(ParserState *pstate);
  * <guard_next>.
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_for(ParserState *pstate);
 
@@ -351,7 +353,7 @@ ASTNode *parse_generator_opt(ParserState *pstate, ASTNode *start_expr);
  * @brief 51 <term>, 52.1-52.3 <term_rest>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_term(ParserState *pstate);
 
@@ -359,7 +361,7 @@ ASTNode *parse_term(ParserState *pstate);
  * @brief 53.1-53.9 <element>, 59.1/59.2 <list_rest>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_element(ParserState *pstate);
 
@@ -367,7 +369,7 @@ ASTNode *parse_element(ParserState *pstate);
  * @brief 54.1/54.2 <arguments>, 55.1/55.2 <arguments_next>. items NULL = ()
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_arguments(ParserState *pstate);
 
@@ -375,7 +377,7 @@ ASTNode *parse_arguments(ParserState *pstate);
  * @brief 56 <interpol>, 57.1-57.3 <interpol_section>. Přepis na string
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_interpol(ParserState *pstate);
 
@@ -383,7 +385,8 @@ ASTNode *parse_interpol(ParserState *pstate);
  * @brief 58.1/58.2 <after_parenth>. Po volá se po LPAR použitou parse_element,
  *
  * @param pstate Ukazatel na parser
- * @return UNIT při RPAR, výraz v závorce nebo AST_RANGE, při erroru je chyba v pstate->error_code.
+ * @return UNIT při RPAR, výraz v závorce nebo AST_RANGE, při erroru vrací NULL, chyba je v
+ * pstate->error_code.
  */
 ASTNode *parse_after_parenth(ParserState *pstate);
 
@@ -392,7 +395,7 @@ ASTNode *parse_after_parenth(ParserState *pstate);
  *
  * @param pstate Ukazatel na parser
  * @param matched_expr Výraz, který se má porovnávat
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_match(ParserState *pstate, ASTNode *matched_expr);
 
@@ -400,7 +403,7 @@ ASTNode *parse_match(ParserState *pstate, ASTNode *matched_expr);
  * @brief 63 <case_branch>, 64.1-64.2 <case_guard>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_case_branch(ParserState *pstate);
 
@@ -408,7 +411,7 @@ ASTNode *parse_case_branch(ParserState *pstate);
  * @brief 65.1/65.2 <pattern>, 67.1/67.2 <id_pattern_rest>, 73 <pattern_type>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_pattern(ParserState *pstate);
 
@@ -418,8 +421,8 @@ ASTNode *parse_pattern(ParserState *pstate);
  * @param pstate Ukazatel na parser
  * @param is_wildcard Ukazatel na proměnnou, do které se uloží informace o tom, zda se jedná o
  * zástupný znak
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.Pro "_" vratí NULL a
- * is_wildcard = true
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
+ * Pro "_" vratí NULL a is_wildcard = true
  */
 ASTNode *parse_simple_pattern(ParserState *pstate, bool *is_wildcard);
 
@@ -427,7 +430,8 @@ ASTNode *parse_simple_pattern(ParserState *pstate, bool *is_wildcard);
  * @brief 68.1/68.2 <sub_patterns>, 69.1/69.2 <sub_pattern>, 70.1/70.2 <sub_pattern_next>
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, nebo NULL u Point().
+ * Při erroru také NULL, o chybě rozhoduje pstate->error_code.
  */
 ASTNode *parse_sub_patterns(ParserState *pstate);
 
@@ -435,7 +439,7 @@ ASTNode *parse_sub_patterns(ParserState *pstate);
  * @brief 71.1 - 71.4 <literal>, 72.1/72.2 <num_lit>, ==> AST_LITERAL
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_literal(ParserState *pstate);
 
@@ -450,7 +454,7 @@ ASTNode *parse_literal(ParserState *pstate);
  * operand
  *
  * @param pstate Ukazatel na parser
- * @return Úspešně sestavný podstrom, při erroru je chyba v pstate->error_code.
+ * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
  */
 ASTNode *parse_op_expr(ParserState *pstate);
 
