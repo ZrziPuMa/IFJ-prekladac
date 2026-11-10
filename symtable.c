@@ -7,7 +7,7 @@
 
 #include "symtable.h"
 #include "isymtable.h"
-//#include "ierror.h"
+#include "ierror.h"
 
 
 void symtable_init(tBtNode **root) {
@@ -22,13 +22,13 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
     if (*root == NULL) {
         *root = (tBtNode *)malloc(sizeof(tBtNode));
         if (*root == NULL) {
-            //print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
+            print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
             return;
         }
 
         (*root)->data = (tBtNodeData *)malloc(sizeof(tBtNodeData));
         if ((*root)->data == NULL) {
-            //print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro data uzlu tabulky symbolů.");
+            print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro data uzlu tabulky symbolů.");
             return;
         }
 
@@ -105,7 +105,7 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
 
  void symtable_node_free(tBtNode **root) {
     if (!root) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
 
@@ -117,7 +117,7 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
 
  void symtable_dispose(tBtNode **root) {
     if (!root) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
 
@@ -133,7 +133,7 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
 
 void rotate_left(tBtNode **root) {
     if (!root){
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
     if (!(*root)) return;
@@ -146,7 +146,7 @@ void rotate_left(tBtNode **root) {
 
 void rotate_right(tBtNode **root) {
     if (!root) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
     if (!(*root)) return;
@@ -159,7 +159,7 @@ void rotate_right(tBtNode **root) {
 
 void rotate_left_right(tBtNode **root) {
     if (!root) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
     if (!(*root)) return;
@@ -173,7 +173,7 @@ void rotate_left_right(tBtNode **root) {
 
 void rotate_right_left(tBtNode **root) {
     if (!root) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
     if (!(*root)) return;
