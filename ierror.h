@@ -7,7 +7,7 @@
  * Využití AI:
  * Při práci byli využity LLM modely z rodiny Gemini.
  * Použití:
- * 1. Vysvětlení syntaxe jazyka C
+ * 1. Vysvětlení toho, jak v C implementovat funkce s proměnným počtem parametrů.
  * 2. Vymyšlení Makra pro přepis argumentů (Iterativní vývoj s mnoha prompty, fungování pochopeno a
  *    ověřeno autorem)
  *
