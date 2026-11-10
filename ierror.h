@@ -1,8 +1,16 @@
 /**
  * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file ierror.h
- * @brief Error modul pro výpis chyby na stderr
+ * @brief Veřejný hlavičkový soubor k error modulu
  * @author Martin Chlubna (<xchlubm00>)
+ *
+ * Využití AI:
+ * Při práci byli využity LLM modely z rodiny Gemini.
+ * Použití:
+ * 1. Vysvětlení syntaxe jazyka C
+ * 2. Vymyšlení Makra pro přepis argumentů (Iterativní vývoj s mnoha prompty, fungování pochopeno a
+ *    ověřeno autorem)
+ *
  */
 
 #ifndef I_ERROR_H
@@ -46,7 +54,7 @@ typedef enum {
  *
  */
 
-#define print_error(...) print_error_impl((ErrInfo){__VA_ARGS__})
+#define print_error(...) print_error_impl((ErrInfo){._init = 0, __VA_ARGS__})
 
 /**
  * @brief Struktura s informacemi pro vypsání chyby na stderr
@@ -54,6 +62,7 @@ typedef enum {
  */
 
 typedef struct {
+    int _init;       // Pomocný argument pro c11 inicializaci bez warningů
     ErrorCode code;  // Typ chyby
     int line;        // Číslo řádku chyby
     const char *msg; // Volitelná hláška k vypsání
