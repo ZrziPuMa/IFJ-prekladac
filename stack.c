@@ -16,7 +16,7 @@
 
 void stack_init(tStack *stack) {
     if (!stack) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
     stack->top = NULL;
@@ -24,13 +24,13 @@ void stack_init(tStack *stack) {
 
 void symtable_push_scope(tBtNode **root, tStack *stack) {
     if (root == NULL || stack == NULL) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
         return;
     }
 
     tStackElem *new_scope = (tStackElem *)malloc(sizeof(tStackElem));
     if (new_scope == NULL) {
-        //print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
+        print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
         return;
     }
 
@@ -41,7 +41,7 @@ void symtable_push_scope(tBtNode **root, tStack *stack) {
 
 void symtable_pop_scope(tStack *stack) {
     if (stack == NULL) {
-        //print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
 
