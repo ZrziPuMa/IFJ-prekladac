@@ -1,0 +1,123 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, total={6.5in, 10in}]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[czech]{babel}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage[colorlinks=true, linkcolor=violet, citecolor=violet, urlcolor=purple]{hyperref}
+
+% Definice barev pro styl vzhledu
+\definecolor{brandpurple}{RGB}{106, 27, 154} % Hlavní fialová
+\definecolor{darkslate}{RGB}{44, 62, 80}     % Tmavě šedá pro nadpisy
+
+\begin{document}
+
+% --- ÚVODNÍ STRANA ---
+\thispagestyle{empty}
+
+\begin{center}
+    {\scshape\Large Vysoké učení technické v Brně \par}
+    {\scshape\large Fakulta informačních technologií \par}
+    \vspace{0.4cm}
+    \hrule height 1pt
+    \vspace{1.5cm}
+
+    {\Huge\bfseries\color{brandpurple} Projekt IFJ \& IAL 2026/2027 \par}
+    \vspace{0.4cm}
+    {\Large\bfseries\color{darkslate} Dokumentace k překladači jazyka IFJ26 \par}
+    \vspace{0.3cm}
+    {\large Předměty: Formální jazyky a překladače (IFJ) \& Algoritmy (IAL) \par}
+    
+    \vspace{1.5cm}
+\end{center}
+
+\vspace{11em}
+
+\begin{center}
+\subsection*{Členové týmu a rozdělení bodů}
+\begin{tabular}{llll}
+\toprule
+\textbf{Jméno a příjmení} & \textbf{VUT Login} & \textbf{Osobní číslo} & \textbf{Podíl} \\
+\midrule
+\textbf{František Bilavčík} & \textbf{xbilavf00} & 280300 & 25\,\% \\
+Martin Chlubna & xchlubm00 & 282138 & 25\,\% \\
+Natalie Morávková & xmoravn00 & 281991 & 25\,\% \\
+Daniela Sladká & xsladkd00 & 282104 & 25\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1cm}
+\noindent
+\begin{minipage}{\textwidth}
+\colorbox{brandpurple!8}{
+\begin{minipage}{\dimexpr\textwidth-2\fboxsep\relax}
+\vspace{0.6em}
+\subsection*{Identifikační údaje projektu}
+\begin{itemize}
+    \item \textbf{Zvolená varianta:} \texttt{vv-BVS} 
+    \item \textbf{Git repozitář:} \url{https://github.com/ZrziPuMa/IFJ-prekladac.git}
+    \item \textbf{Implementovaná rozšíření:} \texttt{FUNEXP}, \texttt{BOOLTHEN}, \texttt{CONTROL}, \texttt{VALMEM}, \texttt{ALGEBDT}, \texttt{INTERPOLATEDS}, \texttt{LAMBDAS}, \texttt{LISTS}, \texttt{EXTKW}, \texttt{PARAMLISTS}
+\end{itemize}
+\vspace{0.4em}
+\end{minipage}
+}
+\end{minipage}
+
+\vfill
+\begin{center}
+    {\large Listopad 2026 \par}
+\end{center}
+
+\newpage
+
+% --- OBSAH ---
+\thispagestyle{empty}
+\tableofcontents
+\newpage
+
+% --- SPOLUPRÁCE ---
+\section{Spolupráce a rozdělení úloh}
+\textit{Zde bude stručný popis rozdělení práce, spolupráce, kultury code review a testování.}
+
+\newpage
+
+% --- SCHÉMA ---
+\section{Blokové schéma}
+\textit{Zde bude blokové schéma architektury a datových toků.}
+
+\newpage
+
+% --- LEXER ---
+\section{Lexikální analyzátor}
+\textit{Diagram a popis konečného automatu.}
+
+\newpage
+
+% --- PARSER ---
+\section{Syntaktický analyzátor}
+\textit{LL gramatika, LL tabulka a precedenční tabulka.}
+
+\newpage
+
+% --- MODULY ---
+\section{Popis jednotlivých modulů}
+\textit{Informačně bohatá věta nebo dvě na .c/.h.}
+
+\newpage
+
+% --- CITACE ---
+\section{Bibliografické citace}
+\textit{Citace použitých zdrojů.}
+
+\newpage
+
+% --- AI ---
+\section{Využití AI}
+\textit{Popis AI nástrojů, postupů a problémů.}
+
+\end{document}
