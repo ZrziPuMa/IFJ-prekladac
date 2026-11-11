@@ -52,17 +52,19 @@ void replace_most_right(tBtNode *node, tBtNode **root);
 void replace_most_left(tBtNode *node, tBtNode **root);
 
 /**
- * @brief Kontrola výšky stromu a případná rotace
+ * @brief Kontrola výšky stromu pro případnou rotaci
  * @param root Ukazatel na kořen stromu
+ * @param first_unbalanced Ukazatel na první nevyvážený uzel
+ * @return Výška stromu
  */
-void check_height(tBtNode **root);
+int check_height(tBtNode **root, tBtNode ***first_unbalanced);
 
 /**
  * @brief Vyvážení stromu
  * @param root Ukazatel na kořen stromu
  * @param stack Ukazatel na zásobník, který obsahuje cestu k odstraněnému uzlu
  */
-void realign_tree(tBtNode **root, tStack *stack);
+void realign_tree(tBtNode **root);
 
 
 #endif // SYMTABLE_H

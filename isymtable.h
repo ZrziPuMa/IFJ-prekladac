@@ -77,9 +77,8 @@ void symtable_search(tBtNode **root, char *key, tBtNode **location);
  * @brief Odstranění prvku z tabulky symbolů
  * @param root Ukazatel na kořen (pod)stromu, ze kterého se prvek odstraní
  * @param key Klíč odstraňovaného prvku
- * @param stack Ukazatel na zásobník, který obsahuje cestu k odstraněnému uzlu
  */
-void symtable_delete(tBtNode **root, char *key, tStack *stack);
+void symtable_delete(tBtNode **root, char *key);
 
 /**
  * @brief Uvolnění alokovaných zdrojů v uzlu
