@@ -22,8 +22,8 @@ void stack_init(tStack *stack) {
     stack->top = NULL;
 }
 
-void symtable_push_scope(tBtNode **root, tStack *stack) {
-    if (root == NULL || stack == NULL) {
+void symtable_push_scope(tStack *stack) {
+    if (!stack) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
         return;
     }
@@ -34,8 +34,8 @@ void symtable_push_scope(tBtNode **root, tStack *stack) {
         return;
     }
 
+    new_scope->scope = NULL;
     new_scope->next = stack->top;
-    new_scope->scope = *root;
     stack->top = new_scope;
 }
 
@@ -48,8 +48,31 @@ void symtable_pop_scope(tStack *stack) {
     if (stack->top) {
         tStackElem *top_scope = stack->top;
         stack->top = top_scope->next;
+
+        symtable_dispose(&(top_scope->scope));
         free(top_scope);
     }
+}
+
+void stack_insert(tStack *stack, char *key, tBtNodeData data){
+    if (!stack || !stack->top) return;
+    symtable_insert(&(stack->top->scope), key, data);
+    realign_tree(&(stack->top->scope));
+}
+
+void stack_search_symbol(tStack *stack, char *key, tBtNode **location){
+    if (!stack){
+        *location = NULL;
+        return;
+    }
+
+    tStackElem *current = stack->top;
+    while (current != NULL){
+        symtable_search(&(current->scope), key, location);
+        if (*location != NULL) return;
+        current = current->next;
+    }
+    *location = NULL;
 }
 
 tStackElem *stack_top(tStack *stack) {

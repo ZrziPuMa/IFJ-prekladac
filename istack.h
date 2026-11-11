@@ -47,6 +47,22 @@ void symtable_push_scope(tBtNode **root, tStack *stack);
 void symtable_pop_scope(tStack *stack);
 
 /**
+ * @brief Vložení symbolu do aktuálního (nejvnitřnějšího) bloku
+ * @param stack Ukazatel na zásobník, do jehož bloku se bude vkládat
+ * @param key Klíč symbolu, který bude vložen
+ * @param data Data vloženého symbolu 
+ */
+void stack_insert(tStack *stack, char *key, tBtNodeData data);
+
+/**
+ * @brief Vyhledání symbolu od nejvnitřnějšího bloku k nejvnějšímu
+ * @param stack Ukazatel na zásobník, ve kterém se bude hledat
+ * @param key Klíč hledaného symbolu
+ * @param location Ukazatel, kam se uloží nalezený symbol
+ */
+void stack_search_symbol(tStack *stack, char *key, tBtNode **location);
+
+/**
  * @brief Získání vrcholu zásobníku
  * @param stack Ukazatel na zásobník
  * @return Ukazatel na vrchol zásobníku
