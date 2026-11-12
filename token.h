@@ -27,7 +27,7 @@ typedef enum
     TOK_BOOL,               // boolean
     TOK_STRING,             // řetezec
     TOK_TYPE_LIT,           // klíčové slovo typ
-    TOK_TYPE,               // datový typ (int, double, bool, string)
+    TOK_TYPE,               // datový typ (int, double, bool, string, ...)
 
     // Kličová slova
     TOK_DEF,
