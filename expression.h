@@ -9,6 +9,7 @@
 #define EXPRESSION_H
 
 #include "ast.h"
+#include "parser_stack.h"
 #include "token.h"
 
 #include <stdbool.h>

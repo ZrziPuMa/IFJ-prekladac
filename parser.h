@@ -35,7 +35,7 @@ typedef struct {
  */
 
 /**
- * @brief Inicializuje stav Parseru, přečte první token
+ * @brief Inicializuje stav Parseru
  *
  * @param pstate Ukazatel na parser
  */
