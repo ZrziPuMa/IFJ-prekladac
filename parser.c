@@ -9,6 +9,7 @@
 
 #include "iparser.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 void init_parser_state(ParserState *pstate) {
@@ -120,4 +121,272 @@ void out_of_memory(ParserState *pstate) {
         print_error(.code = ERR_INTERNAL, .line = -1, .msg = "nedostatek paměti");
         pstate->error_code = ERR_INTERNAL;
     }
+}
+
+/**
+ * @brief Parsuje skupiny argumentů, (args) nebo (args)(args)...
+ * @param pstate Stav parseru.
+ * @return Seznam skupin argumentů nebo NULL v případě chyby.
+ */
+static ASTNode *parse_arg_groups(ParserState *pstate) {
+    ASTNode *head = NULL, *tail = NULL;
+    // očekávaný levé závorky
+    while (pstate->current_token.type == TOK_LPAR) {
+        int line = pstate->current_token.line;
+        next_token(pstate);
+        // zparsujeme jedny závorky args
+        ASTNode *items = parse_arguments(pstate);
+        if (pstate->error_code != ERR_OK)
+            goto fail;
+        if (!expect_token(pstate, TOK_RPAR)) {
+            ast_free(items);
+            goto fail;
+        }
+        ASTNode *group = ast_create_arg_list(items, line);
+        if (group == NULL) {
+            ast_free(items);
+            out_of_memory(pstate);
+            goto fail;
+        }
+        // Přidá skupinu na konec seznamu
+        if (tail)
+            tail->next = group;
+        else
+            head = group;
+        tail = group;
+    }
+    return head;
+fail:
+    ast_free(head);
+    return NULL;
+}
+
+// Funkce pro parse TOP-DOWN
+
+ASTNode *parse_while(ParserState *pstate) {
+    // Inicializace uzlů
+    ASTNode *cond = NULL;
+    ASTNode *body = NULL;
+    int line = pstate->current_token.line;
+
+    if (!expect_token(pstate, TOK_WHILE))
+        goto fail;
+    cond = parse_op_expr(pstate);
+    if (cond == NULL)
+        goto fail;
+    if (!expect_token(pstate, TOK_DO))
+        goto fail;
+    body = parse_branch(pstate);
+    if (body == NULL)
+        goto fail;
+
+    ASTNode *node = ast_create_while(cond, body, line);
+    // konstruktor nic nepřevzal
+    if (node == NULL) {
+        out_of_memory(pstate);
+        goto fail;
+    }
+    return node; // cond a body teď patří uzlu
+
+fail:
+    ast_free(cond); // ast_free(NULL) nic nedělá
+    ast_free(body);
+    return NULL;
+}
+
+ASTNode *parse_literal(ParserState *pstate) {
+    ASTNode *node = NULL;
+    int line = pstate->current_token.line;
+
+    switch (pstate->current_token.type) {
+        case TOK_INT:
+            node = ast_create_int_lit(pstate->current_token.val.i_val, line);
+            break;
+        case TOK_DOUBLE:
+            node = ast_create_double_lit(pstate->current_token.val.d_val, line);
+            break;
+        case TOK_STRING:
+            // konstruktor si řetězec zkopíruje, originál uvolní next_token
+            node = ast_create_string_lit(pstate->current_token.val.str, line);
+            break;
+        case TOK_BOOL:
+            node = ast_create_bool_lit(pstate->current_token.val.i_val != 0, line);
+            break;
+        default:
+            syntax_error(pstate, "očekáván literál");
+            return NULL;
+    }
+
+    if (node == NULL) {
+        out_of_memory(pstate);
+        return NULL;
+    }
+    next_token(pstate);
+    return node;
+}
+
+ASTNode *parse_val_var_def(ParserState *pstate, bool is_mutable) {
+    char *name = NULL;
+    TypeInfo *type = NULL;
+    ASTNode *init = NULL;
+    int line = pstate->current_token.line;
+
+    // Val nebo var už bylo
+    next_token(pstate);
+    if (pstate->current_token.type != TOK_ID) {
+        syntax_error(pstate, "očekáván identifikátor");
+        goto fail;
+    }
+    name = take_string(pstate);
+    next_token(pstate);
+
+    // Rekurzivní volání podčástí
+    type = parse_ret_type(pstate);
+    if (pstate->error_code != ERR_OK)
+        goto fail;
+    if (!expect_token(pstate, TOK_ASSIGN))
+        goto fail;
+    init = parse_body(pstate);
+    if (init == NULL)
+        goto fail;
+
+    // Konstrukce AST uzlu
+    ASTNode *node = ast_create_var_def(name, is_mutable, type, init, line);
+    if (node == NULL) {
+        out_of_memory(pstate);
+        goto fail;
+    }
+    free(name);
+    return node;
+
+fail:
+    free(name);
+    type_info_free(type);
+    ast_free(init);
+    return NULL;
+}
+
+ASTNode *parse_element(ParserState *pstate) {
+    int line = pstate->current_token.line;
+
+    switch (pstate->current_token.type) {
+        case TOK_ID: {
+            ASTNode *node = ast_create_identifier(pstate->current_token.val.str, line);
+            if (node == NULL) {
+                out_of_memory(pstate);
+                return NULL;
+            }
+            next_token(pstate);
+            return node;
+        }
+        case TOK_INT:
+        case TOK_DOUBLE:
+        case TOK_STRING:
+        case TOK_BOOL:
+            return parse_literal(pstate);
+        case TOK_LIST: {
+            next_token(pstate);
+            // LIST(<arguments>)
+            if (pstate->current_token.type == TOK_LPAR) {
+                next_token(pstate);
+                // Kontrola na NULL zde není, NULL je platný
+                ASTNode *items = parse_arguments(pstate);
+                if (pstate->error_code != ERR_OK)
+                    return NULL;
+                if (!expect_token(pstate, TOK_RPAR)) {
+                    ast_free(items);
+                    return NULL;
+                }
+                ASTNode *node = ast_create_list_literal(items, line);
+                if (node == NULL) {
+                    ast_free(items);
+                    out_of_memory(pstate);
+                    return NULL;
+                }
+                return node;
+            }
+            // LIST.<id>
+            else if (pstate->current_token.type == TOK_DOT) {
+                // Po tečce je očekáván ID
+                next_token(pstate);
+                if (pstate->current_token.type != TOK_ID) {
+                    syntax_error(pstate, "za List. je očekáván identifikátor");
+                    return NULL;
+                }
+                // Vytvoření name pro spojení "List." + member
+                const char *member = pstate->current_token.val.str;
+                size_t len = strlen("List.") + strlen(member) + 1;
+                char *name = malloc(len);
+                if (name == NULL) {
+                    out_of_memory(pstate);
+                    return NULL;
+                }
+                // Spojení "List." + member do name
+                snprintf(name, len, "List.%s", member);
+                ASTNode *node = ast_create_identifier(name, line);
+                free(name); // konstruktor si jméno zkopíroval
+                if (node == NULL) {
+                    out_of_memory(pstate);
+                    return NULL;
+                }
+                next_token(pstate);
+                return node;
+            }
+            syntax_error(pstate, "za List je očekáváno ( nebo .");
+            return NULL;
+        }
+        case TOK_LPAR:
+            next_token(pstate);
+            return parse_after_parenth(pstate);
+        case TOK_INTERP_BEGIN: // 53.9 <interpol>
+            return parse_interpol(pstate);
+        default:
+            syntax_error(pstate, "očekáván operand");
+            return NULL;
+    }
+}
+
+ASTNode *parse_term(ParserState *pstate) {
+    ASTNode *node = parse_element(pstate);
+    if (node == NULL)
+        return NULL;
+
+    while (true) {
+        int line = pstate->current_token.line;
+
+        if (pstate->current_token.type == TOK_DOT) {
+            // Za tečkou očekáván identifikátor
+            next_token(pstate);
+            if (pstate->current_token.type != TOK_ID) {
+                syntax_error(pstate, "za . je očekáván identifikátor");
+                goto fail;
+            }
+            // vytvoří část idečka .ID
+            ASTNode *member = ast_create_member_access(node, pstate->current_token.val.str, line);
+
+            if (member == NULL) {
+                out_of_memory(pstate);
+                goto fail;
+            }
+            node = member;
+            next_token(pstate);
+            // Pokud je přijdou závorky, pracujeme s argumenty a volání funkce
+        } else if (pstate->current_token.type == TOK_LPAR) {
+            ASTNode *groups = parse_arg_groups(pstate);
+            if (groups == NULL)
+                goto fail;
+            ASTNode *call = ast_create_func_call(node, groups, line);
+            if (call == NULL) {
+                ast_free(groups);
+                out_of_memory(pstate);
+                goto fail;
+            }
+            node = call;
+        } else {
+            return node;
+        }
+    }
+fail:
+    ast_free(node);
+    return NULL;
 }
