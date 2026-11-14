@@ -390,3 +390,211 @@ fail:
     ast_free(node);
     return NULL;
 }
+
+ASTNode *parse_arguments(ParserState *pstate) {
+    // (), prázdné argumenty
+    if (pstate->current_token.type == TOK_RPAR)
+        return NULL;
+    ASTNode *head = NULL, *tail = NULL;
+    while (true) {
+        ASTNode *item = parse_expr(pstate);
+        if (item == NULL)
+            goto fail;
+        // Zřetězení přes next
+        if (tail)
+            tail->next = item;
+        else
+            head = item;
+        tail = item;
+
+        if (pstate->current_token.type != TOK_COMMA)
+            break;
+        next_token(pstate);
+        // koncová čárka
+        if (pstate->current_token.type == TOK_RPAR) {
+            if (!pstate->current_token.newline_before) {
+                syntax_error(pstate, "koncová čárka jen před ) na novém řádku");
+                goto fail;
+            }
+            break;
+        }
+    }
+    return head;
+fail:
+    ast_free(head);
+    return NULL;
+}
+
+ASTNode *parse_generator_opt(ParserState *pstate, ASTNode *start_expr) {
+    ASTNode *end = NULL;
+    ASTNode *step = NULL;
+    bool is_until;
+    int line = start_expr->line;
+
+    // TO nebo UNTIL, nemusí být ani jeden
+    switch (pstate->current_token.type) {
+        case TOK_TO:
+            is_until = false;
+            break;
+        case TOK_UNTIL:
+            is_until = true;
+            break;
+        default:
+            return start_expr;
+    }
+    next_token(pstate);
+
+    // <op_expr> je povinný
+    end = parse_op_expr(pstate);
+    if (end == NULL)
+        goto fail;
+
+    // Kdyby bylo TO, muže se použít i kroky BY
+    if (!is_until && pstate->current_token.type == TOK_BY) {
+        next_token(pstate);
+        step = parse_op_expr(pstate);
+        if (step == NULL)
+            goto fail;
+    }
+    // Vytvoříme nový uzel pro range
+    ASTNode *range = ast_create_range(start_expr, end, step, is_until, line);
+    if (range == NULL) {
+        out_of_memory(pstate);
+        goto fail;
+    }
+    return range;
+
+fail:
+    ast_free(start_expr);
+    ast_free(end);
+    ast_free(step);
+    return NULL;
+}
+
+ASTNode *parse_after_parenth(ParserState *pstate) {
+    int line = pstate->current_token.line;
+
+    // UNIT
+    if (pstate->current_token.type == TOK_RPAR) {
+        next_token(pstate);
+        ASTNode *unit = ast_create_unit_lit(line);
+        if (unit == NULL) {
+            out_of_memory(pstate);
+            return NULL;
+        }
+        return unit;
+    }
+
+    // EXPRESSION
+    ASTNode *expr = parse_expr(pstate);
+    if (expr == NULL)
+        return NULL;
+    // Nůže byt generator pro cyklus
+    expr = parse_generator_opt(pstate, expr);
+    if (expr == NULL)
+        return NULL;
+    if (!expect_token(pstate, TOK_RPAR)) {
+        ast_free(expr);
+        return NULL;
+    }
+    return expr;
+}
+
+// (AI) prompt: vytvoř mi pomocnou funkci pro Interpolované řetězce s cílem převodu expr na řetězce.
+// Obalí výraz voláním toStr(expr); převezme expr, při chybě ho uvolní.
+static ASTNode *wrap_to_str(ParserState *pstate, ASTNode *expr) {
+    int line = expr->line;
+    ASTNode *fn = ast_create_identifier("toStr", line);
+    ASTNode *args = NULL;
+    if (fn != NULL)
+        args = ast_create_arg_list(expr, line);
+    if (args == NULL) {
+        ast_free(fn);
+        ast_free(expr);
+        out_of_memory(pstate);
+        return NULL;
+    }
+    ASTNode *call = ast_create_func_call(fn, args, line);
+    if (call == NULL) {
+        ast_free(fn);
+        ast_free(args);
+        out_of_memory(pstate);
+        return NULL;
+    }
+    return call;
+}
+
+ASTNode *parse_interpol(ParserState *pstate) {
+    int line = pstate->current_token.line;
+    ASTNode *result = NULL;
+    ASTNode *part = NULL;
+
+    if (!expect_token(pstate, TOK_INTERP_BEGIN))
+        return NULL;
+
+    while (pstate->current_token.type != TOK_INTERP_END) {
+        switch (pstate->current_token.type) {
+            // Stringová čast
+            case TOK_INTERP_STRING_PART: {
+                if (strcmp(pstate->current_token.val.str, "") == 0) {
+                    next_token(pstate);
+                    continue;
+                }
+                part = ast_create_string_lit(pstate->current_token.val.str, line);
+                if (part == NULL) {
+                    out_of_memory(pstate);
+                    goto fail;
+                }
+                next_token(pstate);
+                break;
+            }
+            // Výrazová čast
+            case TOK_INTERP_EXPR_BEGIN: {
+                next_token(pstate);
+                ASTNode *expr = parse_expr(pstate);
+                if (expr == NULL)
+                    goto fail;
+                if (!expect_token(pstate, TOK_INTERP_EXPR_END)) {
+                    ast_free(expr);
+                    goto fail;
+                }
+                // obalíme výraz voláním toStr(expr)
+                part = wrap_to_str(pstate, expr);
+                if (part == NULL)
+                    goto fail;
+                break;
+            }
+            default:
+                syntax_error(pstate, "neočekávaný token v interpolaci");
+                goto fail;
+        }
+
+        if (result == NULL)
+            result = part;
+        // Spojení přes operátor + (konkatenace)
+        else {
+            ASTNode *concat = ast_create_binop(TOK_PLUS, result, part, line);
+            if (concat == NULL) {
+                out_of_memory(pstate);
+                goto fail;
+            }
+            result = concat;
+        }
+        part = NULL;
+    }
+    next_token(pstate);
+    if (result == NULL) {
+        // prázdný interpolovaný řetězec
+        result = ast_create_string_lit("", line);
+        if (result == NULL) {
+            out_of_memory(pstate);
+            goto fail;
+        }
+    }
+    return result;
+
+fail:
+    ast_free(result);
+    ast_free(part);
+    return NULL;
+}
