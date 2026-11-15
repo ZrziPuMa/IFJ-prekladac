@@ -44,13 +44,6 @@ struct bt_node{
     tBtNode *right_child;
 };
 
-/** 
- * @brief Datový typ pro zásobník
- */
-typedef struct stack {
-    tBtNode *top;
-} tStack;
-
 /**
  * @brief Inicializace prázdné tabulky symbolů
  * @param root Ukazatel, který bude ukazovat na kořen inicializovaného (pod)stromu

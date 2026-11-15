@@ -8,15 +8,15 @@
  * ztráty paměti pomocí Gemini.
  */
 
+#include <stdlib.h>
 #include "symtable.h"
 #include "isymtable.h"
 #include "ierror.h"
-#include "istack.h"
 
 
 void symtable_init(tBtNode **root) {
-    if (*root != NULL) {
-        print_error(ERR_INTERNAL, -1, "Tabulka symbolů již byla inicializována.");
+    if (!root) {
+        print_error(ERR_INTERNAL, -1, "Neplatný ukazatel.");
         return;
     }
     *root = NULL;
@@ -85,10 +85,12 @@ void symtable_search(tBtNode **root, char *key, tBtNode **location) {
  }
 
 void symtable_delete(tBtNode **root, char *key) {
-    if (!root || !(*root)) {
+    if (!root) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
+    if (!(*root)) return;
+
 
     int cmp = strcmp(key, (*root)->key);
     if (cmp < 0) {
@@ -97,39 +99,28 @@ void symtable_delete(tBtNode **root, char *key) {
         symtable_delete(&(*root)->right_child, key);
     } else {
         if ((*root)->left_child == NULL && (*root)->right_child == NULL) {
-            free((*root)->key);
             symtable_node_free(root);
-            free(*root);
-            *root = NULL;
         } else if ((*root)->left_child == NULL) {
             tBtNode *temp = *root;
             *root = (*root)->right_child;
-            (*root)->key = strdup(temp->key);
-            (*root)->data->value = temp->data->value;
-            (*root)->data->type = temp->data->type;
-            free(temp->key);
             symtable_node_free(&temp);
-            free(temp);
         } else if ((*root)->right_child == NULL) {
             tBtNode *temp = *root;
             *root = (*root)->left_child;
-            (*root)->key = strdup(temp->key);
-            (*root)->data->value = temp->data->value;
-            (*root)->data->type = temp->data->type;
-            free(temp->key);
             symtable_node_free(&temp);
-            free(temp);
         } else {
             replace_most_right(*root, &(*root)->left_child);
         }
     }
- }
+    realign_tree(root);
+}
 
 void symtable_node_free(tBtNode **root) {
-    if (!root || !(*root)) {
+    if (!root) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
         return;
     }
+    if (!(*root)) return;
 
     if ((*root)->data) {
         if ((*root)->data->value) {
@@ -156,10 +147,7 @@ void symtable_dispose(tBtNode **root) {
     if ((*root)->left_child) symtable_dispose(&(*root)->left_child);
     if ((*root)->right_child) symtable_dispose(&(*root)->right_child);
     
-    free((*root)->key);
     symtable_node_free(root);
-    free(*root);
-    *root = NULL;
 }
 
 void rotate_left(tBtNode **root) {
@@ -193,11 +181,8 @@ void rotate_left_right(tBtNode **root) {
     }
     if (!(*root)) return;
 
-    tBtNode **new_root_A = (*root)->left_child;
-    tBtNode **new_root_B = (*root);
-
-    rotate_left(new_root_A);
-    rotate_right(new_root_B);
+    rotate_left(&((*root)->left_child));
+    rotate_right(root);
 }
 
 void rotate_right_left(tBtNode **root) {
@@ -207,11 +192,8 @@ void rotate_right_left(tBtNode **root) {
     }
     if (!(*root)) return;
 
-    tBtNode **new_root_A = (*root)->right_child;
-    tBtNode **new_root_B = (*root);
-
-    rotate_right(new_root_A);
-    rotate_left(new_root_B);
+    rotate_right(&((*root)->right_child));
+    rotate_left(root);
 }
 
 void replace_most_right(tBtNode *node, tBtNode **root) {
@@ -220,52 +202,52 @@ void replace_most_right(tBtNode *node, tBtNode **root) {
         return;
     }
 
-    if (!(*root)->right_child) {
+    if ((*root)->right_child != NULL) {
+        replace_most_right(node, &(*root)->right_child);
+    } else {
+        if (node->key) free(node->key);
+        if (node->data && node->data->value) free(node->data->value);
+
         node->key = (*root)->key;
-        symtable_node_free(node);
         node->data->value = (*root)->data->value;
         node->data->type = (*root)->data->type;
-        if ((*root)->left_child != NULL) {
-            tBtNode *temp = (*root)->left_child;
-            (*root)->key = strdup(temp->key);
-            (*root)->data->value = temp->data->value;
-            (*root)->data->type = temp->data->type;
-            (*root)->left_child = temp->left_child;
-            (*root)->right_child = temp->right_child;
-            free(temp);
-        }
-        else {
-            free(*root);
-            *root = NULL;
-        }
+
+        tBtNode *temp = *root;
+        *root = (*root)->left_child;
+
+        temp->key = NULL;
+        if (temp->data) temp->data->value = NULL;
+        symtable_node_free(&temp);
     }
+
+    if (*root != NULL) realign_tree(root);
 }
 
 void replace_most_left(tBtNode *node, tBtNode **root) {
-    if (!node || !root) {
+    if (!node || !root || !(*root)) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na uzel nebo kořen stromu.");
         return;
     }
 
-    if (!(*root)->left_child) {
-        node->key = strdup((*root)->key);
-        symtable_node_free(node);
+    if ((*root)->left_child != NULL) {
+        replace_most_left(node, &(*root)->left_child);
+    } else {
+        if (node->key) free(node->key);
+        if (node->data && node->data->value) free(node->data->value);
+
+        node->key = (*root)->key;
         node->data->value = (*root)->data->value;
         node->data->type = (*root)->data->type;
-        if ((*root)->right_child != NULL) {
-            tBtNode *temp = (*root)->right_child;
-            (*root)->key = strdup(temp->key);
-            (*root)->data->value = temp->data->value;
-            (*root)->data->type = temp->data->type;
-            (*root)->left_child = temp->left_child;
-            (*root)->right_child = temp->right_child;
-            free(temp);
-        }
-        else {
-            free(*root);
-            *root = NULL;
-        }
+
+        tBtNode *temp = *root;
+        *root = (*root)->right_child;
+
+        temp->key = NULL;
+        if (temp->data) temp->data->value = NULL;
+        symtable_node_free(&temp);
     }
+    
+    if (*root != NULL) realign_tree(root);
 }
 
 int check_height(tBtNode **root, tBtNode ***first_unbalanced) {
@@ -297,13 +279,11 @@ int check_height(tBtNode **root, tBtNode ***first_unbalanced) {
             return right_height + 1;
         }
     }
+    return 0;
 }
 
 void realign_tree(tBtNode **root) {
-    if (!root || !(*root)) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu.");
-        return;
-    }
+    if (!root || !(*root)) return;
 
     tBtNode **first_unbalanced = NULL;
     int height = check_height(root, &first_unbalanced);
@@ -317,10 +297,12 @@ void realign_tree(tBtNode **root) {
             cmp1 = 'l';
             left_height = check_height(&(*first_unbalanced)->left_child->left_child, &first_unbalanced);
             right_height = check_height(&(*first_unbalanced)->left_child->right_child, &first_unbalanced);
-        } else {
+        } else if (right_height > left_height) {
             cmp1 = 'r';
             left_height = check_height(&(*first_unbalanced)->right_child->left_child, &first_unbalanced);
             right_height = check_height(&(*first_unbalanced)->right_child->right_child, &first_unbalanced);
+        } else {
+            return;
         }
 
         if (left_height > right_height) {

@@ -11,6 +11,7 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "isymtable.h"
 
 /**
@@ -55,14 +56,13 @@ void replace_most_left(tBtNode *node, tBtNode **root);
  * @brief Kontrola výšky stromu pro případnou rotaci
  * @param root Ukazatel na kořen stromu
  * @param first_unbalanced Ukazatel na první nevyvážený uzel
- * @return Výška stromu
+ * @return Výška stromu, -1 když dojde k chybě
  */
 int check_height(tBtNode **root, tBtNode ***first_unbalanced);
 
 /**
  * @brief Vyvážení stromu
  * @param root Ukazatel na kořen stromu
- * @param stack Ukazatel na zásobník, který obsahuje cestu k odstraněnému uzlu
  */
 void realign_tree(tBtNode **root);
 
