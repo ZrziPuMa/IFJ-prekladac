@@ -22,7 +22,7 @@ void stack_init(tStack *stack) {
     stack->top = NULL;
 }
 
-void symtable_push_scope(tStack *stack) {
+void symtable_push_scope(tBtNode **root, tStack *stack) {
     if (!stack) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
         return;
@@ -34,7 +34,7 @@ void symtable_push_scope(tStack *stack) {
         return;
     }
 
-    new_scope->scope = NULL;
+    new_scope->scope = *root;
     new_scope->next = stack->top;
     stack->top = new_scope;
 }
