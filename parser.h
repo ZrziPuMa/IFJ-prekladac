@@ -419,12 +419,9 @@ ASTNode *parse_pattern(ParserState *pstate);
  * @brief 66.1 - 66.3 <simple_pattern>
  *
  * @param pstate Ukazatel na parser
- * @param is_wildcard Ukazatel na proměnnou, do které se uloží informace o tom, zda se jedná o
- * zástupný znak
  * @return Úspešně sestavný podstrom, při erroru vrací NULL, chyba je v pstate->error_code.
- * Pro "_" vratí NULL a is_wildcard = true
  */
-ASTNode *parse_simple_pattern(ParserState *pstate, bool *is_wildcard);
+ASTNode *parse_simple_pattern(ParserState *pstate);
 
 /**
  * @brief 68.1/68.2 <sub_patterns>, 69.1/69.2 <sub_pattern>, 70.1/70.2 <sub_pattern_next>
