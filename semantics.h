@@ -11,6 +11,7 @@
 #define SEMANTICS_H
 
 #include "ast.h"
+#include "istack.h"
 #include "isymtable.h"
 
 #include <stdbool.h>
@@ -27,6 +28,19 @@ typedef enum {
     FUNC_CHECKED     // Tělo bylo kompletně zkontrolováno a AST obohaceno
 } SemanticFunctionState;
 
+typedef struct SemanticFunctionSymbol {
+    ASTNode *function;  // AST_FUNC_DEF
+    ASTNode *extension; // AST_EXTENSION_DEF, NULL pro běžnou funkci
+
+    SemanticFunctionState state;
+    struct SemanticFunctionSymbol *next;
+} SemanticFunctionSymbol;
+
+typedef struct AliasPath {
+    char *name;
+    struct AliasPath *previous;
+} AliasPath;
+
 /**
  * @brief Sdílený kontext jednoho běhu sémantické analýzy
  *
@@ -35,11 +49,13 @@ typedef enum {
  * a po návratu obnovit. Kontext nevlastní AST
  */
 typedef struct SemanticContext {
-    tBtNode *symbols;          // Tabulka symbolů
-    tStack scope_stack;        // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
+    tBtNode *symbols; // Tabulka symbolů
+    tBtNode *ext_symbols;
+    tStack *scope_stack;       // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
     ASTNode *current_function; // Aktuálně analyzovaná funkce (AST_FUNC_DEF); mimo funkci NULL
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
+    bool last_in_block;
 } SemanticContext;
 
 /* ==================================================
@@ -114,6 +130,8 @@ int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *e
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
  * ================================================== */
 
+int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx);
+
 /**
  * @brief Určí typ literálu podle jeho druhu a uloží jej do AST
  *
@@ -128,10 +146,9 @@ int semantic_literal(ASTNode *node);
  * @param node Adresa ukazatele v AST na uzel typu AST_IDENTIFIER. Může být nahrazen uzlem
  * AST_FUNC_CALL, pokud se jedná o volání funkce.
  * @param ctx Kontext sémantické analýzy
- * @param expected_type Očekávaný typ hodnoty, nebo NULL
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_identifier(ASTNode **node, SemanticContext *ctx, const TypeInfo *expected_type);
+int semantic_identifier(ASTNode **node, SemanticContext *ctx);
 
 /**
  * @brief Zkontroluje binární operátor a typy obou operandů
@@ -192,7 +209,7 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
  * @param ctx Kontext sémantické analýzy
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_var_def(ASTNode *node, SemanticContext *ctx);
+int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is_param);
 
 /**
  * @brief Zkontroluje definici datové třídy a typy jejích atributů
@@ -252,7 +269,8 @@ int semantic_assignment(ASTNode *node, SemanticContext *ctx);
  * @param expected_type Očekávaný typ výsledku if, nebo NULL
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
+int semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type,
+                     bool used_as_value);
 
 /**
  * @brief Zkontroluje podmínku a tělo cyklu while
@@ -303,7 +321,7 @@ int semantic_return(ASTNode *node, SemanticContext *ctx);
  * @param param_types Seznam očekávaných typů parametrů propojený přes next
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_check_arguments(ASTNode *arg_list, SemanticContext *ctx, const TypeInfo *param_types);
+int semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo *param_types);
 
 /**
  * @brief Zaregistruje parametry jedné skupiny v aktuálním scope
@@ -389,10 +407,16 @@ int semantic_check_conversion(ASTNode *expression, const TypeInfo *expected_type
  *
  * @param type Typ, v němž se mají rozvinout aliasy
  * @param ctx Kontext sémantické analýzy, obsahující tabulku symbolů s aliasy
- * @param resolved_type Adresa ukazatele, kam se uloží nově alokovaný typ
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx,
-                                TypeInfo **resolved_type);
+int semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx, TypeInfo **result);
+
+bool semantic_always_returns(const ASTNode *node);
+
+tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx);
+
+bool compare_unions(const TypeInfo *a, const TypeInfo *b);
+
+int semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
 
 #endif // SEMANTICS_H
