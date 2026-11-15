@@ -8,6 +8,8 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
+
 #include "token.h"
 #include "ierror.h"
 #include "idynamic_string.h"
@@ -77,7 +79,7 @@ int check_var_type(tToken *token, sStr *str) {
     } else return 0;
 }
 
-int String_Init(sStr *str) {
+int string_init(sStr *str) {
     str->string = (char*)malloc(MAX_LENGTH);
     if (str->string == NULL) {
         print_error(ERR_LEX, -1, "Chyba: Selhání alokace.");
@@ -90,11 +92,11 @@ int String_Init(sStr *str) {
     }
 }
 
-void String_Free(sStr *str) {
+void string_free(sStr *str) {
     free(str->string);
 }
 
-int String_Add(sStr *str, char c) {
+int string_add(sStr *str, char c) {
     if ((str->length + 1) >= str->max_length ) {
         char *temp = realloc(str->string, str->max_length + MAX_LENGTH);
         if (temp == NULL) {
