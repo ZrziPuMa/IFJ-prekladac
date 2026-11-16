@@ -11,82 +11,37 @@
 #include "token.h"
 // #include "ierror.h"
 
-#include <ctype.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define MAX_LENGTH 128
 
 /**
- * @brief Výčet stavů FSM
+ * @brief Datový typ pro prvek zásobníku
  */
-typedef enum {
-    state_start,
-    state_plus,
-    state_minus,
-    state_concatenation,
-    state_multiply,
-    state_pipe,
-    state_or,
-    state_ampersand,
-    state_and,
-    state_slash,
-    state_com_line,
-    state_com_block,
-    state_com_end,
-    state_underscore,
-    state_ID,
+typedef struct stack_elem {
+    int count;
+    struct stack_elem *next; // Ukazatel na další prvek zásobníku
+} tLStackElem;
 
-    state_string_check,
-    state_empty_str,
-    state_chain_end,
-    state_string_end,
-    state_string,
-    state_string_escape,
+/**
+ * @brief Datový typ pro zásobník lexeru
+ */
+typedef struct LStack {
+    tLStackElem *top;
+} tLStack;
 
-    state_interpolateds,
-    state_interp_ID,
-
-    state_Lpar,
-    state_Rpar,
-    state_Lbrack,
-    state_Rbrack,
-
-    state_colon,
-    state_semicolon,
-    state_dot,
-    state_comma,
-
-    state_zero,
-    state_int,
-    state_decimal,
-    state_exponent,
-    state_exp_d,
-
-    state_greater_than,
-    state_greater_equal,
-    state_lesser_than,
-    state_lesser_equal,
-    state_left_arrow,
-
-    state_at,
-    state_at_main,
-    state_not,
-    state_not_equal,
-    state_equal,
-    state_is_equal,
-    state_right_arrow,
-
-    state_EOL,
-    state_EOF,
-} sState;
-
+/**
+ * @brief Inicializace lexeru
+ * @param file Zdrojový soubor s kódem
+ */
 void lexer_init(FILE *f);
 
+/**
+ * @brief Vytvoření a poslání následujícího tokenu
+ */
 tToken get_token();
 
+/**
+ * @brief Uvolnění paměti pro lexer
+ */
 void lexer_free();
 
 #endif /*ILEXER_H*/
