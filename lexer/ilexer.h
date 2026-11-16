@@ -83,4 +83,10 @@ typedef enum {
     state_EOF,
 } sState;
 
+void lexer_init(FILE *f);
+
+tToken get_token();
+
+void lexer_free();
+
 #endif /*ILEXER_H*/

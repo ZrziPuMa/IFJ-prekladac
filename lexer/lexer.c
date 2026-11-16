@@ -6,4 +6,15 @@
  */
 
 #include "ilexer.h"
+// #include "istack.h"
 #include "token.h"
+
+FILE *file;
+
+void lexer_init(FILE *f) {
+    file = f;
+    // tStack *indent_stack;
+    // stack_init(*indent_stack);
+    // tStack *par_stack;
+    // stack_init(*par_stack);
+}
