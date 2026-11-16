@@ -347,7 +347,7 @@ struct ASTNode {
         struct {
             ASTNode *start; // dolní mez (výraz Int)
             ASTNode *end;   // horní mez (výraz Int)
-            ASTNode *step;  // "by" krok; NULL = krok o velikosti 1. Povoleno i u until
+            ASTNode *step;  // "by" krok; NULL = krok o velikosti 1.
             bool is_until;  // true = horní mez se nezahrnuje
         } range; // AST_RANGE smí stát JEN jako for_loop.source nebo jako object u .toList;
                  // jinak sémantika hlásí chybu.

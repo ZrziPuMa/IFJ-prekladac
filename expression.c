@@ -24,6 +24,7 @@ static PrecedentSymbol token_to_sym(const tToken *tok, bool expect_operand);
 // Precedenční tabulka
 // (AI) Použit Claude Opus 5.5 na převedení tabulky z png do C.
 // prompt: Převeď tabulku na kod v c
+// Tabulku jsme vytvořili my. Použili jsme Claude pouze k jejímu přepisu do C
 static const PrecedentRelation prec_table[PREC__COUNT][PREC__COUNT] = {
     [PREC_UNARY_OP] = {L, L, G, G, G, G, G, G, G, G, G, G, G, G, G, L, G},
     [PREC_NOT] = {L, L, G, G, G, G, G, G, G, G, G, G, G, G, G, L, G},

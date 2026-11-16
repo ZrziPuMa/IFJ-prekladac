@@ -17,7 +17,7 @@ void init_parser_state(ParserState *pstate) {
     *pstate = (ParserState){0};
     // Nastaví error_code na ERR_OK
     pstate->error_code = ERR_OK;
-}
+} // init_parser_state
 
 void free_parser_state(ParserState *pstate) {
     // Uvolní řetězce tokenů a vynuluje ahead_count
@@ -26,7 +26,7 @@ void free_parser_state(ParserState *pstate) {
         token_free(&pstate->ahead[i]);
     }
     pstate->ahead_count = 0;
-}
+} // free_parser_state
 
 void next_token(ParserState *pstate) {
     if (pstate->error_code != ERR_OK) // po chybě se token už nemění
@@ -52,7 +52,7 @@ void next_token(ParserState *pstate) {
     // Pokud je token typu TOK_ERR, nastaví pstate->error_code na val.i_val
     if (pstate->current_token.type == TOK_ERR)
         pstate->error_code = (ErrorCode)pstate->current_token.val.i_val;
-}
+} // next_token
 
 void fill_ahead(ParserState *pstate) {
     // Naplní ahead, na 2 tokeny. Volá ji jen parse_expr na LPAR.
@@ -73,7 +73,7 @@ void fill_ahead(ParserState *pstate) {
         pstate->ahead[pstate->ahead_count] = t;
         pstate->ahead_count++;
     }
-}
+} // fill_ahead
 
 bool expect_token(ParserState *pstate, tTokenType type) {
     // Očekává token typu type, pokud je jiný, nahlásí chybu 2. Pokud je správný, dá next_token()
@@ -83,14 +83,14 @@ bool expect_token(ParserState *pstate, tTokenType type) {
     }
     next_token(pstate);
     return true;
-}
+} // expect_token
 
 char *take_string(ParserState *pstate) {
     // Vezme pstate->current_token.val.str a nastaví ho na null
     char *str = pstate->current_token.val.str;
     pstate->current_token.val.str = NULL;
     return str;
-}
+} // take_string
 
 bool is_id_text(const ParserState *pstate, const char *text) {
     const tToken *tok = &pstate->current_token;
@@ -104,7 +104,7 @@ bool is_id_text(const ParserState *pstate, const char *text) {
 
     // strcmp vrací 0, když se texty shodují
     return strcmp(tok->val.str, text) == 0;
-}
+} //
 
 void syntax_error(ParserState *pstate, const char *msg) {
     // Chyba 2: error_report a pstate->error_code = 2, jen když pstate->error_code == 0. (tedy
@@ -113,7 +113,7 @@ void syntax_error(ParserState *pstate, const char *msg) {
         print_error(.code = ERR_PARSE, .line = pstate->current_token.line, .msg = msg);
         pstate->error_code = ERR_PARSE;
     }
-}
+} // syntax_error
 
 void out_of_memory(ParserState *pstate) {
     // Chyba 99: error_report a pstate->error_code = 99, jen když pstate->error_code == 0.
@@ -121,7 +121,7 @@ void out_of_memory(ParserState *pstate) {
         print_error(.code = ERR_INTERNAL, .line = -1, .msg = "nedostatek paměti");
         pstate->error_code = ERR_INTERNAL;
     }
-}
+} // out_of_memory
 
 /**
  * @brief Parsuje skupiny argumentů, (args) nebo (args)(args)...
@@ -159,9 +159,9 @@ static ASTNode *parse_arg_groups(ParserState *pstate) {
 fail:
     ast_free(head);
     return NULL;
-}
+} // parse_arg_groups
 
-// Funkce pro parse TOP-DOWN
+// Funkce pro parse TOP-DOWN //
 
 ASTNode *parse_while(ParserState *pstate) {
     // Inicializace uzlů
@@ -192,7 +192,7 @@ fail:
     ast_free(cond); // ast_free(NULL) nic nedělá
     ast_free(body);
     return NULL;
-}
+} // parse_while
 
 ASTNode *parse_literal(ParserState *pstate) {
     ASTNode *node = NULL;
@@ -223,7 +223,7 @@ ASTNode *parse_literal(ParserState *pstate) {
     }
     next_token(pstate);
     return node;
-}
+} // parse_literal
 
 ASTNode *parse_val_var_def(ParserState *pstate, bool is_mutable) {
     char *name = NULL;
@@ -264,7 +264,7 @@ fail:
     type_info_free(type);
     ast_free(init);
     return NULL;
-}
+} // parse_val_var_def
 
 ASTNode *parse_element(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -344,7 +344,7 @@ ASTNode *parse_element(ParserState *pstate) {
             syntax_error(pstate, "očekáván operand");
             return NULL;
     }
-}
+} // parse_element
 
 ASTNode *parse_term(ParserState *pstate) {
     ASTNode *node = parse_element(pstate);
@@ -389,7 +389,7 @@ ASTNode *parse_term(ParserState *pstate) {
 fail:
     ast_free(node);
     return NULL;
-}
+} // parse_term
 
 ASTNode *parse_arguments(ParserState *pstate) {
     // (), prázdné argumenty
@@ -423,7 +423,7 @@ ASTNode *parse_arguments(ParserState *pstate) {
 fail:
     ast_free(head);
     return NULL;
-}
+} // parse_arguments
 
 ASTNode *parse_generator_opt(ParserState *pstate, ASTNode *start_expr) {
     ASTNode *end = NULL;
@@ -469,7 +469,7 @@ fail:
     ast_free(end);
     ast_free(step);
     return NULL;
-}
+} // parse_generator_opt
 
 ASTNode *parse_after_parenth(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -498,10 +498,17 @@ ASTNode *parse_after_parenth(ParserState *pstate) {
         return NULL;
     }
     return expr;
-}
+} // parse_after_parenth
 
 // (AI) prompt: vytvoř mi pomocnou funkci pro Interpolované řetězce s cílem převodu expr na řetězce.
 // Obalí výraz voláním toStr(expr); převezme expr, při chybě ho uvolní.
+/**
+ * @brief Obalí výraz voláním toStr(expr) pro interpolované řetězce. převezme expr, při chybě ho
+ * uvolní.
+ * @param pstate Stav parseru
+ * @param expr Výraz k obalení
+ * @return Obalený výraz nebo NULL při chybě
+ */
 static ASTNode *wrap_to_str(ParserState *pstate, ASTNode *expr) {
     int line = expr->line;
     ASTNode *fn = ast_create_identifier("toStr", line);
@@ -522,7 +529,7 @@ static ASTNode *wrap_to_str(ParserState *pstate, ASTNode *expr) {
         return NULL;
     }
     return call;
-}
+} // wrap_to_str
 
 ASTNode *parse_interpol(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -536,7 +543,8 @@ ASTNode *parse_interpol(ParserState *pstate) {
         switch (pstate->current_token.type) {
             // Stringová čast
             case TOK_INTERP_STRING_PART: {
-                if (strcmp(pstate->current_token.val.str, "") == 0) {
+                if (pstate->current_token.val.str == NULL ||
+                    pstate->current_token.val.str[0] == '\0') {
                     next_token(pstate);
                     continue;
                 }
@@ -597,7 +605,7 @@ fail:
     ast_free(result);
     ast_free(part);
     return NULL;
-}
+} // parse_interpol
 
 ASTNode *parse_for(ParserState *pstate) {
     ASTNode *iter_var = NULL;
@@ -678,7 +686,7 @@ ASTNode *parse_for(ParserState *pstate) {
             goto fail;
     }
 
-    // Část DO
+    // Část DO (očekáváme ho a spotřebujeme)
     if (!expect_token(pstate, TOK_DO))
         goto fail;
 
@@ -699,7 +707,7 @@ fail:
     ast_free(guards);
     ast_free(body);
     return NULL;
-}
+} // parse_for
 
 ASTNode *parse_if(ParserState *pstate) {
     ASTNode *cond = NULL;
@@ -740,8 +748,10 @@ fail:
     ast_free(then_branch);
     ast_free(else_branch);
     return NULL;
-}
+} // parse_if
 
+// Branch je o tom, že se může jednat jak o oblok, tak taky o line expression. Pokud je to line
+// expression, tak se obalí do AST_BLOCK uzlu.
 ASTNode *parse_branch(ParserState *pstate) {
     int line = pstate->current_token.line;
 
@@ -760,7 +770,7 @@ ASTNode *parse_branch(ParserState *pstate) {
         return NULL;
     }
     return block;
-}
+} // parse_branch
 
 ASTNode *parse_block(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -772,6 +782,7 @@ ASTNode *parse_block(ParserState *pstate) {
         return NULL;
 
     ASTNode *tail = NULL;
+    // Parsujeme, dokud nepříjde TOK_DEDENT, nebo nenastane chyba
     do {
         ASTNode *statement = parse_statement(pstate);
         if (statement == NULL)
@@ -794,6 +805,7 @@ ASTNode *parse_block(ParserState *pstate) {
             goto fail;
         }
     } while (pstate->current_token.type != TOK_DEDENT);
+    // Tahle část by neměla nastat, jen se spotřebuje dedent. Je zde pro ojištění krajních případů.
     if (!expect_token(pstate, TOK_DEDENT)) {
         goto fail;
     }
@@ -809,9 +821,10 @@ ASTNode *parse_block(ParserState *pstate) {
 fail:
     ast_free(head);
     return NULL;
-}
+} // parse_block
 
 ASTNode *parse_statement(ParserState *pstate) {
+    // statement může být krom line_expr i for, while a val/var definice
     switch (pstate->current_token.type) {
         case TOK_WHILE:
             return parse_while(pstate);
@@ -829,7 +842,7 @@ ASTNode *parse_statement(ParserState *pstate) {
         default:
             return parse_line_expr(pstate);
     }
-}
+} // parse_statement
 
 ASTNode *parse_line_expr(ParserState *pstate) {
     if (pstate->current_token.type == TOK_RETURN)
@@ -865,10 +878,16 @@ ASTNode *parse_line_expr(ParserState *pstate) {
     ast_free(expr);
 
     return assign;
-}
+} // parse_line_expr
 
 // (AI) prompt: Napiš mi pomocnou funkci static bool is_expr_start(tTokenType t).
-// Zjistí, zda tokenem t může začínat výraz, tj. zda t patří do FIRST(<expr>).
+// Zjistí, zda tokenem t může začínat výraz, tj. zda t patří do FIRST(<expr>). FIRST(<expr>) jsme
+// vytvořili v ll gram, pouze jsme ji pomoci AI převedli do switch case v C.
+/**
+ * @brief Zjistí, zda tokenem t může začínat výraz, tj. zda t patří do FIRST(<expr>).
+ * @param t Token typu tTokenType
+ * @return true, pokud t patří do FIRST(<expr>), jinak false
+ */
 static bool is_expr_start(tTokenType t) {
     switch (t) {
         case TOK_ID:  // identifikátor, volání funkce
@@ -887,7 +906,7 @@ static bool is_expr_start(tTokenType t) {
         default:
             return false;
     }
-}
+} // parse_return
 
 ASTNode *parse_return(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -906,13 +925,14 @@ ASTNode *parse_return(ParserState *pstate) {
         return NULL;
     }
     return ret;
-}
+} // parse_return
 
 ASTNode *parse_expr(ParserState *pstate) {
     if (pstate->current_token.type == TOK_IF)
         return parse_if(pstate);
 
-    // Konflikt, který potřebuje nadhled na dva tokeny navíc, tedy porušení LL1 na LL3
+    // Konflikt, který potřebuje nadhled na dva tokeny navíc, tedy porušení LL1 na LL3. (a: ) nebo
+    // () =>
     if (pstate->current_token.type == TOK_LPAR) {
         fill_ahead(pstate);
         if (pstate->ahead_count == 2) {
@@ -924,6 +944,7 @@ ASTNode *parse_expr(ParserState *pstate) {
         }
     }
 
+    // všechny ostatní kombinace tokenů povedou na parse_op_expr
     ASTNode *expr = parse_op_expr(pstate);
     if (expr == NULL)
         return NULL;
@@ -932,14 +953,14 @@ ASTNode *parse_expr(ParserState *pstate) {
         return parse_match(pstate, expr);
 
     return expr;
-}
+} // parse_expr
 
 ASTNode *parse_body(ParserState *pstate) {
     // blok, nebo expression
     if (pstate->current_token.type == TOK_NEWLINE)
         return parse_block(pstate);
     return parse_expr(pstate);
-}
+} // parse_body
 
 TypeInfo *parse_ret_type(ParserState *pstate) {
     // return
@@ -951,7 +972,7 @@ TypeInfo *parse_ret_type(ParserState *pstate) {
     if (type == NULL)
         return NULL;
     return type;
-}
+} // parse_ret_type
 
 TypeInfo *parse_simple_type(ParserState *pstate) {
     TypeInfo *type = NULL;
@@ -965,7 +986,7 @@ TypeInfo *parse_simple_type(ParserState *pstate) {
             }
             next_token(pstate);
             return type;
-            // list
+        // list
         case TOK_LIST:
             next_token(pstate);
             if (!expect_token(pstate, TOK_LBRACKET)) {
@@ -1019,9 +1040,10 @@ TypeInfo *parse_simple_type(ParserState *pstate) {
             syntax_error(pstate, "očekáván typ");
             return NULL;
     }
-}
+} // parse_simple_type
 
 TypeInfo *parse_type(ParserState *pstate) {
+    // Pokud není LPAR, jedná se o simple type, který může být následovaný union restem.
     if (pstate->current_token.type != TOK_LPAR) {
         TypeInfo *type = parse_simple_type(pstate);
         if (type == NULL)
@@ -1031,6 +1053,7 @@ TypeInfo *parse_type(ParserState *pstate) {
 
     next_token(pstate);
 
+    // Pokud je LPAR, jedná se o typový seznam, list.
     TypeInfo *type = parse_type_list(pstate);
     if (type == NULL && pstate->error_code != ERR_OK)
         return NULL;
@@ -1040,6 +1063,7 @@ TypeInfo *parse_type(ParserState *pstate) {
         return NULL;
     }
 
+    // Pokud je za závorkou =>, jedná se o funkční typ.
     if (pstate->current_token.type == TOK_RIGHT_ARROW) {
         next_token(pstate);
         TypeInfo *ret_type = parse_type(pstate);
@@ -1057,6 +1081,7 @@ TypeInfo *parse_type(ParserState *pstate) {
         return func_type;
     }
 
+    // Pokud není =>, jedná se o union typ.
     if (type == NULL || type->next != NULL) {
         syntax_error(
             pstate,
@@ -1065,21 +1090,25 @@ TypeInfo *parse_type(ParserState *pstate) {
         return NULL;
     }
 
+    // Parsujeme zbytek
     return parse_union_rest(pstate, type);
-}
+} // parse_type
 
 TypeInfo *parse_union_rest(ParserState *pstate, TypeInfo *type) {
+    // Pokud není |, jedná se o konec union typu.
     if (pstate->current_token.type != TOK_PIPE)
         return type;
 
     next_token(pstate);
 
+    // zparsujeme část unionu
     TypeInfo *next_type = parse_union_member(pstate);
     if (next_type == NULL) {
         type_info_free(type);
         return NULL;
     }
 
+    // Spojíme je za sebe
     TypeInfo *union_type = type_create_union(type, next_type);
     if (union_type == NULL) {
         type_info_free(type);
@@ -1088,8 +1117,9 @@ TypeInfo *parse_union_rest(ParserState *pstate, TypeInfo *type) {
         return NULL;
     }
 
+    // rekurzivně zpracujeme zbytek unionu
     return parse_union_rest(pstate, union_type);
-}
+} // parse_union_rest
 
 TypeInfo *parse_union_member(ParserState *pstate) {
     if (pstate->current_token.type != TOK_LPAR) {
@@ -1106,15 +1136,17 @@ TypeInfo *parse_union_member(ParserState *pstate) {
     }
 
     return type;
-}
+} // parse_union_member
 
 TypeInfo *parse_type_list(ParserState *pstate) {
     TypeInfo *head = NULL;
     TypeInfo *tail = NULL;
 
+    // Pokud je hned RPAR, jedná se o prázdný seznam typů.
     if (pstate->current_token.type == TOK_RPAR)
         return NULL;
 
+    // Jinak parsujeme typy oddělené čárkou.
     while (true) {
         TypeInfo *type = parse_type(pstate);
         if (type == NULL) {
@@ -1135,15 +1167,17 @@ TypeInfo *parse_type_list(ParserState *pstate) {
         next_token(pstate);
     }
     return head;
-}
+} // parse_type_list
 
 ASTNode *parse_param_list(ParserState *pstate) {
     ASTNode *head = NULL;
     ASTNode *tail = NULL;
 
+    // Každé listy parametrů parsujeme zvlášt
     while (pstate->current_token.type == TOK_LPAR) {
         int line = pstate->current_token.line;
         next_token(pstate);
+        // zprasujeme jedny parametry
         ASTNode *params = parse_params(pstate);
         if (pstate->error_code != ERR_OK) {
             goto fail;
@@ -1153,6 +1187,7 @@ ASTNode *parse_param_list(ParserState *pstate) {
             goto fail;
         }
 
+        // Dáme je do listu
         ASTNode *group = ast_create_param_list(params, line);
         if (group == NULL) {
             ast_free(params);
@@ -1160,6 +1195,7 @@ ASTNode *parse_param_list(ParserState *pstate) {
             goto fail;
         }
 
+        // Spojíme je za sebou
         if (tail) {
             tail->next = group;
         } else {
@@ -1172,7 +1208,7 @@ ASTNode *parse_param_list(ParserState *pstate) {
 fail:
     ast_free(head);
     return NULL;
-}
+} // parse_param_list
 
 /**
  * @brief Parsuje jeden parametr funkce.
@@ -1182,43 +1218,51 @@ fail:
 static ASTNode *parse_param(ParserState *pstate) {
     int line = pstate->current_token.line;
 
+    // očekáváno ID
     if (pstate->current_token.type != TOK_ID) {
         syntax_error(pstate, "očekáván název parametru");
         return NULL;
     }
 
+    // převezmeme jméno parametru a posuneme se na další token
     char *name = take_string(pstate);
     next_token(pstate);
 
+    // očekáváno :
     if (!expect_token(pstate, TOK_COLON)) {
         free(name);
         return NULL;
     }
 
+    // Zparsuje se typ
     TypeInfo *type = parse_type(pstate);
     if (type == NULL) {
         free(name);
         return NULL;
     }
+    // vytvoří se parametr ASTNode, není mutable.
     ASTNode *param = ast_create_var_def(name, false, type, NULL, line);
 
     free(name);
 
+    // Error handle
     if (param == NULL) {
         type_info_free(type);
         out_of_memory(pstate);
         return NULL;
     }
     return param;
-}
+} // parse_param
 
 ASTNode *parse_params(ParserState *pstate) {
     ASTNode *head = NULL;
     ASTNode *tail = NULL;
 
+    // může být i funkce bez parametrů, tedy hned RPAR; f()
     if (pstate->current_token.type == TOK_RPAR)
         return NULL;
 
+    // parsujeme všechny parametry
     while (true) {
         ASTNode *param = parse_param(pstate);
         if (param == NULL) {
@@ -1226,6 +1270,7 @@ ASTNode *parse_params(ParserState *pstate) {
             return NULL;
         }
 
+        // Zřetězení přes next
         if (tail) {
             tail->next = param;
         } else {
@@ -1233,9 +1278,13 @@ ASTNode *parse_params(ParserState *pstate) {
         }
         tail = param;
 
+        // Parametry se oddělují čárkou, pokud není čárka, končíme. Pokud je čárka, očekáváme další
+        // parametr.
         if (pstate->current_token.type != TOK_COMMA)
             break;
 
+        // pokud se i přece končí a čárka byla, musíme ověřit, že byl před tím nový řádek. (Jako
+        // token by neměl přijít NEWLINE podle kontraktu s lexerem.)
         next_token(pstate);
         if (pstate->current_token.type == TOK_RPAR) {
             if (!pstate->current_token.newline_before) {
@@ -1247,7 +1296,7 @@ ASTNode *parse_params(ParserState *pstate) {
         }
     }
     return head;
-}
+} // parse_params
 
 ASTNode *parse_func_def(ParserState *pstate, bool is_main) {
     ASTNode *params = NULL;
@@ -1256,9 +1305,15 @@ ASTNode *parse_func_def(ParserState *pstate, bool is_main) {
     char *name = NULL;
     int line = pstate->current_token.line;
 
-    if (!expect_token(pstate, TOK_DEF))
+    // při definici očekáváme slovo def
+    if (pstate->current_token.type != TOK_DEF) {
+        syntax_error(pstate, "očekáváno def v definici funkce");
         goto fail;
+    }
 
+    next_token(pstate);
+
+    // očekáváme název funkce, který je identifikátor
     if (pstate->current_token.type != TOK_ID) {
         syntax_error(pstate, "očekáván název funkce");
         goto fail;
@@ -1267,22 +1322,29 @@ ASTNode *parse_func_def(ParserState *pstate, bool is_main) {
     name = take_string(pstate);
     next_token(pstate);
 
+    // parse parametrů
     params = parse_param_list(pstate);
     if (pstate->error_code != ERR_OK)
         goto fail;
 
+    // parse návratového typu
     ret_type = parse_ret_type(pstate);
     if (pstate->error_code != ERR_OK)
         goto fail;
 
-    if (!expect_token(pstate, TOK_ASSIGN)) {
+    if (pstate->current_token.type != TOK_ASSIGN) {
+        syntax_error(pstate, "očekáváno = v definici funkce");
         goto fail;
     }
 
+    next_token(pstate);
+
+    // parse těla funkce
     body = parse_body(pstate);
     if (body == NULL)
         goto fail;
 
+    // Pokud to není block, tak se obalí do blocku
     ASTNode *blk = ast_wrap_block(body, line);
     if (blk == NULL) {
         out_of_memory(pstate);
@@ -1290,6 +1352,7 @@ ASTNode *parse_func_def(ParserState *pstate, bool is_main) {
     }
     body = blk;
 
+    // Vytvoříme AST uzel pro definici funkce
     ASTNode *node = ast_create_func_def(name, is_main, params, ret_type, body, line);
     if (node == NULL) {
         out_of_memory(pstate);
@@ -1305,7 +1368,7 @@ fail:
     ast_free(body);
     free(name);
     return NULL;
-}
+} // parse_func_def
 
 void parse_prolog(ParserState *pstate) {
     if (pstate->current_token.type != TOK_IMPORT) {
@@ -1342,13 +1405,14 @@ void parse_prolog(ParserState *pstate) {
         return;
     }
     next_token(pstate);
-}
+} // parse_prolog
 
 ASTNode *parse_declaration(ParserState *pstate) {
     switch (pstate->current_token.type) {
         case TOK_DEF:
             return parse_func_def(pstate, false);
         case TOK_AT_MAIN: {
+            // main muže byt i na samotnem řadku
             next_token(pstate);
             if (pstate->current_token.type == TOK_NEWLINE) {
                 next_token(pstate);
@@ -1365,13 +1429,14 @@ ASTNode *parse_declaration(ParserState *pstate) {
             syntax_error(pstate, "očekávána deklarace funkce, type, case class nebo extension");
             return NULL;
     }
-}
+} // parse_declaration
 
 ASTNode *parse_type_def(ParserState *pstate) {
     // type již bylo kontrolováno v parse_declaration
     int line = pstate->current_token.line;
     next_token(pstate);
 
+    // očekáváno ID
     if (pstate->current_token.type != TOK_ID) {
         syntax_error(pstate, "očekáván název typu");
         return NULL;
@@ -1379,17 +1444,20 @@ ASTNode *parse_type_def(ParserState *pstate) {
     char *name = take_string(pstate);
     next_token(pstate);
 
+    // očekáváno =
     if (!expect_token(pstate, TOK_ASSIGN)) {
         free(name);
         return NULL;
     }
 
+    // parseování typu
     TypeInfo *type = parse_type(pstate);
     if (type == NULL) {
         free(name);
         return NULL;
     }
 
+    // vytvoření AST uzlu pro type alias
     ASTNode *node = ast_create_type_alias(name, type, line);
     if (node == NULL) {
         type_info_free(type);
@@ -1400,17 +1468,19 @@ ASTNode *parse_type_def(ParserState *pstate) {
 
     free(name);
     return node;
-}
+} // parse_type_def
 
 ASTNode *parse_case_class(ParserState *pstate) {
     // case již bylo kontrolováno v parse_declaration
     int line = pstate->current_token.line;
     next_token(pstate);
 
+    // očekáváme CLASS
     if (!expect_token(pstate, TOK_CLASS)) {
         return NULL;
     }
 
+    // očekáváme název case class, tedy ID
     if (pstate->current_token.type != TOK_ID) {
         syntax_error(pstate, "očekáván název case class");
         return NULL;
@@ -1418,23 +1488,27 @@ ASTNode *parse_case_class(ParserState *pstate) {
     char *name = take_string(pstate);
     next_token(pstate);
 
+    // očekáváme levý závorku pro parametry
     if (!expect_token(pstate, TOK_LPAR)) {
         free(name);
         return NULL;
     }
 
+    // parse parametrů case class
     ASTNode *params = parse_params(pstate);
     if (pstate->error_code != ERR_OK) {
         free(name);
         return NULL;
     }
 
+    // očekáváme pravou závorku pro ukončení parametrů
     if (!expect_token(pstate, TOK_RPAR)) {
         ast_free(params);
         free(name);
         return NULL;
     }
 
+    // vytvoření AST uzlu pro case class
     ASTNode *node = ast_create_class_def(name, params, line);
     if (node == NULL) {
         ast_free(params);
@@ -1454,20 +1528,24 @@ ASTNode *parse_extension(ParserState *pstate) {
     ASTNode *head = NULL;
     ASTNode *tail = NULL;
 
+    // očekáváme levou závorku pro parametry
     next_token(pstate);
     if (!expect_token(pstate, TOK_LPAR)) {
         goto fail;
     }
 
+    // očekáváme parametr, který je typem, na který se extension vztahuje
     reciever = parse_param(pstate);
     if (reciever == NULL) {
         goto fail;
     }
 
+    // očekáváme pravou závorku pro ukončení parametrů
     if (!expect_token(pstate, TOK_RPAR)) {
         goto fail;
     }
 
+    // parse těla extension
     if (pstate->current_token.type == TOK_NEWLINE) {
         next_token(pstate);
         if (!expect_token(pstate, TOK_INDENT)) {
@@ -1493,6 +1571,7 @@ ASTNode *parse_extension(ParserState *pstate) {
             goto fail;
         }
 
+        // Může být jeden na jednom řádku
     } else {
         ASTNode *func_def = parse_func_def(pstate, false);
         if (func_def == NULL) {
@@ -1501,6 +1580,7 @@ ASTNode *parse_extension(ParserState *pstate) {
         head = func_def;
     }
 
+    // vytvoření AST uzlu pro extension
     ASTNode *node = ast_create_extension_def(reciever, head, line);
     if (node == NULL) {
         out_of_memory(pstate);
@@ -1512,9 +1592,10 @@ fail:
     ast_free(reciever);
     ast_free(head);
     return NULL;
-}
+} // parse_extension
 
 ASTNode *parse_lambda(ParserState *pstate) {
+    // LPAR i ID bylo kontrolováno před tím, výhled o dva tokeny, dočasné porušení LL1 na LL3.
     int line = pstate->current_token.line;
     next_token(pstate);
 
@@ -1522,11 +1603,13 @@ ASTNode *parse_lambda(ParserState *pstate) {
     if (pstate->error_code != ERR_OK)
         return NULL;
 
+    // Očekáváme pravou závorku pro ukončení parametrů
     if (!expect_token(pstate, TOK_RPAR)) {
         ast_free(params);
         return NULL;
     }
 
+    // Vytvoříme AST uzel pro seznam parametrů
     ASTNode *param_list = ast_create_param_list(params, line);
     if (param_list == NULL) {
         ast_free(params);
@@ -1534,17 +1617,20 @@ ASTNode *parse_lambda(ParserState *pstate) {
         return NULL;
     }
 
+    // Očekáváme => pro ukončení hlavičky lambda výrazu
     if (!expect_token(pstate, TOK_RIGHT_ARROW)) {
         ast_free(param_list);
         return NULL;
     }
 
+    // Parsujeme tělo lambda výrazu, které může být blok nebo výraz
     ASTNode *body = parse_body(pstate);
     if (body == NULL) {
         ast_free(param_list);
         return NULL;
     }
 
+    // Pokud to není blok, tak se obalí do bloku
     ASTNode *blk = ast_wrap_block(body, line);
     if (blk == NULL) {
         ast_free(body);
@@ -1554,6 +1640,7 @@ ASTNode *parse_lambda(ParserState *pstate) {
     }
     body = blk;
 
+    // Vytvoříme AST uzel pro lambda výraz
     ASTNode *node = ast_create_lambda(param_list, body, line);
     if (node == NULL) {
         ast_free(body);
@@ -1562,7 +1649,7 @@ ASTNode *parse_lambda(ParserState *pstate) {
         return NULL;
     }
     return node;
-}
+} // parse_lambda
 
 ASTNode *parse_match(ParserState *pstate, ASTNode *expr) {
     int line = pstate->current_token.line;
@@ -1570,12 +1657,15 @@ ASTNode *parse_match(ParserState *pstate, ASTNode *expr) {
     ASTNode *tail = NULL;
     next_token(pstate);
 
+    // Očekáváme nový řádek po match výrazu
     if (!expect_token(pstate, TOK_NEWLINE))
         goto fail;
 
+    // Očekáváme odsazení (zanoření) pro case větve
     if (!expect_token(pstate, TOK_INDENT))
         goto fail;
 
+    // Parsujeme jendotlivé case větve, dokud nenarazíme na TOK_DEDENT nebo nenastane chyba
     do {
         ASTNode *branch = parse_case_branch(pstate);
         if (branch == NULL) {
@@ -1596,6 +1686,7 @@ ASTNode *parse_match(ParserState *pstate, ASTNode *expr) {
         goto fail;
     }
 
+    // Vytvoříme AST uzel pro match výraz
     ASTNode *node = ast_create_match(expr, head, line);
     if (node == NULL) {
         out_of_memory(pstate);
@@ -1607,7 +1698,7 @@ fail:
     ast_free(head);
     ast_free(expr);
     return NULL;
-}
+} // parse_match
 
 ASTNode *parse_case_branch(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -1615,6 +1706,7 @@ ASTNode *parse_case_branch(ParserState *pstate) {
     ASTNode *body = NULL;
     ASTNode *guard = NULL;
 
+    // Očekáváme klíčové slovo case pro začátek case větve
     if (!expect_token(pstate, TOK_CASE)) {
         goto fail;
     }
@@ -1632,6 +1724,7 @@ ASTNode *parse_case_branch(ParserState *pstate) {
         }
     }
 
+    // Očekáváme šipku => pro ukončení case větve
     if (!expect_token(pstate, TOK_RIGHT_ARROW)) {
         goto fail;
     }
@@ -1640,6 +1733,7 @@ ASTNode *parse_case_branch(ParserState *pstate) {
     if (body == NULL)
         goto fail;
 
+    // Vytvoříme AST uzel pro case větev
     ASTNode *node = ast_create_case_branch(pattern, guard, body, line);
     if (node == NULL) {
         out_of_memory(pstate);
@@ -1652,23 +1746,209 @@ fail:
     ast_free(body);
     ast_free(guard);
     return NULL;
-}
+} // parse_case_branch
 
 ASTNode *parse_simple_pattern(ParserState *pstate) {
-    // TODO!!
-}
+    int line = pstate->current_token.line;
+    ASTNode *lit = NULL;
+    switch (pstate->current_token.type) {
+        // "_"
+        case TOK_UNDERSCORE: {
+            next_token(pstate);
+            lit = ast_create_pattern_wildcard(line);
+            if (lit == NULL) {
+                out_of_memory(pstate);
+                return NULL;
+            }
+            return lit;
+        }
+        // "-X"
+        case TOK_MINUS: {
+            next_token(pstate);
+            switch (pstate->current_token.type) {
+                case TOK_INT: {
+                    long long value = pstate->current_token.val.i_val;
+                    lit = ast_create_int_lit(-value, line);
+                    if (lit == NULL) {
+                        out_of_memory(pstate);
+                        return NULL;
+                    }
+                    next_token(pstate);
+                    break;
+                }
+                case TOK_DOUBLE: {
+                    double value = pstate->current_token.val.d_val;
+                    lit = ast_create_double_lit(-value, line);
+                    if (lit == NULL) {
+                        out_of_memory(pstate);
+                        return NULL;
+                    }
+                    next_token(pstate);
+                    break;
+                }
+                default:
+                    syntax_error(pstate, "očekáváno číslo po - ve vzoru");
+                    return NULL;
+            }
+            break;
+        }
+        default: {
+            lit = parse_literal(pstate);
+            if (lit == NULL) {
+                return NULL;
+            }
+        }
+    }
+    // Vytvoříme AST uzel pro vzor z literálu
+    ASTNode *simple_pattern = ast_create_pattern_literal(lit, line);
+    if (simple_pattern == NULL) {
+        ast_free(lit);
+        out_of_memory(pstate);
+        return NULL;
+    }
+    return simple_pattern;
+} // parse_simple_pattern
 
 ASTNode *parse_pattern(ParserState *pstate) {
-    // TODO!!
-}
+    int line = pstate->current_token.line;
+    if (pstate->current_token.type != TOK_ID)
+        return parse_simple_pattern(pstate);
+
+    char *name = take_string(pstate);
+    next_token(pstate);
+
+    // Pokud je za identifikátorem dvojtečka, jedná se o pojmenovaný vzor s typem.
+    if (pstate->current_token.type == TOK_COLON) {
+        next_token(pstate);
+        TypeInfo *type = parse_union_member(pstate);
+        if (type == NULL) {
+            free(name);
+            return NULL;
+        }
+        type = parse_union_rest(pstate, type);
+        if (type == NULL) {
+            free(name);
+            return NULL;
+        }
+        ASTNode *pattern = ast_create_pattern_binding(name, type, line);
+        if (pattern == NULL) {
+            free(name);
+            type_info_free(type);
+            out_of_memory(pstate);
+            return NULL;
+        }
+        free(name);
+        return pattern;
+    }
+
+    // Pokud je za identifikátorem levá závorka, jedná se o konstruktor vzoru s podvzory.
+    if (pstate->current_token.type == TOK_LPAR) {
+        next_token(pstate);
+
+        ASTNode *args = parse_sub_patterns(pstate);
+        if (pstate->error_code != ERR_OK) {
+            free(name);
+            return NULL;
+        }
+
+        if (!expect_token(pstate, TOK_RPAR)) {
+            ast_free(args);
+            free(name);
+            return NULL;
+        }
+
+        TypeInfo *custom = type_create_custom(name);
+        free(name);
+        if (custom == NULL) {
+            ast_free(args);
+            out_of_memory(pstate);
+            return NULL;
+        }
+
+        ASTNode *pattern = ast_create_pattern_constructor(custom, args, line);
+        if (pattern == NULL) {
+            ast_free(args);
+            type_info_free(custom);
+            out_of_memory(pstate);
+            return NULL;
+        }
+
+        return pattern;
+    } else {
+        free(name);
+        syntax_error(pstate, "očekáván : nebo ( po identifikátoru ve vzoru");
+        return NULL;
+    }
+} // parse_pattern
 
 ASTNode *parse_sub_patterns(ParserState *pstate) {
-    // TODO!!
-}
+    if (pstate->current_token.type == TOK_RPAR)
+        return NULL;
+
+    ASTNode *head = NULL;
+    ASTNode *tail = NULL;
+    ASTNode *node = NULL;
+
+    while (true) {
+
+        if (pstate->current_token.type == TOK_ID) {
+            int line = pstate->current_token.line;
+            char *text = take_string(pstate);
+
+            // Vytvoříme AST uzel pro definici proměnné
+            node = ast_create_var_def(text, false, NULL, NULL, line);
+            free(text);
+
+            if (node == NULL) {
+                out_of_memory(pstate);
+                goto fail;
+            }
+
+            next_token(pstate);
+
+        } else {
+            // Pokud to není identifikátor, parsujeme jednoduchý vzor
+            node = parse_simple_pattern(pstate);
+            if (node == NULL) {
+                goto fail;
+            }
+        }
+
+        // Zřetězení přes next
+        if (tail) {
+            tail->next = node;
+        } else {
+            head = node;
+        }
+        tail = node;
+
+        // Parametry se oddělují čárkou, pokud není čárka, končíme. Pokud je čárka, očekáváme další
+        if (pstate->current_token.type != TOK_COMMA)
+            break;
+
+        next_token(pstate);
+
+        // Pokud je uavírací závorka, ověříme, že je na novém řádku, jinak je to chyba.
+        if (pstate->current_token.type == TOK_RPAR) {
+            if (!pstate->current_token.newline_before) {
+                syntax_error(pstate, "koncová čárka jen před ) na novém řádku");
+                goto fail;
+            }
+            break;
+        }
+    } // while
+
+    return head;
+
+fail:
+    ast_free(head);
+    return NULL;
+} // parse_sub_patterns
 
 ErrorCode parse_program(ASTNode **root) {
     *root = NULL;
 
+    // Inicializace stavu parseru
     ParserState pstate;
     init_parser_state(&pstate);
 
@@ -1677,11 +1957,13 @@ ErrorCode parse_program(ASTNode **root) {
     ASTNode *head = NULL;
     ASTNode *tail = NULL;
 
+    // Parse povinného prologu
     parse_prolog(&pstate);
     if (pstate.error_code != ERR_OK) {
         goto fail;
     }
 
+    // Parse deklarací, dokud nenarazíme na konec souboru
     while (pstate.current_token.type != TOK_EOF) {
         ASTNode *decl = parse_declaration(&pstate);
         if (decl == NULL) {
@@ -1697,14 +1979,16 @@ ErrorCode parse_program(ASTNode **root) {
         if (!expect_token(&pstate, TOK_NEWLINE)) {
             goto fail;
         }
-    }
+    } // while
 
+    // Vytvoření AST uzlu pro celý program
     ASTNode *program = ast_create_program(head, line);
     if (program == NULL) {
         out_of_memory(&pstate);
         goto fail;
     }
     *root = program;
+    // Uvolnění stavu parseru
     free_parser_state(&pstate);
     return ERR_OK;
 
@@ -1712,4 +1996,4 @@ fail:
     ast_free(head);
     free_parser_state(&pstate);
     return pstate.error_code;
-}
+} // parse_program
