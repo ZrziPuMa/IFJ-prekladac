@@ -1,7 +1,7 @@
 /**
  * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file generator.c
- * @brief
+ * @brief Implementační soubor genrátoru cílového kódu
  * @author Martin Chlubna (<xchlubm00>)
  *
  */
@@ -26,6 +26,10 @@ void create_func_def(const ASTNode *func, GenState *stt) {
     printf("CREATEFRAME\n");
     printf("PUSHFRAME\n");
 
+    define_param_groups(func->data.func_def.param_groups);
+
+    define_local_vars(func->data.func_def.body);
+
     // TODO: Doplnit tvorbu těla funkce
 
     printf("PUSHS nil@nil\n");
@@ -35,12 +39,137 @@ void create_func_def(const ASTNode *func, GenState *stt) {
     printf("\n");
 }
 
-/*void create_param_groups(const ASTNode *param_groups) {
+void define_param_groups(const ASTNode *param_groups) {
+    if (param_groups == NULL) {
+        return;
+    }
+    define_param_groups(param_groups->next);
+
+    define_params(param_groups->data.list.items);
 }
 
-void create_param_list(const ASTNode *items) {
+void define_params(const ASTNode *items) {
+    if (items == NULL) {
+        return;
+    }
+    define_params(items->next);
+
+    const char *identifier = items->data.var_def.identifier;
+    const int var_id = items->data.var_def.var_id;
+
+    printf("DEFVAR LF@%s$%d\n", identifier, var_id);
+    printf("POPS LF@%s$%d\n", identifier, var_id);
 }
-*/
+// AI help
+void define_local_vars(const ASTNode *command) {
+    while (command != NULL) {
+
+        switch (command->type) {
+            // 1. Definice proměnných a vzorů
+            case AST_VAR_DEF:
+                if (command->data.var_def.var_id > 0) {
+                    const char *identifier = command->data.var_def.identifier;
+                    const int var_id = command->data.var_def.var_id;
+                    printf("DEFVAR LF@%s$%d\n", identifier, var_id);
+                }
+                define_local_vars(command->data.var_def.initializer);
+                break;
+
+            case AST_PATTERN:
+                if (command->data.pattern.pat_type == PATTERN_TYPE_BINDING) {
+                    if (command->data.pattern.var_id > 0) {
+                        const char *identifier = command->data.pattern.bound_identifier;
+                        const int var_id = command->data.pattern.var_id;
+                        printf("DEFVAR LF@%s$%d\n", identifier, var_id);
+                    }
+                } else if (command->data.pattern.pat_type == PATTERN_CONSTRUCTOR) {
+                    define_local_vars(command->data.pattern.detail.constructor.args);
+                }
+                break;
+
+            // 2. Bloky a řídicí konstrukce
+            case AST_BLOCK:
+                define_local_vars(command->data.block.statements);
+                break;
+
+            case AST_IF_EXPR:
+                define_local_vars(command->data.if_expr.condition);
+                define_local_vars(command->data.if_expr.then_block);
+                define_local_vars(command->data.if_expr.else_block);
+                break;
+
+            case AST_WHILE:
+                define_local_vars(command->data.while_loop.condition);
+                define_local_vars(command->data.while_loop.body);
+                break;
+
+            case AST_FOR:
+                define_local_vars(command->data.for_loop.iter_var);
+                define_local_vars(command->data.for_loop.source);
+                define_local_vars(command->data.for_loop.guards);
+                define_local_vars(command->data.for_loop.body);
+                break;
+
+            case AST_MATCH_EXPR:
+                define_local_vars(command->data.match_expr.matched_expr);
+                define_local_vars(command->data.match_expr.cases);
+                break;
+
+            case AST_CASE_BRANCH:
+                define_local_vars(command->data.case_branch.pattern);
+                define_local_vars(command->data.case_branch.guard);
+                define_local_vars(command->data.case_branch.body);
+                break;
+
+            // 3. Příkazy, výrazy a seznamy s poduzly
+            case AST_RETURN:
+                define_local_vars(command->data.return_stmt.value);
+                break;
+
+            case AST_ASSIGNMENT:
+                define_local_vars(command->data.assignment.value);
+                break;
+
+            case AST_BINARY_OP:
+                define_local_vars(command->data.bin_op.left);
+                define_local_vars(command->data.bin_op.right);
+                break;
+
+            case AST_UNARY_OP:
+                define_local_vars(command->data.unary_op.operand);
+                break;
+
+            case AST_FUNC_CALL:
+                define_local_vars(command->data.func_call.target);
+                define_local_vars(command->data.func_call.arg_groups);
+                break;
+
+            case AST_ARG_LIST:
+            case AST_LIST_LITERAL:
+                define_local_vars(command->data.list.items);
+                break;
+
+            case AST_MEMBER_ACCESS:
+                define_local_vars(command->data.member_access.object);
+                break;
+
+            case AST_RANGE:
+                define_local_vars(command->data.range.start);
+                define_local_vars(command->data.range.end);
+                define_local_vars(command->data.range.step);
+                break;
+
+            case AST_LAMBDA:
+                // Lambda má při spuštění vlastní LF, dovnitř se neponořujeme
+                break;
+
+            default:
+                break;
+        }
+        command = command->next;
+    }
+}
+
 ErrorCode generate_code(const ASTNode *root) {
     if (root == NULL) {
         return print_error(ERR_INTERNAL, -1, "Generátor přijal neplatný kořen stromu.");
