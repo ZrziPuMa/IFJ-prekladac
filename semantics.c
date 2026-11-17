@@ -31,12 +31,207 @@ int check_semantics(ASTNode *root) {
     ctx.next_var_id = 1;
     ctx.inside_lambda = false;
 
-    return 0;
+    int res = 0;
+
+    // registrace vestavěných funkcí
+    res = register_buildin_func(&ctx);
+    if (res != 0) {
+        goto cleanup;
+    }
+
+    // registrace globálních deklarací
+    res = semantic_collect_globals(root, &ctx);
+    if (res != 0) {
+        goto cleanup;
+    }
+
+    // zpracování aliasů a tříd
+    res = check_globals(root, &ctx);
+    if (res != 0) {
+        goto cleanup;
+    }
+
+    // analýza funkcí a extension metod
+    res = semantic_check_program(root, &ctx);
+
+cleanup:
+    symtable_dispose(&ctx.ext_symbols);
+    symtable_dispose(&ctx.symbols);
+
+    return res;
 }
 
 /* ==================================================
  * FUNKCE PRO 1. A 2. PRŮCHOD AST
  * ================================================== */
+
+typedef struct {
+    char *name;
+    TypeClass result;
+    int argc;
+    TypeClass args[3];
+} BuiltinDef;
+
+TypeInfo *builtin_ret_type(BuiltinDef *built_def) {
+    if (built_def == NULL) {
+        return NULL;
+    }
+
+    // nastavení pro List.range
+    if (strcmp(built_def->name, "List.range") == 0) {
+        // vytvoří typ list[int] a vrátí ho
+        TypeInfo *int_type = type_create_basic(TYPE_INT);
+        if (!int_type) {
+            return NULL;
+        }
+
+        TypeInfo *list = type_create_list(int_type);
+        if (!list) {
+            if (int_type != NULL) {
+                type_info_free(int_type);
+            }
+            return NULL;
+        }
+        return list;
+    }
+
+    // vyřeší případy kdy vrací union
+    if (strcmp(built_def->name, "readIntMaybe") == 0 ||
+        strcmp(built_def->name, "readDoubleMaybe") == 0) {
+        // vytvoří union UNIT | INT nebo DOUBLE podle built_def
+        TypeInfo *value = type_create_basic(built_def->result);
+        if (value == NULL) {
+            return NULL;
+        }
+        TypeInfo *unit = type_create_basic(TYPE_UNIT);
+        if (unit == NULL) {
+            type_info_free(value);
+            return NULL;
+        }
+        TypeInfo *res_union = type_create_union(value, unit);
+        if (!res_union) {
+            type_info_free(value);
+            type_info_free(unit);
+        }
+        return res_union;
+    }
+    // ostatní případy už mají jednoduché typy
+    return type_create_basic(built_def->result);
+}
+
+TypeInfo *builtin_type(BuiltinDef *built_def) {
+    TypeInfo *params = NULL; // seznam parametrů
+    // vytvoří seznam typeinfo parametrů podle typů argunemtů
+    for (int i = 0; i < built_def->argc; i++) {
+        TypeInfo *param_type = type_create_basic(built_def->args[i]);
+        if (param_type == NULL) {
+            if (params != NULL) {
+                type_info_free(params);
+            }
+            return NULL;
+        }
+        params = type_append(params, param_type);
+    }
+
+    // vytvoří návratový typ funkce
+    TypeInfo *ret_type = builtin_ret_type(built_def);
+    if (ret_type == NULL) {
+        type_info_free(params);
+        return NULL;
+    }
+
+    // z předchozích vytvoří celý typ funkce
+    TypeInfo *func_type = type_create_function(params, ret_type);
+    if (func_type == NULL) {
+        if (params != NULL) {
+            type_info_free(params);
+        }
+        if (ret_type != NULL) {
+            type_info_free(ret_type);
+        }
+    }
+    return func_type;
+}
+
+int register_buildin_func(SemanticContext *ctx) {
+    if (ctx == NULL) {
+        return 99;
+    }
+    // seznam vestavěných funkcí
+    BuiltinDef func_def[] = {
+        {"print", TYPE_UNIT, 1, {TYPE_ANY}},
+        {"readLine", TYPE_STRING, 0, {0}},
+        {"readInt", TYPE_INT, 0, {0}},
+        {"readDouble", TYPE_DOUBLE, 0, {0}},
+        {"toStr", TYPE_STRING, 1, {TYPE_ANY}},
+        {"toInt", TYPE_INT, 1, {TYPE_DOUBLE}},
+        {"strLength", TYPE_INT, 1, {TYPE_STRING}},
+        {"subStr", TYPE_STRING, 3, {TYPE_STRING, TYPE_INT, TYPE_INT}},
+        {"ord", TYPE_INT, 2, {TYPE_STRING, TYPE_INT}},
+        {"chr", TYPE_STRING, 1, {TYPE_INT}},
+        {"readBoolean", TYPE_BOOLEAN, 0, {0}},
+        {"readIntMaybe", TYPE_INT, 0, {0}},                // vrací TYPE_INT | TYPE_UNIT
+        {"readDoubleMaybe", TYPE_DOUBLE, 0, {0}},          // vrací TYPE_DOUBLE | TYPE_UNIT
+        {"List.range", TYPE_INT, 2, {TYPE_INT, TYPE_INT}}, // vrací list
+        {"List.range", TYPE_INT, 3, {TYPE_INT, TYPE_INT, TYPE_INT}}}; // vrací list
+
+    // projde seznam vestavěných funkcí, každou zpracuje, převede do správného tvaru a dá do
+    // vyhledávací tabulky
+    for (int i = 0; i < 15; i++) {
+        // zjistí, jestli už existuje jiná funkce stejného jména
+        BuiltinDef *built_def = &func_def[i];
+        tBtNode *found = NULL;
+        symtable_search(&ctx->symbols, built_def->name, &found);
+
+        // jen List.range může mít dvě varianty, jinak chyba
+        if (found && strcmp(built_def->name, "List.range") != 0) {
+            return 4;
+        }
+
+        // vytvoří typ funkce
+        TypeInfo *func_type = builtin_type(built_def);
+        if (func_type == NULL) {
+            return 99;
+        }
+
+        if (found != NULL) { // je to druhý list.range
+            if (found->data == NULL || found->data->type != FUNCTION ||
+                found->data->value == NULL) {
+                type_info_free(func_type);
+                return 4;
+            }
+            SemanticFunctionSymbol *func_sym = found->data->value;
+            if (!func_sym->is_buildin || func_sym->builtin_signatures[0] == NULL ||
+                func_sym->builtin_signatures[1] != NULL) {
+                type_info_free(func_type);
+                return 4;
+            }
+            func_sym->builtin_signatures[1] = func_type;
+            continue;
+        }
+
+        // vytvoří si nový symbol pro funkci a vloží ke globálním deklaracím
+        SemanticFunctionSymbol *func_sym = calloc(1, sizeof *func_sym);
+        if (func_sym == NULL) {
+            return 99;
+        }
+        func_sym->is_buildin = true;
+        func_sym->state = FUNC_CHECKED;
+        func_sym->builtin_signatures[0] = func_type;
+        tBtNodeData data = {.type = FUNCTION, .value = func_sym};
+        symtable_insert(&ctx->symbols, built_def->name, data);
+
+        // kontrola že nenastala chyba při vkládání
+        tBtNode *inserted = NULL;
+        symtable_search(&ctx->symbols, built_def->name, &inserted);
+        if (inserted == NULL || inserted->data == NULL || inserted->data->value != func_sym) {
+            type_info_free(func_type);
+            free(func_sym);
+            return 99;
+        }
+    }
+    return 0;
+}
 
 static int semantic_register_global(SemanticContext *ctx, char *name, tBtContentType type,
                                     ASTNode *declaration) {
@@ -55,7 +250,7 @@ static int semantic_register_global(SemanticContext *ctx, char *name, tBtContent
     tBtNodeData data = {.type = type, .value = declaration};
 
     if (type == FUNCTION) {
-        SemanticFunctionSymbol *info = malloc(sizeof *info);
+        SemanticFunctionSymbol *info = calloc(1, sizeof *info);
         if (info == NULL) {
             return 99;
         }
@@ -65,52 +260,45 @@ static int semantic_register_global(SemanticContext *ctx, char *name, tBtContent
         info->state = FUNC_UNRESOLVED;
         info->next = NULL;
         data.value = info;
+        info->is_buildin = false;
     }
     symtable_insert(&ctx->symbols, name, data);
     return 0;
 }
 
 int register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode *ext) {
-    tBtNode *existing = NULL;
-
-    if (ctx == NULL || declaration == NULL || ext == NULL || declaration->type != AST_FUNC_DEF ||
-        declaration->data.func_def.name == NULL || ext->type != AST_VAR_DEF ||
-        ext->expr_type == NULL) {
+    if (ctx == NULL || declaration == NULL || ext == NULL || declaration->type != AST_FUNC_DEF) {
         return 99;
     }
 
-    // Pouzivame primo jmeno z AST!
-    symtable_search(&ctx->ext_symbols, declaration->data.func_def.name, &existing);
+    // najde jestli existuje funkce se stejným jménem
+    tBtNode *found = NULL;
+    symtable_search(&ctx->ext_symbols, declaration->data.func_def.name, &found);
 
-    SemanticFunctionSymbol *last = NULL;
-
-    if (existing != NULL) {
-        if (existing->data == NULL || existing->data->type != FUNCTION ||
-            existing->data->value == NULL) {
+    SemanticFunctionSymbol *last = NULL; // pro uložení posledního prvku
+    if (found != NULL) {
+        if (found->data == NULL || found->data->type != FUNCTION || found->data->value == NULL) {
             return 99;
         }
 
-        // Kontrola duplicit pro stejny typ.
-        SemanticFunctionSymbol *pos = existing->data->value;
-
+        // projde seznam extension metod stejného jména a podle parametu reciever určí, jestli je
+        // nebo není problém
+        SemanticFunctionSymbol *pos = found->data->value;
         while (pos != NULL) {
-            ASTNode *pos_receiver = pos->extension;
-
-            if (pos_receiver == NULL || pos_receiver->expr_type == NULL) {
+            if (pos->extension == NULL || pos->extension->expr_type == NULL) {
                 return 99;
             }
-            if (semantic_types_equal(pos_receiver->expr_type, ext->expr_type)) {
+            if (semantic_types_equal(pos->extension->expr_type,
+                                     ext->expr_type)) { // je to opakovaná deklarace
                 return 4;
             }
-
             last = pos;
             pos = pos->next;
         }
     }
 
-    // Vytvoreni zaznamu metody.
-    SemanticFunctionSymbol *info = malloc(sizeof *info);
-
+    // vytvoření symbolu funkce
+    SemanticFunctionSymbol *info = calloc(1, sizeof *info);
     if (info == NULL) {
         return 99;
     }
@@ -119,57 +307,77 @@ int register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode *ext) 
     info->extension = ext;
     info->state = FUNC_UNRESOLVED;
     info->next = NULL;
+    info->is_buildin = false;
 
-    if (existing == NULL) {
-        // Prvni metoda tohoto jmena.
+    if (found == NULL) {
+        // první metoda tohoto jména
         tBtNodeData data = {.type = FUNCTION, .value = info};
-
         symtable_insert(&ctx->ext_symbols, declaration->data.func_def.name, data);
     } else {
-        // Dalsi metoda stejneho jmena,
-        // ale pro jiny typ.
+        // není první metoda tohoto jména, dám na konec seznamu těch metod
         last->next = info;
     }
     return 0;
 }
 
 int check_globals(ASTNode *program, SemanticContext *ctx) {
+
     if (program == NULL || ctx == NULL || program->type != AST_PROGRAM) {
         return 99;
     }
 
     ASTNode *definition = program->data.program.definitions;
+
     while (definition != NULL) {
         int result = 0;
+
         switch (definition->type) {
+
             case AST_FUNC_DEF:
+                // U @main zkontrolujeme, že nemá žádné parametry.
                 if (definition->data.func_def.is_main) {
-                }
+                    ASTNode *group = definition->data.func_def.param_groups;
 
-                if (result != 0) {
-                    return result;
+                    while (group != NULL) {
+                        if (group->type != AST_PARAM_LIST) {
+                            return 99;
+                        }
+
+                        // Každá skupina parametrů musí být prázdná.
+                        if (group->data.list.items != NULL) {
+                            return 5;
+                        }
+
+                        group = group->next;
+                    }
                 }
                 break;
+
             case AST_CLASS_DEF:
+                // Kontrola atributů třídy a jejich typů.
+                result = semantic_class_def(definition, ctx);
+                break;
 
-                if (result != 0) {
-                    return result;
-                }
-                break;
             case AST_TYPE_ALIAS:
+                // Rozvinutí a kontrola aliasu.
                 result = semantic_type_alias(definition, ctx);
-                if (result != 0) {
-                    return result;
-                }
                 break;
+
             case AST_EXTENSION_DEF:
+                // Extension metody se zpracují později.
                 break;
+
             default:
-                // Neočekávaný typ uzlu na úrovni programu.
                 return 99;
         }
+
+        if (result != 0) {
+            return result;
+        }
+
         definition = definition->next;
     }
+
     return 0;
 }
 
@@ -252,13 +460,92 @@ int semantic_collect_globals(ASTNode *program, SemanticContext *ctx) {
         definition = definition->next;
     }
 
-    if (found_main == false) { // v programu chybí funkce main
+    if (!found_main) { // v programu chybí funkce main
         return 3;
     }
     return 0;
 }
 
 int semantic_check_program(ASTNode *program, SemanticContext *ctx) {
+    if (program == NULL || ctx == NULL || program->type != AST_PROGRAM) {
+        return 99;
+    }
+
+    ASTNode *definition = program->data.program.definitions;
+
+    // projde globální deklarace a zpracuje je
+    while (definition != NULL) {
+        int res = 0;
+
+        switch (definition->type) {
+
+            case AST_FUNC_DEF: {
+                // najde symbol funkce
+                tBtNode *symbol = NULL;
+                symtable_search(&ctx->symbols, definition->data.func_def.name, &symbol);
+
+                if (symbol == NULL || symbol->data->type != FUNCTION) {
+                    return 99;
+                }
+
+                SemanticFunctionSymbol *func_sym = symbol->data->value;
+                // zkontroluje, že ho našel správně
+                if (func_sym->is_buildin || func_sym->function != definition) {
+                    return 99;
+                }
+
+                // zpracuje tu funkci
+                res = semantic_func_def(func_sym, ctx);
+                if (res != 0) {
+                    break;
+                }
+
+                if (definition->data.func_def.is_main) {
+                    const TypeInfo *ret_type = definition->expr_type;
+
+                    for (ASTNode *group = definition->data.func_def.param_groups; group != NULL;
+                         group = group->next) {
+
+                        if (ret_type == NULL || ret_type->type_class != TYPE_FUNCTION) {
+                            return 99;
+                        }
+
+                        ret_type = ret_type->data.func_type.return_type;
+                    }
+
+                    if (ret_type == NULL) {
+                        return 99;
+                    }
+
+                    if (ret_type->type_class != TYPE_UNIT) {
+                        return 6;
+                    }
+                }
+                break;
+            }
+
+            case AST_EXTENSION_DEF:
+                // zpracuje estension metody
+                res = semantic_extension_def(definition, ctx);
+                break;
+
+            case AST_CLASS_DEF:
+            case AST_TYPE_ALIAS:
+                // už se kontrolovaly dřív
+                break;
+
+            default:
+                return 99;
+        }
+
+        if (res != 0) {
+            return res;
+        }
+
+        definition = definition->next;
+    }
+
+    return 0;
 }
 
 /* ==================================================
@@ -266,75 +553,78 @@ int semantic_check_program(ASTNode *program, SemanticContext *ctx) {
  * ================================================== */
 
 int semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *expected_type) {
+    if (node == NULL || *node == NULL || ctx == NULL) {
+        return 99;
+    }
+    int res = 0;
+    //  podle typu uzlu zvolí, kterou funkci zavolat
     switch ((*node)->type) {
-        case AST_ARG_LIST: // hotovo
-            // semantic_literal(...);
+        case AST_ASSIGNMENT:
+            res = semantic_assignment(*node, ctx);
             break;
-
-        case AST_ASSIGNMENT: // hotova
-            // semantic_identifier(...);
+        case AST_BINARY_OP:
+            res = semantic_binary_op(*node, ctx);
             break;
-
-        case AST_BINARY_OP: // hotova
-            // semantic_binary_op(*node, ctx);
-            break;
-
-        case AST_BLOCK: // hotova
-            // semantic_func_call(...);
-            break;
-
-        case AST_CASE_BRANCH:
-            break;
-        case AST_CLASS_DEF: // hotova
+        case AST_BLOCK:
+            res = semantic_check_block(*node, ctx, expected_type, true);
             break;
         case AST_EXTENSION_DEF:
+            res = semantic_extension_def(*node, ctx);
             break;
-        case AST_FOR: // hotovo
+        case AST_FOR:
+            res = semantic_for(*node, ctx);
             break;
         case AST_FUNC_CALL:
-            break;
-        case AST_FUNC_DEF: // hotovo
+            res = semantic_func_call(*node, ctx, expected_type);
             break;
         case AST_IDENTIFIER:
+            res = semantic_identifier(node, ctx);
             break;
-        case AST_IF_EXPR: // asi hotovo
+        case AST_IF_EXPR:
+            res = semantic_if_expr(*node, ctx, expected_type, true);
             break;
         case AST_LAMBDA:
+            res = semantic_lambda(*node, ctx, expected_type);
             break;
-        case AST_LIST_LITERAL: // hotova
+        case AST_LIST_LITERAL:
+            res = semantic_list_literal(*node, ctx, expected_type);
             break;
         case AST_LITERAL:
-            // semantic_literal(*node);
+            res = semantic_literal(*node);
             break;
         case AST_MATCH_EXPR:
+            res = semantic_match(*node, ctx, expected_type);
             break;
-        case AST_MEMBER_ACCESS: // asi hotovo
+        case AST_MEMBER_ACCESS:
+            res = semantic_member_access(node, ctx);
             break;
-        case AST_PARAM_LIST: // hotovo
-            break;
-        case AST_PATTERN:
-            break;
-        case AST_PROGRAM:
-            break;
-        case AST_RANGE: // hotova
-            break;
+        case AST_RANGE:
+            return 6; // půjde řešit jen z určitých míst, nemůže být všude
 
-        case AST_RETURN: // hotova
+        case AST_RETURN:
+            res = semantic_return(*node, ctx);
             break;
-        case AST_TYPE_ALIAS: // hotova
+        case AST_TYPE_ALIAS:
+            res = semantic_type_alias(*node, ctx);
             break;
-        case AST_UNARY_OP: // hotova
-            // semantic_unary_op(*node, ctx);
+        case AST_UNARY_OP:
+            res = semantic_unary_op(*node, ctx);
             break;
-        case AST_VAR_DEF: // hotova
-            // semantic_var_def();
+        case AST_VAR_DEF:
+            res = semantic_var_def(ctx->scope_stack, *node, ctx,
+                                   false); // pro is_param true se volá přímo
             break;
-        case AST_WHILE: // hotovo
+        case AST_WHILE:
+            res = semantic_while(*node, ctx);
+            break;
+        default:
+            return 99;
     }
+    return res;
 }
 
-// hotová
-int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type) {
+int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
+                         bool used_as_value) {
     // úvodní kontroly
     if (block == NULL || ctx == NULL || block->type != AST_BLOCK || ctx->scope_stack == NULL) {
         return 99;
@@ -349,10 +639,18 @@ int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *e
     symtable_init(&new_scope);
     symtable_push_scope(&new_scope, ctx->scope_stack);
 
+    int res = 0;
+
     // projde seznam příkazů v bloku, každý příkaz zpracuje
     ASTNode **act_statement = &block->data.block.statements;
     while ((*act_statement)->next != NULL) {
-        int res = semantic_visit(act_statement, ctx, NULL);
+        if ((*act_statement)->type == AST_IF_EXPR) {
+            res = semantic_if_expr(*act_statement, ctx, NULL, false);
+        } else if ((*act_statement)->type == AST_BLOCK) {
+            res = semantic_check_block(*act_statement, ctx, NULL, false);
+        } else {
+            res = semantic_visit(act_statement, ctx, NULL);
+        }
         if (res != 0) {
             symtable_pop_scope(ctx->scope_stack);
             return res;
@@ -361,7 +659,16 @@ int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *e
     }
 
     // projde poslední příkaz
-    int res = semantic_visit(act_statement, ctx, expected_type);
+    const TypeInfo *last_expected = used_as_value ? expected_type : NULL;
+
+    if ((*act_statement)->type == AST_IF_EXPR) {
+        res = semantic_if_expr(*act_statement, ctx, last_expected, used_as_value);
+    } else if ((*act_statement)->type == AST_BLOCK) {
+        res = semantic_check_block(*act_statement, ctx, last_expected, used_as_value);
+    } else {
+        res = semantic_visit(act_statement, ctx, last_expected);
+    }
+
     if (res != 0) {
         symtable_pop_scope(ctx->scope_stack);
         return res;
@@ -371,6 +678,9 @@ int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *e
     TypeInfo *block_type = NULL;
     if (semantic_always_returns(block)) {
         block_type = type_create_basic(TYPE_NOTHING);
+    } else if (!used_as_value) {
+        block_type = type_create_basic(TYPE_UNIT);
+
     } else {
         switch ((*act_statement)->type) {
             case AST_VAR_DEF:
@@ -399,15 +709,14 @@ int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *e
 /* ==================================================
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
  * ================================================== */
-static int semantic_build_function_type(const ASTNode *param_group, const TypeInfo *return_type,
-                                        TypeInfo **result) {
+int semantic_build_function_type(const ASTNode *param_group, const TypeInfo *return_type,
+                                 TypeInfo **result) {
     if (return_type == NULL || result == NULL) {
         return 99;
     }
 
     *result = NULL;
-
-    // Uz zadna dalsi skupina parametru.
+    // pokud nemá funkce parametry, je její typ návratový typ
     if (param_group == NULL) {
         *result = type_info_clone(return_type);
         return *result != NULL ? 0 : 99;
@@ -417,43 +726,50 @@ static int semantic_build_function_type(const ASTNode *param_group, const TypeIn
         return 99;
     }
 
-    // Nejdrive vytvorime typ pro nasledujici skupiny.
+    // vytvoří typ následující skupiny
     TypeInfo *inner_type = NULL;
-
-    int error = semantic_build_function_type(param_group->next, return_type, &inner_type);
-
-    if (error != 0) {
-        return error;
+    int res = semantic_build_function_type(param_group->next, return_type, &inner_type);
+    if (res != 0) {
+        return res;
     }
 
-    // Sestavime seznam typu parametru aktualni skupiny.
+    // vytvoří seznam typů aktuální skupiny parametrů
     TypeInfo *params = NULL;
-
-    for (const ASTNode *param = param_group->data.list.items; param != NULL; param = param->next) {
-
+    for (ASTNode *param = param_group->data.list.items; param != NULL; param = param->next) {
+        // naklonuje typ a přidá na konec seznamu typů
         if (param->type != AST_VAR_DEF || param->expr_type == NULL) {
-            type_info_free(params);
-            type_info_free(inner_type);
+            if (params != NULL) {
+                type_info_free(params);
+            }
+            if (inner_type != NULL) {
+                type_info_free(inner_type);
+            }
             return 99;
         }
 
         TypeInfo *copy = type_info_clone(param->expr_type);
-
         if (copy == NULL) {
-            type_info_free(params);
-            type_info_free(inner_type);
+            if (params != NULL) {
+                type_info_free(params);
+            }
+            if (inner_type != NULL) {
+                type_info_free(inner_type);
+            }
             return 99;
         }
-
         params = type_append(params, copy);
     }
 
-    // Aktualni skupina parametru vraci inner_type.
+    // vytvoří typ funkce z aktuální skupiny
     *result = type_create_function(params, inner_type);
 
     if (*result == NULL) {
-        type_info_free(params);
-        type_info_free(inner_type);
+        if (params != NULL) {
+            type_info_free(params);
+        }
+        if (inner_type != NULL) {
+            type_info_free(inner_type);
+        }
         return 99;
     }
 
@@ -466,6 +782,7 @@ int semantic_ensure_func_type(SemanticFunctionSymbol *func_sym, SemanticContext 
         return 99;
     }
 
+    // zkontroluje stav řešení funkce kvůli chybám a rekurzím a zavolá zpracování funkce
     if (func_sym->state == FUNC_CHECKED || func_sym->state == FUNC_RESOLVED) {
         return func_sym->function->expr_type != NULL ? 0 : 99;
     }
@@ -483,10 +800,12 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
         return 99;
     }
 
+    // není co řešit
     if (func_sym->state == FUNC_CHECKED) {
         return 0;
     }
 
+    // rekurze
     if (func_sym->state == FUNC_RESOLVING) {
         return 6;
     }
@@ -512,24 +831,20 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
 
     func_sym->state = FUNC_RESOLVING;
 
-    // moje
-
     int res = 0;
     TypeInfo *return_type = NULL;
     TypeInfo *function_type = NULL;
 
-    // 1. Vytvoreni zakladniho scope funkce.
+    // vytvoření nového scope
     tBtNode *scope = NULL;
     symtable_init(&scope);
-
     symtable_push_scope(&scope, &function_stack);
-
     if (function_stack.top == NULL) {
         res = 99;
         goto cleanup;
     }
 
-    // 2. Extension receiver.
+    // vyřeší extension část
     if (func_sym->extension != NULL) {
         ASTNode *receiver = func_sym->extension;
 
@@ -539,14 +854,14 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
             goto cleanup;
         }
 
-        // Typ receiveru musi byt vyreseny.
+        // vyřeší reciever pokud ještě není vyřešený
         if (receiver->expr_type == NULL) {
             TypeInfo *resolved = NULL;
-
             res = semantic_resolve_type_alias(receiver->data.var_def.declared_type, ctx, &resolved);
-
             if (res != 0) {
-                type_info_free(resolved);
+                if (resolved != NULL) {
+                    type_info_free(resolved);
+                }
                 goto cleanup;
             }
 
@@ -558,19 +873,18 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
             ast_set_type(receiver, resolved);
         }
 
-        // ID se prideluje jen jednou,
-        // receiver muze sdilet vice metod.
+        // nastaví mu var_id pokud ho nemá
         if (receiver->data.var_def.var_id == 0) {
             receiver->data.var_def.var_id = ctx->next_var_id++;
         }
 
+        // vloží do tabulky
         tBtNodeData receiver_data = {.type = VARIABLE, .value = receiver};
-
         symtable_insert(&function_stack.top->scope, receiver->data.var_def.identifier,
                         receiver_data);
     }
 
-    // 3. Registrace vsech parametru.
+    // registrace všech skupin parametrů
     for (ASTNode *group = function->data.func_def.param_groups; group != NULL;
          group = group->next) {
 
@@ -579,18 +893,17 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
             goto cleanup;
         }
 
+        // zaregistruje skupinu parametrů
         res = semantic_register_param_list(group, ctx);
-
         if (res != 0) {
             goto cleanup;
         }
     }
 
-    // 4. Explicitni navratovy typ.
+    // pokud je dán návratový typ, vyřeší ho a nastaví celkový typ funkce
     if (function->data.func_def.return_type != NULL) {
 
         res = semantic_resolve_type_alias(function->data.func_def.return_type, ctx, &return_type);
-
         if (res != 0) {
             goto cleanup;
         }
@@ -600,11 +913,9 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
             goto cleanup;
         }
 
-        // Signaturu vytvorime PRED kontrolou tela,
-        // aby bylo mozne rekurzivni volani.
+        // vytvoří typ funkce a uloží do expr_type
         res = semantic_build_function_type(function->data.func_def.param_groups, return_type,
                                            &function_type);
-
         if (res != 0) {
             goto cleanup;
         }
@@ -615,16 +926,23 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
         func_sym->state = FUNC_RESOLVED;
     }
 
-    // 5. Analyza tela.
-    // U funkce vracejici Unit se hodnota
-    // tela vyhodnoti a zahodi.
-    const TypeInfo *expected_body = NULL;
+    // zpracuje tělo, a pokud nečeká unit zjistí návratový typ
+    TypeInfo *expected_body = NULL;
 
     if (return_type != NULL && return_type->type_class != TYPE_UNIT) {
         expected_body = return_type;
     }
 
-    res = semantic_check_block(function->data.func_def.body, ctx, expected_body);
+    bool body_used_as_value = return_type == NULL || return_type->type_class != TYPE_UNIT;
+
+    if (return_type == NULL) {
+        res = semantic_fill_unit_else(function->data.func_def.body);
+        if (res != 0) {
+            goto cleanup;
+        }
+    }
+    res =
+        semantic_check_block(function->data.func_def.body, ctx, expected_body, body_used_as_value);
 
     if (res != 0) {
         goto cleanup;
@@ -637,21 +955,19 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
         goto cleanup;
     }
 
-    // 6. Navratovy typ funkce.
+    // urší návratový typ funkce, pokud jsme předtím neznali návratový typ
     if (return_type == NULL) {
 
-        // Funkce bez explicitniho navratoveho typu:
-        // odvodime ho z vysledku tela.
+        // návratový typ určí z návratu těla
         return_type = type_info_clone(body->expr_type);
-
         if (return_type == NULL) {
             res = 99;
             goto cleanup;
         }
 
+        // vytvoří typ a dá do expr_type
         res = semantic_build_function_type(function->data.func_def.param_groups, return_type,
                                            &function_type);
-
         if (res != 0) {
             goto cleanup;
         }
@@ -661,41 +977,36 @@ int semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *ctx) {
 
     } else if (return_type->type_class != TYPE_UNIT) {
 
-        // Explicitni navratovy typ:
-        // vysledek tela musi byt kompatibilni.
+        // zontroluje kompatibilitu návratového typu funkce a co vrací body
         if (!semantic_types_compatible(return_type, body->expr_type)) {
             res = 6;
             goto cleanup;
         }
 
-        // Pripadna konverze Int -> Double
-        // na vysledku tela.
+        // nastaví případnou konverzi
         res = semantic_check_conversion(body, return_type);
-
         if (res != 0) {
             goto cleanup;
         }
     }
 
-    // 7. Funkce je kompletne zkontrolovana.
+    // hotovo
     func_sym->state = FUNC_CHECKED;
 
 cleanup:
-    // Uvolneni pripadnych docasnych typu.
-    type_info_free(return_type);
-    type_info_free(function_type);
 
-    // Pri chybe se analyza prerusila.
-    if (res != 0) {
-        func_sym->state = FUNC_UNRESOLVED;
+    if (return_type != NULL) {
+        type_info_free(return_type);
+    }
+    if (function_type != NULL) {
+        type_info_free(function_type);
     }
 
-    // Uvolneni vsech scope teto funkce.
     while (function_stack.top != NULL) {
         symtable_pop_scope(&function_stack);
     }
 
-    // Obnoveni predchoziho kontextu.
+    // obnoví zásobník
     ctx->scope_stack = saved_stack;
     ctx->current_function = saved_function;
     ctx->inside_lambda = saved_lambda;
@@ -708,6 +1019,7 @@ int semantic_literal(ASTNode *node) {
         return 99;
     }
     TypeClass type;
+    // určí typ literálu
     switch (node->data.literal.kind) {
         case LIT_INT:
             type = TYPE_INT;
@@ -728,12 +1040,14 @@ int semantic_literal(ASTNode *node) {
             return 99;
     }
 
+    // vytvoří podle toho typ
     TypeInfo *result = type_create_basic(type);
 
     if (result == NULL) {
         return 99;
     }
 
+    // nastavý do expr_type
     ast_set_type(node, result);
 
     return 0;
@@ -744,14 +1058,21 @@ int semantic_identifier(ASTNode **node, SemanticContext *ctx) {
         (*node)->data.identifier.name == NULL) {
         return 99;
     }
+
+    // najde deklaraci toho identifikátoru
     tBtNode *var = semantic_find_symbol(ctx->scope_stack, (*node)->data.identifier.name, ctx);
     if (var == NULL) {
         return 3;
     }
+
+    // pokud to není funkce
     if (var->data->type != FUNCTION) {
+
         ASTNode *found_node = (ASTNode *)var->data->value;
         TypeInfo *type = NULL;
         int var_id = 0;
+
+        // podle typu to určí type a var_id
         if (found_node->type == AST_VAR_DEF) {
             type = found_node->expr_type;
             var_id = found_node->data.var_def.var_id;
@@ -763,38 +1084,69 @@ int semantic_identifier(ASTNode **node, SemanticContext *ctx) {
 
             type = found_node->expr_type;
             var_id = found_node->data.pattern.var_id;
+
         } else if (found_node->type == AST_CLASS_DEF || found_node->type == AST_TYPE_ALIAS) {
             return 6;
         } else {
             return 99;
         }
+
+        // vytvoří typ a dá do expr_type
         TypeInfo *clone_type = type_info_clone(type);
         if (clone_type == NULL) {
             return 99;
         }
         ast_set_type(*node, clone_type);
         (*node)->data.identifier.var_id = var_id;
+
     } else {
         SemanticFunctionSymbol *found = (SemanticFunctionSymbol *)var->data->value;
+
+        if (found->is_buildin) { // pro vestavěné funkce
+            TypeInfo *signature = found->builtin_signatures[0];
+
+            if (signature == NULL) {
+                return 99;
+            }
+
+            // List.range má dvě signatury
+            // Bez kontextu nelze určit, kterou použít
+            if (found->builtin_signatures[1] != NULL) {
+                return 6;
+            }
+
+            // vytvoří typ a doplní
+            TypeInfo *type = type_info_clone(signature);
+            if (type == NULL) {
+                return 99;
+            }
+
+            ast_set_type(*node, type);
+            (*node)->data.identifier.var_id = -1;
+
+            return 0;
+        }
+
         ASTNode *found_node = found->function;
         if (found_node->type != AST_FUNC_DEF) {
             return 99;
         }
 
         (*node)->data.identifier.var_id = -1;
-
-        if (found_node->data.func_def.param_groups == NULL) {
-            int result = ast_wrap_in_call(node);
-
-            if (result != 0) {
-                return result;
+        int res = 0;
+        // vyřeší pro ostatní funkce
+        if (found_node->data.func_def.param_groups == NULL) { // nemá parametry
+            res = ast_wrap_in_call(node);
+            if (res != 0) {
+                return res;
             }
-            int res = semantic_func_call(*node, ctx, NULL);
+
+            res = semantic_func_call(*node, ctx, NULL);
             if (res != 0) {
                 return res;
             }
         } else {
-            int res = semantic_ensure_func_type(found, ctx);
+            res = semantic_ensure_func_type(found, ctx);
             if (res != 0) {
                 return res;
             }
@@ -804,7 +1156,6 @@ int semantic_identifier(ASTNode **node, SemanticContext *ctx) {
             }
 
             TypeInfo *clone_type = type_info_clone(found_node->expr_type);
-
             if (clone_type == NULL) {
                 return 99;
             }
@@ -824,6 +1175,7 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
 
     int op = node->data.bin_op.operator_token;
 
+    // zpracuje uzly na pravé a levé straně operátoru
     int res = semantic_visit(&node->data.bin_op.left, ctx, NULL);
     if (res != 0) {
         return res;
@@ -841,7 +1193,8 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
     }
     TypeInfo *res_type;
 
-    if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL || op == TOK_DIV) {
+    // podle typu operátoru a typů operandů určí, jestli je operace v pořádku a jaký je výsledný typ
+    if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL || op == TOK_DIV) { // řeší + - * /
         if (op == TOK_PLUS && left->type_class == TYPE_STRING && right->type_class == TYPE_STRING) {
             res_type = type_create_basic(TYPE_STRING);
         } else if ((left->type_class == TYPE_INT && right->type_class == TYPE_INT) ||
@@ -860,7 +1213,7 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
         }
 
     } else if (op == TOK_LESSTHEN || op == TOK_LESSEQ || op == TOK_GREATERTHEN ||
-               op == TOK_GREATEREQ) {
+               op == TOK_GREATEREQ) { // řeší < > <= >=
         if (((left->type_class == TYPE_INT || left->type_class == TYPE_DOUBLE) &&
              (right->type_class == TYPE_INT || right->type_class == TYPE_DOUBLE)) ||
             (left->type_class == TYPE_STRING && right->type_class == TYPE_STRING)) {
@@ -874,7 +1227,7 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
             return 6;
         }
 
-    } else if (op == TOK_EQ || op == TOK_NOTEQ) {
+    } else if (op == TOK_EQ || op == TOK_NOTEQ) { // řeší == !=
 
         if (semantic_types_equal(left, right)) {
 
@@ -890,14 +1243,14 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
         } else {
             return 6;
         }
-    } else if (op == TOK_AND || op == TOK_OR) {
+    } else if (op == TOK_AND || op == TOK_OR) { // řeší && ||
         if (left->type_class == TYPE_BOOLEAN && right->type_class == TYPE_BOOLEAN) {
 
             res_type = type_create_basic(TYPE_BOOLEAN);
         } else {
             return 6;
         }
-    } else if (op == TOK_CONCAT) {
+    } else if (op == TOK_CONCAT) { // řeší ++
         if (left->type_class == TYPE_LIST && right->type_class == TYPE_LIST) {
             if (!semantic_types_equal(left, right)) {
                 return 6;
@@ -906,12 +1259,14 @@ int semantic_binary_op(ASTNode *node, SemanticContext *ctx) {
         } else {
             return 6;
         }
-    } else {
+    } else { // neznámý operátor
         return 99;
     }
+    // zkontroluje, jestli má návratový typ (jeho tvorba proběhla v pořádku)
     if (res_type == NULL) {
         return 99;
     }
+    // nastaví expr_type
     ast_set_type(node, res_type);
 
     return 0;
@@ -924,6 +1279,7 @@ int semantic_unary_op(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // zpracuje uzel operandu
     int res = semantic_visit(&node->data.unary_op.operand, ctx, NULL);
     if (res != 0) {
         return res;
@@ -933,6 +1289,7 @@ int semantic_unary_op(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // podle druhu operátoru a typu operandu určí, jestli je operace povolená
     switch (node->data.unary_op.operand->expr_type->type_class) {
         case TYPE_INT:
         case TYPE_DOUBLE:
@@ -949,18 +1306,413 @@ int semantic_unary_op(ASTNode *node, SemanticContext *ctx) {
         default:
             return 6;
     }
+    // vytvoří výsledný typ (operátor ho nezmění, určí se podle operandu)
     TypeInfo *res_type = type_create_basic(node->data.unary_op.operand->expr_type->type_class);
     if (res_type == NULL) {
         return 99;
     }
+    // nastavení expr_type
     ast_set_type(node, res_type);
     return 0;
 }
 
-int semantic_func_call(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
+int call_param_group_count(const ASTNode *group) {
+    int count = 0;
+    for (; group; group = group->next) {
+        if (group->type != AST_PARAM_LIST) {
+            return -1;
+        }
+        ++count;
+    }
+    return count;
+}
 
-static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                                     SemanticFunctionSymbol **matched_method) {
+/* Z overloadu vestavene funkce vybere podle poctu argumentu.
+ * Vraci vypujceny typ; kopii udela az volajici. */
+int call_builtin_type(const SemanticFunctionSymbol *func, const ASTNode *args,
+                      const TypeInfo **result) {
+    if (func == NULL || result == NULL || !func->is_buildin) {
+        return 99;
+    }
+    *result = NULL;
+    if (args == NULL || args->type != AST_ARG_LIST) {
+        return 5;
+    }
+
+    // zjistí počet argumentů
+    int argc = 0;
+    for (const ASTNode *a = args->data.list.items; a; a = a->next) {
+        argc++;
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        TypeInfo *built_type = func->builtin_signatures[i];
+        if (built_type == NULL) {
+            continue;
+        }
+        if (built_type->type_class != TYPE_FUNCTION) {
+            return 99;
+        }
+
+        int param_count = 0;
+        for (const TypeInfo *param = built_type->data.func_type.param_types; param;
+             param = param->next) {
+            param_count++;
+        }
+        if (param_count == argc) {
+            *result = built_type;
+            return 0;
+        }
+    }
+    return 5;
+}
+
+// řeší určité vestavěné funkce
+int call_list_method_type(const char *name, const TypeInfo *list, TypeInfo **out) {
+    if (!name || !list || !out || list->type_class != TYPE_LIST || !list->data.list_element_type) {
+        return 99;
+    }
+    *out = NULL;
+
+    bool predicate = strcmp(name, "filter") == 0 || strcmp(name, "takeWhile") == 0 ||
+                     strcmp(name, "dropWhile") == 0;
+    int int_count =
+        !strcmp(name, "slice") ? 2 : (!strcmp(name, "drop") || !strcmp(name, "take") ? 1 : 0);
+    if (!predicate && !int_count)
+        return 3;
+
+    TypeInfo *params = NULL;
+    TypeInfo *ret = NULL;
+
+    if (predicate) {
+        TypeInfo *arg = type_info_clone(list->data.list_element_type);
+        if (!arg)
+            return 99;
+        TypeInfo *boolean = type_create_basic(TYPE_BOOLEAN);
+        if (!boolean) {
+            type_info_free(arg);
+            return 99;
+        }
+        params = type_create_function(arg, boolean);
+        if (!params) {
+            type_info_free(arg);
+            type_info_free(boolean);
+            return 99;
+        }
+    } else {
+        for (int i = 0; i < int_count; i++) {
+            TypeInfo *param_type = type_create_basic(TYPE_INT);
+            if (!param_type) {
+                type_info_free(params);
+                type_info_free(ret);
+                return 99;
+            }
+            params = type_append(params, param_type);
+        }
+    }
+    ret = type_info_clone(list);
+    if (!ret) {
+        type_info_free(params);
+        type_info_free(ret);
+        return 99;
+    }
+    *out = type_create_function(params, ret);
+    if (!*out) {
+        type_info_free(params);
+        type_info_free(ret);
+        return 99;
+    }
+    return 0;
+}
+
+int call_constructor_type(ASTNode *class_def, TypeInfo **res_type) {
+    if (!class_def || !res_type || class_def->type != AST_CLASS_DEF) {
+        return 99;
+    }
+    // projde parametry třídy a vytvoří seznam jejich typů
+    *res_type = NULL;
+    TypeInfo *params = NULL;
+    for (const ASTNode *field = class_def->data.class_def.fields; field != NULL;
+         field = field->next) {
+        if (field->type != AST_VAR_DEF || !field->expr_type) {
+            type_info_free(params);
+            return 99;
+        }
+        TypeInfo *param_type = type_info_clone(field->expr_type);
+        if (!param_type) {
+            type_info_free(params);
+            return 99;
+        }
+        params = type_append(params, param_type);
+    }
+
+    // vytvoří typ třídy
+    TypeInfo *ret = type_create_custom(class_def->data.class_def.name);
+    if (ret == NULL) {
+        type_info_free(params);
+        return 99;
+    }
+
+    // pomocí těch dvou vytvoří typ pro funkci
+    *res_type = type_create_function(params, ret);
+    if (*res_type == NULL) {
+        type_info_free(params);
+        type_info_free(ret);
+        return 99;
+    }
+    return 0;
+}
+
+int call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind, int *own_groups) {
+    if (call == NULL || ctx == NULL || kind == NULL || own_groups == NULL ||
+        call->type != AST_FUNC_CALL || !call->data.func_call.target) {
+        return 99;
+    }
+    *kind = CALL_UNRESOLVED;
+    *own_groups = 0;
+    ASTNode **slot = &call->data.func_call.target;
+    ASTNode *target = *slot;
+    TypeInfo *owned = NULL;
+    int err;
+
+    if (target->type == AST_IDENTIFIER) {
+        char *name = target->data.identifier.name;
+        if (!name) {
+            return 99;
+        }
+        tBtNode *entry = NULL;
+        if (ctx->scope_stack) {
+            entry = semantic_find_symbol(ctx->scope_stack, name, ctx);
+        } else {
+            symtable_search(&ctx->symbols, name, &entry);
+        }
+        if (!entry) {
+            return 3;
+        }
+        if (!entry->data || !entry->data->value) {
+            return 99;
+        }
+
+        if (entry->data->type == FUNCTION) {
+            SemanticFunctionSymbol *func = entry->data->value;
+            const TypeInfo *signature = NULL;
+            if (func->is_buildin) {
+                err = call_builtin_type(func, call->data.func_call.arg_groups, &signature);
+                if (err) {
+                    return err;
+                }
+                *kind = CALL_BUILTIN;
+                *own_groups = 1;
+            } else {
+                if (!func->function || func->function->type != AST_FUNC_DEF) {
+                    return 99;
+                }
+                err = semantic_ensure_func_type(func, ctx);
+                if (err) {
+                    return err;
+                }
+                signature = func->function->expr_type;
+                *own_groups = call_param_group_count(func->function->data.func_def.param_groups);
+                if (*own_groups < 0) {
+                    return 99;
+                }
+                *kind = CALL_USER_FUNC;
+            }
+            if (!signature) {
+                return 99;
+            }
+            owned = type_info_clone(signature);
+            if (!owned) {
+                return 99;
+            }
+            ast_set_type(target, owned);
+            target->data.identifier.var_id = -1;
+            return 0;
+        }
+        if (entry->data->type == CLASS) {
+            ASTNode *class_node = entry->data->value;
+
+            err = call_constructor_type(class_node, &owned);
+            if (err) {
+                return err;
+            }
+            ast_set_type(target, owned);
+            target->data.identifier.var_id = -1;
+            *kind = CALL_CONSTRUCTOR;
+            *own_groups = 1;
+            return 0;
+        }
+        if (entry->data->type == ALIAS) {
+            return 6;
+        }
+        if (entry->data->type != VARIABLE) {
+            return 99;
+        }
+    }
+
+    if (target->type == AST_MEMBER_ACCESS) {
+        ASTNode *member = target;
+        ASTNode **object = &member->data.member_access.object;
+        if (!*object || !member->data.member_access.member_name) {
+            return 99;
+        }
+        err = (*object)->type == AST_RANGE ? semantic_range(*object, ctx)
+                                           : semantic_visit(object, ctx, NULL);
+        if (err) {
+            return err;
+        }
+
+        SemanticFunctionSymbol *method = NULL;
+        const TypeInfo *object_type = (*object)->expr_type;
+        if (object_type && object_type->type_class == TYPE_LIST) {
+            err =
+                call_list_method_type(member->data.member_access.member_name, object_type, &owned);
+            if (err == 0) {
+                member->data.member_access.member_kind = MEMBER_LIST_BUILTIN;
+                *kind = CALL_LIST_METHOD;
+                *own_groups = 1;
+            } else if (err != 3) {
+                return err;
+            }
+        }
+        if (*kind != CALL_LIST_METHOD) {
+            err = is_mem_acc_allowed(member, ctx, &owned, &method);
+            if (err) {
+                type_info_free(owned);
+                return err;
+            }
+            if (member->data.member_access.member_kind == MEMBER_EXTENSION) {
+                if (!method || !method->function || method->function->type != AST_FUNC_DEF) {
+                    type_info_free(owned);
+                    return 99;
+                }
+                *own_groups = call_param_group_count(method->function->data.func_def.param_groups);
+                if (*own_groups < 0) {
+                    type_info_free(owned);
+                    return 99;
+                }
+                *kind = CALL_EXTENSION;
+            } else {
+                *kind = CALL_VALUE;
+            }
+        }
+        if (!owned) {
+            return 99;
+        }
+        ast_set_type(member, owned);
+        return 0;
+    }
+
+    // proměnná, lambda, nebo jiný výraz hodnoty
+    err = semantic_visit(slot, ctx, NULL);
+    if (err) {
+        return err;
+    }
+    if (!(*slot)->expr_type) {
+        return 99;
+    }
+    *kind = CALL_VALUE;
+    return 0;
+}
+
+int call_apply_group(ASTNode *group, SemanticContext *ctx, const TypeInfo *current,
+                     TypeInfo **next) {
+    if (!group || group->type != AST_ARG_LIST || !ctx || !current || !next) {
+        return 99;
+    }
+    *next = NULL;
+    const TypeInfo *ret = NULL;
+    int err;
+    if (current->type_class == TYPE_FUNCTION) {
+        err = semantic_check_agr_list(group, ctx, current->data.func_type.param_types);
+        ret = current->data.func_type.return_type;
+    } else if (current->type_class == TYPE_LIST) {
+        TypeInfo index = {.type_class = TYPE_INT};
+        err = semantic_check_agr_list(group, ctx, &index);
+        ret = current->data.list_element_type;
+    } else {
+        return 5;
+    }
+    if (err) {
+        return err;
+    }
+    if (!ret) {
+        return 99;
+    }
+    TypeInfo *copy = type_info_clone(ret);
+    if (!copy) {
+        return 99;
+    }
+    *next = type_info_clone(ret);
+    if (!*next) {
+        type_info_free(copy);
+        return 99;
+    }
+    ast_set_type(group, copy);
+    return 0;
+}
+
+int semantic_func_call(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type) {
+    (void)expected_type; /* Kontrolu kompatibility provadi rodic. */
+    if (!node || !ctx || node->type != AST_FUNC_CALL || !node->data.func_call.target) {
+        return 99;
+    }
+    if (node->data.func_call.call_kind != CALL_UNRESOLVED) {
+        return node->expr_type ? 0 : 99;
+    }
+
+    CallKind kind;
+    int own_groups;
+    int err = call_prepare_target(node, ctx, &kind, &own_groups);
+    if (err) {
+        return err;
+    }
+    TypeInfo *current = type_info_clone(node->data.func_call.target->expr_type);
+    if (!current) {
+        return 99;
+    }
+
+    ASTNode *group = node->data.func_call.arg_groups;
+    if (kind == CALL_VALUE && !group) {
+        err = 5;
+        goto cleanup;
+    }
+    int used = 0;
+    for (; group; group = group->next, ++used) {
+        if (group->type != AST_ARG_LIST) {
+            err = 99;
+            goto cleanup;
+        }
+        if (used < own_groups && current->type_class != TYPE_FUNCTION) {
+            err = 99;
+            goto cleanup;
+        }
+        TypeInfo *next = NULL;
+        err = call_apply_group(group, ctx, current, &next);
+        if (err) {
+            type_info_free(next);
+            goto cleanup;
+        }
+        type_info_free(current);
+        current = next;
+    }
+    if (used < own_groups) {
+        err = 5;
+        goto cleanup;
+    }
+
+    ast_set_type(node, current);
+    node->data.func_call.call_kind = kind;
+    node->data.func_call.own_groups = own_groups;
+    return 0;
+
+cleanup:
+    type_info_free(current);
+    return err;
+}
+
+int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                              SemanticFunctionSymbol **matched_method) {
     if (node == NULL || ctx == NULL || result == NULL || matched_method == NULL ||
         node->type != AST_MEMBER_ACCESS || node->data.member_access.object == NULL ||
         node->data.member_access.member_name == NULL) {
@@ -977,6 +1729,7 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
         return 99;
     }
 
+    // najde metodu podle názvu
     tBtNode *symbol = NULL;
     symtable_search(&ctx->ext_symbols, name, &symbol);
 
@@ -988,6 +1741,8 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
         return 99;
     }
 
+    // u extension může být víc metod stejného jména (v různých extension) - musí projít spojový
+    // seznam těchto metod
     for (SemanticFunctionSymbol *method = symbol->data->value; method != NULL;
          method = method->next) {
 
@@ -999,10 +1754,11 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
             return 99;
         }
 
-        // Zjisteni typu prijemce.
+        // zjistí typ příjemce
         const TypeInfo *receiver_type = receiver->expr_type;
         TypeInfo *temporary_type = NULL;
 
+        // pokud nebyl vyplněný, rozvine alias z deklarovaného typu
         if (receiver_type == NULL) {
             if (receiver->data.var_def.declared_type == NULL) {
                 return 99;
@@ -1024,14 +1780,17 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
 
         bool matches = semantic_types_equal(object_type, receiver_type);
 
-        type_info_free(temporary_type);
+        // pokud se vytvářel typ (po rozvinutí aliasu), uvolní se
+        if (temporary_type != NULL) {
+            type_info_free(temporary_type);
+        }
 
+        // když to není hledaná metoda, pokračuje do dalšího kola cyklu
         if (!matches) {
             continue;
         }
 
-        // Metoda odpovida typu objektu.
-        // Zajistime, ze ma vyresenou signaturu.
+        // zjistí signaturu metody
         int error = semantic_ensure_func_type(method, ctx);
         if (error != 0) {
             return error;
@@ -1041,13 +1800,14 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
             return 99;
         }
 
-        // Kopirujeme CELOU signaturu funkce.
+        // naklonuje typ signatury metody a dá ro result, co se vrací
         *result = type_info_clone(function->expr_type);
 
         if (*result == NULL) {
             return 99;
         }
 
+        // vrací ukazatel na SemanticFunctionSymbol
         *matched_method = method;
 
         node->data.member_access.member_kind = MEMBER_EXTENSION;
@@ -1055,11 +1815,12 @@ static int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeIn
         return 0;
     }
 
+    // nenašlo odpovídající metodu
     return 3;
 }
 
-static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                              SemanticFunctionSymbol **matched_method) {
+int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                       SemanticFunctionSymbol **matched_method) {
     if (node == NULL || ctx == NULL || result == NULL || matched_method == NULL ||
         node->type != AST_MEMBER_ACCESS || node->data.member_access.object == NULL ||
         node->data.member_access.member_name == NULL) {
@@ -1073,11 +1834,14 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
     const char *name = node->data.member_access.member_name;
     const TypeInfo *object_type = object->expr_type;
 
+    // vyřeší případ vestavěných funkcí, kdy jde o AST_RANGE (object_type== NULL)
     if (object->type == AST_RANGE) {
+        // pouze jedna možnost toList, vrací list typu int
         if (strcmp(name, "toList") != 0) {
             return 3;
         }
 
+        // vytvoří výsledný typ a dosadí do result
         TypeInfo *element = type_create_basic(TYPE_INT);
         if (element == NULL) {
             return 99;
@@ -1089,6 +1853,7 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
             return 99;
         }
 
+        // nastaví member_kind a rvátí se
         node->data.member_access.member_kind = MEMBER_RANGE_TOLIST;
         return 0;
     }
@@ -1097,8 +1862,10 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
         return 99;
     }
 
+    // vyřeší, když je object typu custom
     TypeClass receiver = object_type->type_class;
     if (receiver == TYPE_CUSTOM) {
+        // najde jeho definici v globálních symbolech
         tBtNode *symbol = NULL;
         symtable_search(&ctx->symbols, object_type->data.custom_name, &symbol);
         if (symbol == NULL) {
@@ -1108,23 +1875,27 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
             return 99;
         }
 
-        const ASTNode *class_def = symbol->data->value;
+        const ASTNode *class_def = symbol->data->value; // čeká, že to bude třída
         if (class_def == NULL || class_def->type != AST_CLASS_DEF) {
             return 99;
         }
 
+        // projde atributy třídy a hledá, jestli má proměnnou názvu jako name
         for (const ASTNode *field = class_def->data.class_def.fields; field != NULL;
              field = field->next) {
             if (field->type != AST_VAR_DEF || field->data.var_def.identifier == NULL) {
                 return 99;
             }
+            // když to není správný parametr, pokračuj do dalšího cyklu
             if (strcmp(name, field->data.var_def.identifier) != 0) {
                 continue;
             }
 
+            // zž mám správný parametr, naklonuje se jeho typ pokud ho má
             if (field->expr_type != NULL) {
                 *result = type_info_clone(field->expr_type);
             } else {
+                // pokud ho v expr_type nemá, zjistí se z deklarovaného typu
                 int error =
                     semantic_resolve_type_alias(field->data.var_def.declared_type, ctx, result);
                 if (error != 0) {
@@ -1135,15 +1906,18 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
                 return 99;
             }
 
+            // nastaví member_kind
             node->data.member_access.member_kind = MEMBER_FIELD;
             return 0;
         }
     }
 
+    // projde vestavěné metody
     MemberKind kind = MEMBER_VALUE_BUILTIN;
     if (receiver == TYPE_LIST) {
         kind = MEMBER_LIST_BUILTIN;
     }
+    node->data.member_access.member_kind = kind;
 
     if (strcmp(name, "toString") == 0) {
         *result = type_create_basic(TYPE_STRING);
@@ -1157,14 +1931,13 @@ static int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **re
     } else if (receiver == TYPE_LIST && strcmp(name, "tail") == 0) {
         *result = type_info_clone(object_type);
     } else {
+        // pokud to není mezi vestavěnými funkcemi, zkontroluje extension metody
         return semantic_extension_member(node, ctx, result, matched_method);
     }
 
     if (*result == NULL) {
         return 99;
     }
-
-    node->data.member_access.member_kind = kind;
     return 0;
 }
 
@@ -1176,8 +1949,7 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
 
     ASTNode *member = *node;
 
-    // Pokud uz byl member access vyresen,
-    // neprovadime semantickou analyzu znovu.
+    // pokud už byl member_access vyřešen, nekontroluje se znovu
     if (member->data.member_access.member_kind != MEMBER_UNRESOLVED) {
         return member->expr_type != NULL ? 0 : 99;
     }
@@ -1190,10 +1962,11 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
 
     int error;
 
-    // RANGE nema expr_type a vyzaduje zvlastni zpracovani.
+    // vyřešení range (nemá expr_type)
     if ((*object)->type == AST_RANGE) {
         error = semantic_range(*object, ctx);
     } else {
+        // pokud to není range, zpracuje část před .
         error = semantic_visit(object, ctx, NULL);
     }
 
@@ -1204,6 +1977,7 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
     TypeInfo *result = NULL;
     SemanticFunctionSymbol *method = NULL;
 
+    // zjistí o jaký druh členu jde a jaký má typ
     error = is_mem_acc_allowed(member, ctx, &result, &method);
 
     if (error != 0) {
@@ -1215,27 +1989,25 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
         return 99;
     }
 
-    // Atribut tridy nebo vestaveny clen.
+    // pokud to není metoda extension
     if (member->data.member_access.member_kind != MEMBER_EXTENSION) {
         ast_set_type(member, result);
         return 0;
     }
 
-    // Extension musi mit prirazenou funkci.
+    // extension musí mít přiřazenou funci
     if (method == NULL || method->function == NULL) {
         type_info_free(result);
         return 99;
     }
 
-    // Samostatny member access lze pouzit jen
-    // pro extension metodu bez seznamu parametru.
+    // pouze pro extension metody bez parametrů
     if (method->function->data.func_def.param_groups != NULL) {
         type_info_free(result);
         return 5;
     }
 
-    // U metody bez seznamu parametru je
-    // function->expr_type primo navratovy typ.
+    // vytvoří klon typu result, typ result bude potřeba pro 2 různé uzly
     TypeInfo *call_type = type_info_clone(result);
 
     if (call_type == NULL) {
@@ -1243,7 +2015,7 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
         return 99;
     }
 
-    // Prepis x.twice na FUNC_CALL.
+    // zabalí metodu jako volání funkce
     error = ast_wrap_in_call(node);
 
     if (error != 0) {
@@ -1255,10 +2027,10 @@ int semantic_member_access(ASTNode **node, SemanticContext *ctx) {
     ASTNode *call = *node;
     ASTNode *target = call->data.func_call.target;
 
-    // Typ metody (bez seznamu parametru).
+    // nastaví typ metody
     ast_set_type(target, result);
 
-    // Typ celeho volani.
+    // nastaví typ celého volání
     ast_set_type(call, call_type);
 
     call->data.func_call.call_kind = CALL_EXTENSION;
@@ -1273,18 +2045,24 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
         return 99;
     }
 
-    if (expected_type != NULL && expected_type->type_class != TYPE_LIST) {
-        return 6;
+    const TypeInfo *expected_list = NULL;
+
+    if (expected_type != NULL && expected_type->type_class == TYPE_LIST) {
+        expected_list = expected_type;
+
+        if (expected_list->data.list_element_type == NULL) {
+            return 99;
+        }
     }
 
     int res = 0;
     TypeInfo *type = NULL;
-    if (node->data.list.items ==
-        NULL) { // pokud je seznam prázdný, bude mít typ podle expected_type
-        if (expected_type == NULL) {
+    if (node->data.list.items == NULL) {
+        // pokud je seznam prázdný, bude mít typ podle expected_list
+        if (expected_list == NULL) {
             return 6;
         }
-        type = type_info_clone(expected_type);
+        type = type_info_clone(expected_list);
         if (type == NULL) {
             return 99;
         }
@@ -1295,7 +2073,7 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
         while (*actual != NULL) {
             // zpracuje prvek seznamu
             res = semantic_visit(
-                actual, ctx, expected_type != NULL ? expected_type->data.list_element_type : NULL);
+                actual, ctx, expected_list != NULL ? expected_list->data.list_element_type : NULL);
             if (res != 0) {
                 if (list_type != NULL) {
                     type_info_free(list_type);
@@ -1305,7 +2083,7 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
 
             // pokud není zadaný expected type, určí si ho podle společného typu aktuálního a
             // předchozího prvku(pokud předchozí prvek není, je to typ pouze tohoto prvku)
-            if (expected_type == NULL) {
+            if (expected_list == NULL) {
                 if (list_type == NULL) {
                     list_type = type_info_clone((*actual)->expr_type);
 
@@ -1327,8 +2105,8 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
                     type_info_free(list_type);
                     list_type = comm_type;
                 }
-            } else { // expected_type je zadán, stačí ověřit kompatibilitu prvku s ním
-                if (!semantic_types_compatible(expected_type->data.list_element_type,
+            } else { // expected_list  je zadán, stačí ověřit kompatibilitu prvku s ním
+                if (!semantic_types_compatible(expected_list->data.list_element_type,
                                                (*actual)->expr_type)) {
                     return 6;
                 }
@@ -1337,8 +2115,8 @@ int semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
         }
 
         // doplní si typ, který by měl seznam mít
-        if (expected_type != NULL) {
-            type = type_info_clone(expected_type);
+        if (expected_list != NULL) {
+            type = type_info_clone(expected_list);
             if (type == NULL) {
                 return 99;
             }
@@ -1395,7 +2173,7 @@ int semantic_assignment(ASTNode *node, SemanticContext *ctx) {
         return 7; // proměnná není modifikovatelná, nelze přiřadit
     }
 
-    // yřeší pravou stranu přiazení
+    // vyřeší pravou stranu přiazení
     int res = semantic_visit(&node->data.assignment.value, ctx, tar_var->expr_type);
     if (res != 0) {
         return res;
@@ -1405,7 +2183,7 @@ int semantic_assignment(ASTNode *node, SemanticContext *ctx) {
     if (!semantic_types_compatible(tar_var->expr_type, node->data.assignment.value->expr_type)) {
         return 6;
     }
-    // kontrola a případné nastavení konverze to_double
+    // případné nastavení konverze to_double
     res = semantic_check_conversion(node->data.assignment.value, tar_var->expr_type);
     if (res != 0) {
         return res;
@@ -1427,7 +2205,7 @@ int semantic_assignment(ASTNode *node, SemanticContext *ctx) {
  * ================================================== */
 
 int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is_param) {
-
+    // úvodní kontroly
     if (node == NULL || ctx == NULL || node->type != AST_VAR_DEF ||
         (!is_param && node->data.var_def.initializer == NULL) ||
         (is_param && node->data.var_def.initializer != NULL) || scope == NULL ||
@@ -1436,13 +2214,15 @@ int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is
     }
 
     tBtNode *exists = NULL;
+    // zkontroluje, jestli v aktuálním scope už není definice proměnné stejného jména
     symtable_search(&stack_top(scope)->scope, node->data.var_def.identifier, &exists);
     if (exists != NULL) {
         // nejake uvolnovani
         return 4;
     }
-    if (node->data.var_def.declared_type != NULL) {
 
+    if (node->data.var_def.declared_type != NULL) {
+        // rozvine alias deklarovaného typu
         TypeInfo *exp_type = NULL;
         int resolved_res =
             semantic_resolve_type_alias(node->data.var_def.declared_type, ctx, &exp_type);
@@ -1452,9 +2232,12 @@ int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is
             }
             return resolved_res;
         }
+
+        // pokud je definice proměnné parametrem, nastaví typ na deklarovaný
         if (is_param) {
             ast_set_type(node, exp_type);
         } else {
+            // zpracuje inicializér proměnné
             int result = semantic_visit(&node->data.var_def.initializer, ctx, exp_type);
 
             if (result != 0) {
@@ -1466,10 +2249,12 @@ int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is
 
             TypeInfo *act_type = node->data.var_def.initializer->expr_type;
 
+            // ověří kompatibilitu tzpů inicializéru a deklarovaného typu
             if (!semantic_types_compatible(exp_type, act_type)) {
                 type_info_free(exp_type);
                 return 6;
             }
+            // provede případnou konverzi
             result = semantic_check_conversion(node->data.var_def.initializer, exp_type);
 
             if (result != 0) {
@@ -1477,28 +2262,33 @@ int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is
                 return result;
             }
 
+            // nastaví expr_type
             ast_set_type(node, exp_type);
         }
 
-    } else {
-        if (is_param) {
-            return 10;
+    } else {            // pokud nemám deklarovaný typ
+        if (is_param) { // definice parametru musí mít deklarovaný typ
+            return 6;
         }
+        // zpracuje inicializer
         int result = semantic_visit(&node->data.var_def.initializer, ctx, NULL);
 
         if (result != 0) {
             return result;
         }
 
+        // jeho typ nastaví jako expr_type
         TypeInfo *act_type = type_info_clone(node->data.var_def.initializer->expr_type);
         if (act_type == NULL) {
             return 99;
         }
         ast_set_type(node, act_type);
     }
+    // nastaví var_id
     node->data.var_def.var_id = ctx->next_var_id;
     ctx->next_var_id++;
 
+    // vloží do aktuálního scope
     tBtNodeData node_symtab = {.value = node, .type = VARIABLE};
 
     symtable_insert(&stack_top(scope)->scope, node->data.var_def.identifier, node_symtab);
@@ -1514,15 +2304,14 @@ int semantic_class_def(ASTNode *node, SemanticContext *ctx) {
 
     ASTNode *field = node->data.class_def.fields;
     while (field != NULL) {
-        // Kontrola spravne struktury atributu.
+        // kontrola jestli má uzel správný tvar
         if (field->type != AST_VAR_DEF || field->data.var_def.declared_type == NULL ||
             field->data.var_def.initializer != NULL || field->data.var_def.is_mutable) {
             return 99;
         }
 
-        // Kontrola duplicitnich nazvu atributu.
+        // zkonroluje, jestli už před ním nebylo v této třídě jméno takovéto proměnné použito
         ASTNode *previous = node->data.class_def.fields;
-
         while (previous != field) {
             if (previous->data.var_def.identifier != NULL &&
                 field->data.var_def.identifier != NULL) {
@@ -1535,9 +2324,8 @@ int semantic_class_def(ASTNode *node, SemanticContext *ctx) {
             previous = previous->next;
         }
 
-        // Vyreseni deklarovaneho typu atributu.
         TypeInfo *resolved_type = NULL;
-
+        // zjistí a rozvine deklarovaný tvar proměnné
         int res =
             semantic_resolve_type_alias(field->data.var_def.declared_type, ctx, &resolved_type);
 
@@ -1552,10 +2340,10 @@ int semantic_class_def(ASTNode *node, SemanticContext *ctx) {
             return 99;
         }
 
-        // Ulozeni vyreseneho typu do AST.
+        // oložího do expr_type proměnné
         ast_set_type(field, resolved_type);
 
-        // Atribut tridy neni lokalni promenna.
+        // atributy třídy mají var_id -1
         field->data.var_def.var_id = -1;
         field = field->next;
     }
@@ -1569,17 +2357,19 @@ int semantic_type_alias(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // rozloží alias
     TypeInfo *res_type = NULL;
     int res = semantic_resolve_type_alias(node->data.type_alias.aliased, ctx, &res_type);
     if (res != 0) {
         return res;
     }
 
+    // nastaví typ na rozložený alias
     ast_set_type(node, res_type);
     return 0;
 }
 
-static SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, SemanticContext *ctx) {
+SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, SemanticContext *ctx) {
     if (function == NULL || ctx == NULL || function->type != AST_FUNC_DEF ||
         function->data.func_def.name == NULL) {
         return NULL;
@@ -1587,6 +2377,7 @@ static SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, Semantic
 
     tBtNode *symbol = NULL;
 
+    // prohledá tabulku extension metod, jestli už obsahuje metodu s jménem této funkce
     symtable_search(&ctx->ext_symbols, function->data.func_def.name, &symbol);
 
     if (symbol == NULL || symbol->data == NULL || symbol->data->type != FUNCTION ||
@@ -1594,10 +2385,13 @@ static SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, Semantic
         return NULL;
     }
 
+    // projde seznam extension metod se stejným jménem (můžou mít stejné jméno, pokud je v extension
+    // s různými recievery)
     for (SemanticFunctionSymbol *method = symbol->data->value; method != NULL;
          method = method->next) {
 
-        if (method->function == function) {
+        if (method->function ==
+            function) { // porovnám ukazatele, jestli se skutečně jedná o hledanou metodu
             return method;
         }
     }
@@ -1620,7 +2414,7 @@ int semantic_extension_def(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
-    // 1. Vyresit typ receiveru, pokud jeste neni vyreseny.
+    // vyřeší typ receiveru, pokud ještě není vyřešený
     if (receiver->expr_type == NULL) {
         TypeInfo *resolved_type = NULL;
 
@@ -1639,12 +2433,12 @@ int semantic_extension_def(ASTNode *node, SemanticContext *ctx) {
         ast_set_type(receiver, resolved_type);
     }
 
-    // 2. Pridelit receiveru var_id, pokud jeste nema.
+    // přidělí mu (pořád reciever) var_id, pokud ho ještě nemá
     if (receiver->data.var_def.var_id == 0) {
         receiver->data.var_def.var_id = ctx->next_var_id++;
     }
 
-    // 3. Zpracovat vsechny metody.
+    // zpracuje všechny metody
     for (ASTNode *method = methods; method != NULL; method = method->next) {
 
         if (method->type != AST_FUNC_DEF || method->data.func_def.name == NULL ||
@@ -1652,14 +2446,14 @@ int semantic_extension_def(ASTNode *node, SemanticContext *ctx) {
             return 99;
         }
 
-        // Najdeme symbol vytvoreny pomoci register_ext_func.
+        // Najdeme extension symbol metody, kterou zpracováváme
         SemanticFunctionSymbol *symbol = find_extension_symbol(method, ctx);
 
         if (symbol == NULL || symbol->extension != receiver) {
             return 99;
         }
 
-        // Kompletní semanticka kontrola metody.
+        // zpracování funkce metody
         int error = semantic_func_def(symbol, ctx);
 
         if (error != 0) {
@@ -1670,12 +2464,157 @@ int semantic_extension_def(ASTNode *node, SemanticContext *ctx) {
     return 0;
 }
 
-int semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
+int semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type) {
+    if (node == NULL || ctx == NULL || node->type != AST_LAMBDA) {
+        return 99;
+    }
+    // používám až později, ale potřeba inicializovat před prvním goto cleanup
+    TypeInfo *function_type = NULL;
+    TypeInfo *param_list = NULL;
+    TypeInfo *ret_type = NULL;
+
+    // vytvoří nový zásobník pro lambda funkci
+    tStack lambda_stack = {0};
+    int return_value = 0;
+    // uloží stav předchozího zásobníku a nastaví nový
+    tStack *former_stack = ctx->scope_stack;
+    bool former_lambda = ctx->inside_lambda;
+
+    ctx->scope_stack = &lambda_stack;
+    ctx->inside_lambda = true;
+
+    // vytvoří nový scope a dá ho na vrchol zásobníku
+    tBtNode *scope = NULL;
+    symtable_init(&scope);
+    symtable_push_scope(&scope, &lambda_stack);
+    if (lambda_stack.top == NULL) {
+        return_value = 99;
+        goto cleanup;
+    }
+
+    // ypracuje parametry a dá do scope
+    return_value = semantic_register_param_list(node->data.lambda.param_list, ctx);
+    if (return_value != 0) {
+        goto cleanup;
+    }
+
+    // vytvoří z parametů seznam typů
+
+    ASTNode *act_param = node->data.lambda.param_list->data.list.items;
+    while (act_param != NULL) {
+        if (act_param->type != AST_VAR_DEF || !act_param->expr_type) {
+            return_value = 99;
+            goto cleanup;
+        }
+        TypeInfo *copy = type_info_clone(act_param->expr_type);
+        if (!copy) {
+            return_value = 99;
+            goto cleanup;
+        }
+        param_list = type_append(param_list, copy);
+        act_param = act_param->next;
+    }
+
+    TypeInfo *expected_return = NULL;
+    if (expected_type != NULL && expected_type->type_class == TYPE_FUNCTION) {
+        const TypeInfo *param = param_list;
+        const TypeInfo *expect = expected_type->data.func_type.param_types;
+        while (param != NULL && expect != NULL && semantic_types_equal(param, expect)) {
+            param = param->next;
+            expect = expect->next;
+        }
+        if (!param && !expect) {
+            expected_return = expected_type->data.func_type.return_type;
+            if (!expected_return) {
+                return_value = 99;
+                goto cleanup;
+            }
+        }
+    }
+
+    const TypeInfo *body_expected = expected_return;
+    if (body_expected != NULL && body_expected->type_class == TYPE_UNIT) {
+        body_expected =
+            NULL; // pokud má být typ unit, je nám to jedno, protože se nic vracet nebude
+    }
+
+    // zpracuje tělo funkce
+    bool body_used_as_value = expected_return == NULL || expected_return->type_class != TYPE_UNIT;
+    return_value =
+        semantic_check_block(node->data.lambda.body, ctx, body_expected, body_used_as_value);
+    if (return_value != 0) {
+        goto cleanup;
+    }
+    if (node->data.lambda.body->expr_type == NULL) {
+        return_value = 99;
+        goto cleanup;
+    }
+
+    // zkontroluje správnost typů a vytvoří návratový typ
+
+    if (expected_return != NULL && expected_return->type_class == TYPE_UNIT) {
+
+        ret_type = type_create_basic(TYPE_UNIT);
+
+    } else if (expected_return != NULL &&
+               semantic_types_compatible(expected_return, node->data.lambda.body->expr_type)) {
+
+        return_value = semantic_check_conversion(node->data.lambda.body, expected_return);
+        if (return_value != 0) {
+            goto cleanup;
+        }
+
+        ret_type = type_info_clone(expected_return);
+    } else {
+        // kompatibilitu bude řešit nadřazený uzel, tady řešit nemusím
+        ret_type = type_info_clone(node->data.lambda.body->expr_type);
+    }
+
+    if (ret_type == NULL) {
+        return_value = 99;
+        goto cleanup;
+    }
+
+    // vytvoří typ funkce a dosadí do expr_type lambda funkce
+    function_type = type_create_function(param_list, ret_type);
+    if (function_type == NULL) {
+        return_value = 99;
+        goto cleanup;
+    }
+    param_list = NULL; /* vlastnictvi preslo do function_type */
+    ret_type = NULL;
+    ast_set_type(node, function_type);
+    function_type = NULL;
+
+// závěrečný úklid a zrácení zásobníku do původního stavu
+cleanup:
+    if (param_list != NULL) {
+        type_info_free(param_list);
+    }
+    if (ret_type != NULL) {
+        type_info_free(ret_type);
+    }
+    if (function_type != NULL) {
+        type_info_free(function_type);
+    }
+    while (lambda_stack.top) {
+        symtable_pop_scope(&lambda_stack);
+    }
+    ctx->scope_stack = former_stack;
+    ctx->inside_lambda = former_lambda;
+    return return_value;
+}
 
 /* ==================================================
  * PŘÍKAZY A ŘÍDICÍ STRUKTURY
  * ================================================== */
 
+/**
+ * @brief zjistí, jestli všechny větve if mají return
+ *
+ * @param node
+ * @return true pokud všechny obsahují return, jinak false
+ */
 bool semantic_always_returns(const ASTNode *node) {
     if (node == NULL) {
         return false;
@@ -1683,9 +2622,11 @@ bool semantic_always_returns(const ASTNode *node) {
 
     switch (node->type) {
         case AST_RETURN:
+            // uzel je typu return, vrací true
             return true;
 
         case AST_BLOCK:
+            // projde všechny příkazy bloku, když najde return vrací true
             for (const ASTNode *stmt = node->data.block.statements; stmt != NULL;
                  stmt = stmt->next) {
 
@@ -1696,16 +2637,66 @@ bool semantic_always_returns(const ASTNode *node) {
             return false;
 
         case AST_IF_EXPR:
+            // když nemá větev else nemuže mít if vždy return
             if (node->data.if_expr.else_block == NULL) {
                 return false;
             }
-
+            // zjistí jestli if then i else větev obsahují return
             return semantic_always_returns(node->data.if_expr.then_block) &&
                    semantic_always_returns(node->data.if_expr.else_block);
 
         default:
+            // ostatní typy vrací false
             return false;
     }
+}
+int semantic_fill_unit_else(ASTNode *node) {
+    if (node == NULL) {
+        return 0;
+    }
+
+    // Pokud jde o blok, zajímá nás jen poslední příkaz.
+    if (node->type == AST_BLOCK) {
+        ASTNode *last = node->data.block.statements;
+
+        if (last == NULL) {
+            return 99;
+        }
+
+        while (last->next != NULL) {
+            last = last->next;
+        }
+
+        return semantic_fill_unit_else(last);
+    }
+
+    if (node->type != AST_IF_EXPR) {
+        return 0;
+    }
+
+    // Chybějící else doplníme jako else ().
+    if (node->data.if_expr.else_block == NULL) {
+        ASTNode *unit = ast_create_unit_lit(node->line);
+        if (unit == NULL) {
+            return 99;
+        }
+
+        ASTNode *else_block = ast_create_block(unit, node->line);
+        if (else_block == NULL) {
+            ast_free(unit);
+            return 99;
+        }
+
+        node->data.if_expr.else_block = else_block;
+    }
+
+    // Totéž uděláme u koncových if uvnitř obou větví.
+    int res = semantic_fill_unit_else(node->data.if_expr.then_block);
+    if (res != 0) {
+        return res;
+    }
+
+    return semantic_fill_unit_else(node->data.if_expr.else_block);
 }
 
 // asi hotovo
@@ -1720,36 +2711,38 @@ int semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expect
     if (res != 0) {
         return res;
     }
+    // podmínka musí mít typ boolean
     if (node->data.if_expr.condition->expr_type->type_class != TYPE_BOOLEAN) {
         return 6;
     }
 
-    // zkontroluje blok if
+    // zpracuje blok po if
     res = semantic_check_block(node->data.if_expr.then_block, ctx,
-                               used_as_value ? expected_type : NULL);
+                               used_as_value ? expected_type : NULL, used_as_value);
     if (res != 0) {
         return res;
     }
 
     if (node->data.if_expr.else_block != NULL) {
 
-        // zpracuje else větev
+        // zpracuje else větev pokud ji if má
         res = semantic_check_block(node->data.if_expr.else_block, ctx,
-                                   used_as_value ? expected_type : NULL);
+                                   used_as_value ? expected_type : NULL, used_as_value);
         if (res != 0) {
             return res;
         }
 
-    } else { // bez else povoleno pouze u příkazu (ne výrazu)
+    } else { // if bez else povoleno pouze u příkazu (ne výrazu)
         if (used_as_value) {
             return 6;
         }
     }
 
     TypeInfo *ret_type = NULL;
-
+    // irčí návratový typ
     if (used_as_value) {
-        // If jako vyraz: spolecny typ obou vetvi.
+        // if jako výraz: musí být společný typ obou větví
+        // společný typ se nastaví jako ret_type
         res = semantic_common_type(node->data.if_expr.then_block->expr_type,
                                    node->data.if_expr.else_block->expr_type, &ret_type);
         if (res != 0) {
@@ -1774,7 +2767,7 @@ int semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expect
             return res;
         }
     } else {
-
+        // pokud má ve všech větvích return TYPE_NOTHING, jinak TYPE_UNIT
         ret_type = type_create_basic(semantic_always_returns(node) ? TYPE_NOTHING : TYPE_UNIT);
 
         if (ret_type == NULL) {
@@ -1793,20 +2786,24 @@ int semantic_while(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // zpracuje uzel s podmínkou
     int res = semantic_visit(&node->data.while_loop.condition, ctx, NULL);
     if (res != 0) {
         return res;
     }
 
+    // podmínka musí být typu boolean
     if (node->data.while_loop.condition->expr_type->type_class != TYPE_BOOLEAN) {
         return 6;
     }
 
-    res = semantic_check_block(node->data.while_loop.body, ctx, NULL);
+    // zpracuje tělo cyklu
+    res = semantic_check_block(node->data.while_loop.body, ctx, NULL, false);
     if (res != 0) {
         return res;
     }
 
+    // nastaví návratový typ na TYPE_UNIT
     TypeInfo *type = type_create_basic(TYPE_UNIT);
     if (type == NULL) {
         return 99;
@@ -1822,10 +2819,19 @@ int semantic_for(ASTNode *node, SemanticContext *ctx) {
     }
 
     // zpracování a kontrola zdroje generátoru
-    int res = semantic_visit(&node->data.for_loop.source, ctx, NULL);
+    int res = 0;
+    if (node->data.for_loop.source->type == AST_RANGE) {
+        // pokud je to range
+        res = semantic_range(node->data.for_loop.source, ctx);
+    } else {
+        // ostatní případy
+        res = semantic_visit(&node->data.for_loop.source, ctx, NULL);
+    }
     if (res != 0) {
         return res;
     }
+
+    // kontrola, jestli tam jsou správné typy
     if (node->data.for_loop.source->type != AST_RANGE &&
         node->data.for_loop.source->expr_type->type_class != TYPE_LIST) {
         return 6;
@@ -1849,9 +2855,10 @@ int semantic_for(ASTNode *node, SemanticContext *ctx) {
     node->data.for_loop.iter_var->data.var_def.var_id = ctx->next_var_id;
     ctx->next_var_id++;
 
-    // nový scope
+    // vytvoří nový scope
     tBtNode *for_scope = NULL;
     symtable_init(&for_scope);
+    // dá do něj proměnnou cyklu
     tBtNodeData var_data = {.value = node->data.for_loop.iter_var, .type = VARIABLE};
     symtable_insert(&for_scope, node->data.for_loop.iter_var->data.var_def.identifier, var_data);
 
@@ -1873,7 +2880,7 @@ int semantic_for(ASTNode *node, SemanticContext *ctx) {
     }
 
     // zpracování těla
-    res = semantic_check_block(node->data.for_loop.body, ctx, NULL);
+    res = semantic_check_block(node->data.for_loop.body, ctx, NULL, false);
     if (res != 0) {
         symtable_pop_scope(ctx->scope_stack);
         return res;
@@ -1892,7 +2899,127 @@ int semantic_for(ASTNode *node, SemanticContext *ctx) {
     return 0;
 }
 
-int semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
+int semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type) {
+    if (node == NULL || ctx == NULL || node->type != AST_MATCH_EXPR) {
+        return 99;
+    }
+
+    int res = 0;
+    bool has_wildcard = false;
+    TypeInfo *ret_type = NULL;
+
+    // zpracuje výraz, který v match porovnáváme
+    res = semantic_visit(&node->data.match_expr.matched_expr, ctx, NULL);
+    if (res != 0) {
+        return res;
+    }
+
+    // typ toho výrazu
+    TypeInfo *matched_type = node->data.match_expr.matched_expr->expr_type;
+
+    if (matched_type == NULL) {
+        return 99;
+    }
+
+    // projde case větve
+    ASTNode *act_branch = node->data.match_expr.cases;
+
+    while (act_branch != NULL) {
+        // zjistí, jestli je v pattern _ (PATTERN_WILDCARD) - kvůli kontrole vyčerpání
+        ASTNode *pattern = act_branch->data.case_branch.pattern;
+
+        if (pattern->data.pattern.pat_type == PATTERN_WILDCARD &&
+            act_branch->data.case_branch.guard == NULL) {
+            has_wildcard = true;
+        }
+
+        // zpracuje větev
+        res = semantic_case_branch(act_branch, ctx, matched_type);
+        if (res != 0) {
+            if (ret_type != NULL) {
+                type_info_free(ret_type);
+            }
+            return res;
+        }
+
+        // získá typ těla větve
+        TypeInfo *branch_type = act_branch->data.case_branch.body->expr_type;
+
+        if (branch_type == NULL) {
+            if (ret_type != NULL) {
+                type_info_free(ret_type);
+            }
+            return 99;
+        }
+
+        // nastavení ret_type u první větve
+        if (ret_type == NULL) {
+            ret_type = type_info_clone(branch_type);
+
+            if (ret_type == NULL) {
+                return 99;
+            }
+        } else {
+            // větve musí být vzájemně kompatibilní
+            TypeInfo *new_ret_type = NULL;
+
+            res = semantic_common_type(ret_type, branch_type, &new_ret_type);
+            if (res != 0) {
+                type_info_free(ret_type);
+                return res;
+            }
+
+            if (new_ret_type == NULL) {
+                type_info_free(ret_type);
+                return 99;
+            }
+
+            type_info_free(ret_type);
+            ret_type = new_ret_type;
+        }
+
+        act_branch = act_branch->next;
+    }
+
+    // match musí mít aspoň jednu větev - nastavila by ret_type
+    if (ret_type == NULL) {
+        return 99;
+    }
+
+    // kontrola jestli je vyčerpávající - má _
+    if (!has_wildcard) {
+        type_info_free(ret_type);
+        return 6;
+    }
+
+    // kontrola kompatibility s expected
+    if (expected_type != NULL && !semantic_types_compatible(expected_type, ret_type)) {
+        type_info_free(ret_type);
+        return 6;
+    }
+
+    // znovu projdu všechny větve a ověřím, jestli nejsou potřeba konverze
+    act_branch = node->data.match_expr.cases;
+    while (act_branch != NULL) {
+        res = semantic_check_conversion(act_branch->data.case_branch.body, ret_type);
+        if (res != 0) {
+            type_info_free(ret_type);
+            return res;
+        }
+
+        act_branch = act_branch->next;
+    }
+
+    // nastavení typu match
+    ast_set_type(node, ret_type);
+
+    // Případná konverze výsledku match na očekávaný typ.
+    if (expected_type != NULL) {
+        res = semantic_check_conversion(node, expected_type);
+    }
+
+    return res;
+}
 
 // hotova
 int semantic_return(ASTNode *node, SemanticContext *ctx) {
@@ -1900,12 +3027,15 @@ int semantic_return(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // lambda funkce nemůže mít return
+    // když je kdekoli ve funkci return, musí mít funkce napsaný v definici návratový typ
     if (ctx->inside_lambda || ctx->current_function->data.func_def.return_type == NULL) {
         return 6;
     }
 
     TypeInfo *func_ret = NULL;
 
+    // vezme si návratový typ funkce
     int res = semantic_resolve_type_alias(ctx->current_function->data.func_def.return_type, ctx,
                                           &func_ret);
     if (res != 0) {
@@ -1915,6 +3045,7 @@ int semantic_return(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // pokud je return bez hodnoty, musí být návratový typ unit
     if (node->data.return_stmt.value == NULL) {
         if (func_ret->type_class != TYPE_UNIT) {
 
@@ -1924,6 +3055,7 @@ int semantic_return(ASTNode *node, SemanticContext *ctx) {
         }
 
     } else {
+        // jinak zpracuje hodnotu u return
         res = semantic_visit(&node->data.return_stmt.value, ctx,
                              func_ret->type_class == TYPE_UNIT ? NULL : func_ret);
         if (res != 0) {
@@ -1931,6 +3063,8 @@ int semantic_return(ASTNode *node, SemanticContext *ctx) {
             return res;
         }
 
+        // pokud nemá funkce návratový typ unit, ověří kompatibilitu a konverzi typů u return a
+        // návratového typu funkce
         if (func_ret->type_class != TYPE_UNIT) {
             if (!semantic_types_compatible(func_ret, node->data.return_stmt.value->expr_type)) {
                 type_info_free(func_ret);
@@ -1944,8 +3078,10 @@ int semantic_return(ASTNode *node, SemanticContext *ctx) {
         }
     }
 
+    // uvolní návratový typ funkce
     type_info_free(func_ret);
 
+    // nastaví typ u return na TYPE_NOTHING
     TypeInfo *ret_type = type_create_basic(TYPE_NOTHING);
     if (ret_type == NULL) {
         return 99;
@@ -1967,16 +3103,20 @@ int semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo 
     ASTNode **actual = &node->data.list.items;
     const TypeInfo *expected = param_types;
 
+    // projde seznam argumentů
     while (*actual != NULL && expected != NULL) {
+        // každý argument zpracuje
         int res = semantic_visit(actual, ctx, expected);
         if (res != 0) {
             return res;
         }
 
+        // porovná, jestli je kompatibilní s očekávaným typem
         if (!semantic_types_compatible(expected, (*actual)->expr_type)) {
             return 5;
         }
 
+        // pokud je potřeba, nastaví konverzi
         res = semantic_check_conversion(*actual, expected);
         if (res != 0) {
             return res;
@@ -1986,6 +3126,7 @@ int semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo 
         expected = expected->next;
     }
 
+    // pokud byly seznamy různě dlouhé, hlásí chybu
     if (*actual != NULL || expected != NULL) {
         return 5;
     }
@@ -2001,6 +3142,7 @@ int semantic_register_param_list(ASTNode *node, SemanticContext *ctx) {
 
     ASTNode *param = node->data.list.items;
 
+    // projde seznam parametrů a každý uzel zpracuje
     while (param != NULL) {
         int res = semantic_var_def(ctx->scope_stack, param, ctx, true);
         if (res != 0) {
@@ -2013,12 +3155,213 @@ int semantic_register_param_list(ASTNode *node, SemanticContext *ctx) {
     return 0;
 }
 
-int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type);
+int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type) {
+    if (node == NULL || ctx == NULL || matched_type == NULL || node->type != AST_CASE_BRANCH ||
+        ctx->scope_stack == NULL) {
+        return 99;
+    }
 
-int semantic_pattern(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type) {
+    int res = 0;
+
+    // vytvoří nový scope pro case větev
+    tBtNode *case_scope = NULL;
+    symtable_init(&case_scope);
+    symtable_push_scope(&case_scope, ctx->scope_stack);
+
+    // zpracuje vzor
+    res = semantic_pattern(node->data.case_branch.pattern, ctx, matched_type);
+    if (res != 0) {
+        symtable_pop_scope(ctx->scope_stack);
+        return res;
+    }
+
+    // zpracuje stráž, pokud je
+    if (node->data.case_branch.guard != NULL) {
+        res = semantic_visit(&node->data.case_branch.guard, ctx, NULL);
+        if (res != 0) {
+            symtable_pop_scope(ctx->scope_stack);
+            return res;
+        }
+
+        // stráž musí mít typ boolean
+        if (node->data.case_branch.guard->expr_type == NULL ||
+            node->data.case_branch.guard->expr_type->type_class != TYPE_BOOLEAN) {
+            symtable_pop_scope(ctx->scope_stack);
+            return 6;
+        }
+    }
+
+    // zpracuje tělo case větve
+    res = semantic_check_block(node->data.case_branch.body, ctx, NULL, true);
+    if (res != 0) {
+        symtable_pop_scope(ctx->scope_stack);
+        return res;
+    }
+    // odstraní (a tím uvolní) scope této větve
+    symtable_pop_scope(ctx->scope_stack);
+
+    return res;
 }
 
-// hotovo
+int semantic_pattern(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type) {
+    if (node == NULL || ctx == NULL || matched_type == NULL || node->type != AST_PATTERN) {
+        return 99;
+    }
+    int res = 0;
+    switch (node->data.pattern.pat_type) {
+        case PATTERN_LITERAL: { // př. case 0
+            // Zkontrolovat literál a kompatibilitu typů.
+            ASTNode *literal = node->data.pattern.detail.literal_val;
+            res = semantic_literal(literal);
+            if (res != 0) {
+                return res;
+            }
+            if (!semantic_types_compatible(matched_type, literal->expr_type)) {
+                return 6;
+            }
+
+            // Případná implicitní konverze Int -> Double
+            return semantic_check_conversion(literal, matched_type);
+        }
+
+        case PATTERN_TYPE_BINDING: { // př. n: Int
+            // zjistí typ proměnné v pattern a rozvine ho
+            TypeInfo *resolved = NULL;
+            res = semantic_resolve_type_alias(node->data.pattern.detail.type_bind, ctx, &resolved);
+            if (res != 0) {
+                return res;
+            }
+
+            if (resolved == NULL) {
+                return 99;
+            }
+
+            // kontrola, jestli je typ kompatibilní s tím, u kterého děláme match
+            if (!pattern_types_overlap(matched_type, resolved)) {
+                type_info_free(resolved);
+                return 6;
+            }
+
+            // projde aktuální scope a zjistí, jestli proměnná už nebyla deklarována dřív
+            tBtNode **scope = &stack_top(ctx->scope_stack)->scope;
+            tBtNode *found = NULL;
+            symtable_search(scope, node->data.pattern.bound_identifier, &found);
+            if (found != NULL) {
+                type_info_free(resolved);
+                return 4;
+            }
+
+            // vytvoří uzel pro vložení do scope a vloží ho
+            tBtNodeData data = {.type = VARIABLE, .value = node};
+            symtable_insert(scope, node->data.pattern.bound_identifier, data);
+
+            // zkontroluje, že nenastala chyba a vložil se
+            tBtNode *inserted_node = NULL;
+            symtable_search(scope, node->data.pattern.bound_identifier, &inserted_node);
+
+            if (inserted_node == NULL || inserted_node->data->type != VARIABLE ||
+                inserted_node->data->value != node) {
+                type_info_free(resolved);
+                return 99;
+            }
+
+            // nastaví expr_type a var_id
+            ast_set_type(node, resolved);
+            node->data.pattern.var_id = ctx->next_var_id++;
+
+            break;
+        }
+        case PATTERN_CONSTRUCTOR: {
+            //  projde tabulku globálních dymbolů a najde deklaraci třídy
+            tBtNode *symbol = NULL;
+            TypeInfo *class_type = node->data.pattern.detail.constructor.class_type;
+
+            symtable_search(&ctx->symbols, class_type->data.custom_name, &symbol);
+            if (symbol == NULL) {
+                return 3;
+            }
+
+            if (symbol->data->type != CLASS) {
+                return 6;
+            }
+            ASTNode *class_def = symbol->data->value;
+            if (class_def->type != AST_CLASS_DEF) {
+                return 99;
+            }
+
+            // ověří kompatibilitu s matched_type
+            if (!pattern_types_overlap(matched_type, class_type)) {
+                return 6;
+            }
+
+            ASTNode *act_field = class_def->data.class_def.fields;
+            ASTNode *arg = node->data.pattern.detail.constructor.args;
+            // projde argumenty
+            while (act_field != NULL && arg != NULL) {
+                if (act_field->type != AST_VAR_DEF || act_field->expr_type == NULL) {
+                    return 99;
+                }
+
+                if (arg->type != AST_VAR_DEF) {
+                    return 6;
+                }
+                char *name = arg->data.var_def.identifier;
+
+                if (name == NULL || arg->data.var_def.declared_type != NULL ||
+                    arg->data.var_def.initializer != NULL) {
+                    return 99;
+                }
+
+                // zjistí, jestli se už proměnná tohoto názvu v aktuálním scope nevyskytuje
+                tBtNode **scope = &stack_top(ctx->scope_stack)->scope;
+                tBtNode *found = NULL;
+                symtable_search(scope, name, &found);
+
+                if (found != NULL) {
+                    return 4;
+                }
+
+                // naklonuje typ podle typu z deklarace třídy a nastaví do expr_type proměnné
+                TypeInfo *type = type_info_clone(act_field->expr_type);
+                if (type == NULL) {
+                    return 99;
+                }
+                ast_set_type(arg, type);
+
+                // vloží proměnnou do aktuálního scope
+                tBtNodeData data = {.type = VARIABLE, .value = arg};
+                symtable_insert(scope, name, data);
+
+                // zkontroluje, jestli se v pořádku vložil
+                tBtNode *inserted = NULL;
+                symtable_search(scope, name, &inserted);
+                if (inserted == NULL || inserted->data == NULL || inserted->data->value != arg) {
+                    return 99;
+                }
+
+                // nastaví var_id proměnné
+                arg->data.var_def.var_id = ctx->next_var_id++;
+
+                act_field = act_field->next;
+                arg = arg->next;
+            }
+
+            // kontrola, jestli měly seznamy stejnou délku
+            if (act_field != NULL || arg != NULL) {
+                return 6;
+            }
+            break;
+        }
+        case PATTERN_WILDCARD: // _ ostatní případy
+            return 0;
+
+        default:
+            return 99;
+    }
+
+    return 0;
+}
+
 int semantic_range(ASTNode *node, SemanticContext *ctx) {
     if (node == NULL || ctx == NULL || node->type != AST_RANGE) {
         return 99;
@@ -2028,6 +3371,7 @@ int semantic_range(ASTNode *node, SemanticContext *ctx) {
         return 99;
     }
 
+    // zpracuje uzly uvnitř range
     int res = semantic_visit(&node->data.range.start, ctx, NULL);
     if (res != 0) {
         return res;
@@ -2038,11 +3382,13 @@ int semantic_range(ASTNode *node, SemanticContext *ctx) {
         return res;
     }
 
+    // start i end musí být typu int, jinak chyba
     if (node->data.range.start->expr_type->type_class != TYPE_INT ||
         node->data.range.end->expr_type->type_class != TYPE_INT) {
         return 6;
     }
 
+    // pokud má range i step, zpracuje ho a zkontroluje, jestli je také int
     if (node->data.range.step != NULL) {
         res = semantic_visit(&node->data.range.step, ctx, NULL);
         if (res != 0) {
@@ -2055,13 +3401,6 @@ int semantic_range(ASTNode *node, SemanticContext *ctx) {
     return 0;
 }
 
-/**
- * @brief prohledá scope na zásobníku a zjistí, jestli je proměnná už definovaná a kde
- *
- * @param stack
- * @param name
- * @return tBtNode*
- */
 tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx) {
     if (stack == NULL || name == NULL || ctx == NULL) {
         return NULL;
@@ -2069,6 +3408,7 @@ tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx) {
 
     tStackElem *scope = stack->top;
 
+    // projde všechny tabulky symbolů v zásobníku, pokud najde odpovídající uzel, vrátí ho
     while (scope != NULL) {
         tBtNode *found = NULL;
 
@@ -2081,6 +3421,7 @@ tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx) {
         scope = scope->next;
     }
 
+    // uzel se zatím nenašel, zkusí ještě prohledat tabulku globálních symbolů
     tBtNode *found = NULL;
     symtable_search(&ctx->symbols, name, &found);
     return found;
@@ -2089,6 +3430,18 @@ tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx) {
 /* ==================================================
  * POMOCNÉ FUNKCE PRO PRÁCI S TYPY
  * ================================================== */
+
+bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type) {
+    if (match_type == NULL || case_type == NULL)
+        return false;
+
+    if (match_type->type_class == TYPE_UNION) {
+        return pattern_types_overlap(match_type->data.union_type.left, case_type) ||
+               pattern_types_overlap(match_type->data.union_type.right, case_type);
+    }
+
+    return semantic_types_equal(match_type, case_type);
+}
 
 /**
  * @brief Vyhledá, jestli parametru "un" obsahuje typ y parametru "type"
@@ -2151,10 +3504,9 @@ bool semantic_types_equal(const TypeInfo *a, const TypeInfo *b) {
     }
 
     // porovnání typů
-
     if (a->type_class == b->type_class) {
         bool return_value = true;
-        if (a->type_class == TYPE_UNION) {
+        if (a->type_class == TYPE_UNION) { // pokud je union, porovná, jestli obsahují stejné typy
             return_value = compare_unions(a, b) && compare_unions(b, a);
 
         } else if (a->type_class == TYPE_FUNCTION) {
@@ -2181,19 +3533,21 @@ bool semantic_types_equal(const TypeInfo *a, const TypeInfo *b) {
                 are_equal &&
                 semantic_types_equal(a->data.func_type.return_type,
                                      b->data.func_type.return_type); // porovnání návratového typu
-        } else if (a->type_class == TYPE_LIST) {
+        } else if (a->type_class == TYPE_LIST) {                     // porovný typy listů
             return_value =
                 semantic_types_equal(a->data.list_element_type, b->data.list_element_type);
         } else if (a->type_class == TYPE_CUSTOM) {
             if (a->data.custom_name == NULL || b->data.custom_name == NULL) {
                 return false;
             }
+            // porovná jména
             return_value = strcmp(a->data.custom_name, b->data.custom_name) == 0;
-        } else {
+        } else { // pro zbylé typy není třeba dodatečných kontrol
             return_value = true;
         }
         return return_value;
     }
+    // nastane když se type_class nerovnají
     return false;
 }
 
@@ -2210,8 +3564,9 @@ bool semantic_types_compatible(const TypeInfo *expected, const TypeInfo *actual)
     } else if (expected->type_class == TYPE_ANY) {
         compatible = true;
     } else if (semantic_types_equal(expected, actual)) {
-        compatible = true;
+        compatible = true; // stejné typy
     } else if (expected->type_class == TYPE_UNION && actual->type_class != TYPE_UNION) {
+        // zkontroluje, jestli je actual typ v union
         compatible = semantics_compare_union_with_type(expected, actual);
         if (!compatible &&
             actual->type_class == TYPE_INT) { // pokud by byl typ int a nebyl nalezen v union,
@@ -2266,15 +3621,19 @@ int semantic_check_conversion(ASTNode *expression, const TypeInfo *expected_type
     if (expression == NULL || expression->expr_type == NULL || expected_type == NULL) {
         return 99; // Chyba: Neplatný vstup
     }
+
+    // zjistí, jestli je potřeba konverze to_double a případně ji nastaví
     expression->to_double = false;
     if (expression->expr_type->type_class == TYPE_INT) {
         if (expected_type->type_class == TYPE_DOUBLE) {
-            expression->to_double = true; // Nastavení příznaku pro implicitní konverzi
+            expression->to_double = true; // máme typ int, očekáváme doble - nastaví konverzi
         } else if (expected_type->type_class == TYPE_UNION) {
             const TypeInfo int_type = {.type_class = TYPE_INT};
 
             const TypeInfo double_type = {.type_class = TYPE_DOUBLE};
 
+            // nastaví konverzi, pokud v očekávaném union je pouze type double ale int ne (a
+            // máme typ int)
             expression->to_double = !semantics_compare_union_with_type(expected_type, &int_type) &&
                                     semantics_compare_union_with_type(expected_type, &double_type);
         }
@@ -2287,6 +3646,8 @@ void normalise_union_tree(TypeInfo *type) {
         return;
     }
 
+    // vytvoří a nastaví ukazatel end_union na poslední union uzel levé diagonály (pokud je type
+    // typ UNION)
     TypeInfo *end_union = type;
     if (type->type_class == TYPE_UNION) {
         while (end_union->data.union_type.left->type_class == TYPE_UNION) {
@@ -2294,11 +3655,16 @@ void normalise_union_tree(TypeInfo *type) {
         }
     }
 
+    // prochází celý unoin
     TypeInfo *pos = type;
     while (pos->type_class == TYPE_UNION) {
+        // vezme si prvek na pravé straně
         TypeInfo *tmp = pos->data.union_type.right;
         switch (tmp->type_class) {
             case TYPE_UNION:
+                // pokud tam je union, vyměního s prvkem na konci levé diagonály (co už není
+                // union) a aktualizije end_union, aby opět ukazoval na poslední union prvek
+                // levé diagonály
                 pos->data.union_type.right = end_union->data.union_type.left;
                 end_union->data.union_type.left = tmp;
                 while (end_union->data.union_type.left->type_class == TYPE_UNION) {
@@ -2306,26 +3672,32 @@ void normalise_union_tree(TypeInfo *type) {
                 }
                 break;
             case TYPE_LIST:
+                // pokud tam je list, zavolá tuto funkci nad jeho parametrem
                 normalise_union_tree(tmp->data.list_element_type);
                 break;
             case TYPE_FUNCTION:
+                // pokud je tam funkce, zavolá to tuto funkci nad všemi jeho parametry i
+                // návratovým typem
                 for (TypeInfo *param = tmp->data.func_type.param_types; param != NULL;
                      param = param->next) {
 
                     normalise_union_tree(param);
                 }
 
-                // Navratovy typ funkce.
+                // návratový typ
                 normalise_union_tree(tmp->data.func_type.return_type);
                 break;
         }
+        // posune se po levé diagonále o prvek dál
         pos = pos->data.union_type.left;
     }
     switch (pos->type_class) {
         case TYPE_LIST:
+            // pokud mám list, zavolá tuto funci nad typem parametru
             normalise_union_tree(pos->data.list_element_type);
             break;
         case TYPE_FUNCTION:
+            // u funkce ji zavolá na včechny parametry a návratový typ
             for (TypeInfo *param = pos->data.func_type.param_types; param != NULL;
                  param = param->next) {
 
@@ -2338,8 +3710,16 @@ void normalise_union_tree(TypeInfo *type) {
     }
 }
 
-static bool alias_in_path(const AliasPath *path, const char *name) {
-    AliasPath *path_pos = path;
+/**
+ * @brief projde cestu aliasů path a zjistí, jestli se nějaký alias na cestě neopakuje (vyskytly
+ * by se cykly)
+ *
+ * @param path cesta aliasů
+ * @param name jméno aliasu, který se hledá v path
+ * @return true pokud se alias s jménem namu už na cestě vyskytuje, jinak false
+ */
+bool alias_in_path(const AliasPath *path, const char *name) {
+    const AliasPath *path_pos = path;
     while (path_pos != NULL) {
         if (strcmp(path_pos->name, name) == 0) {
             return true;
@@ -2357,16 +3737,17 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
     TypeInfo *type = *slot;
 
     switch (type->type_class) {
-        case TYPE_CUSTOM: {
+        case TYPE_CUSTOM:
             tBtNode *symbol = NULL;
 
+            // najde v tabulce symbolů definici aliasu
             symtable_search(&ctx->symbols, type->data.custom_name, &symbol);
 
             if (symbol == NULL || symbol->data == NULL) {
-                return 6; // Neznamy typ
+                return 6;
             }
 
-            // Datova trida zustava TYPE_CUSTOM.
+            // Datová třída zůstava TYPE_CUSTOM (nerozvíjí se)
             if (symbol->data->type == CLASS) {
                 return 0;
             }
@@ -2375,8 +3756,8 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
                 return 3;
             }
 
-            // V globalni tabulce mas AST_TYPE_ALIAS.
-            ASTNode *definition = symbol->data->value;
+            // získám si z value uzel aliasu AST_TYPE_ALIAS
+            ASTNode *definition = (ASTNode *)symbol->data->value;
 
             if (definition == NULL || definition->type != AST_TYPE_ALIAS ||
                 definition->data.type_alias.aliased == NULL) {
@@ -2385,30 +3766,29 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
 
             const char *name = definition->data.type_alias.name;
 
-            // Alias uz se na aktualni ceste rozviji.
+            // Alias už se na aktuální cestě rozvíjí (je to cyklický alias)
             if (alias_in_path(path, name)) {
                 return 6;
             }
 
-            // Vytvorime kopii typu, na ktery alias ukazuje.
+            // Vytvoří kopii typu, na který alias ukazuje
             TypeInfo *replacement = type_info_clone(definition->data.type_alias.aliased);
 
             if (replacement == NULL) {
                 return 99;
             }
 
-            // Zaznam aktualne rozvijeneho aliasu.
+            // záznam o aliasu, kvůli hledání cyklů
             AliasPath current = {.name = name, .previous = path};
 
-            // Nahradime TYPE_CUSTOM rozvinovanym typem.
-            // type_replace zachova pripadne propojeni next.
+            // nahradí TYPE_CUSTOM novým rozvinutým typem
             type_replace(slot, replacement);
 
-            // Pokracujeme v rozvijeni nahradniho typu.
+            // pokračuje v hledání dalších aliasů
             return expand_aliases(slot, ctx, &current);
-        }
 
-        case TYPE_UNION: {
+        case TYPE_UNION:
+            // zavolá rozložení aliasů nad pravým i levým podstromem
             int result = expand_aliases(&type->data.union_type.left, ctx, path);
 
             if (result != 0) {
@@ -2416,13 +3796,13 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
             }
 
             return expand_aliases(&type->data.union_type.right, ctx, path);
-        }
 
         case TYPE_LIST:
+            // zavolá rozvinutí aliasů nad seznamem prvků listu
             return expand_aliases(&type->data.list_element_type, ctx, path);
 
-        case TYPE_FUNCTION: {
-            // Rozvineme aliasy ve vsech parametrech.
+        case TYPE_FUNCTION:
+            // Rozvine aliasy ve všech parametrech
             TypeInfo **param = &type->data.func_type.param_types;
 
             while (*param != NULL) {
@@ -2435,9 +3815,8 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
                 param = &(*param)->next;
             }
 
-            // Rozvineme alias v navratovem typu.
+            // Rozvine alias v návratovém typu
             return expand_aliases(&type->data.func_type.return_type, ctx, path);
-        }
 
         case TYPE_INT:
         case TYPE_DOUBLE:
@@ -2446,6 +3825,7 @@ static int expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath
         case TYPE_UNIT:
         case TYPE_ANY:
         case TYPE_NOTHING:
+            // u ostatních typů není co rozvíjet
             return 0;
 
         default:
@@ -2458,12 +3838,14 @@ int semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx, Type
         return 99;
     }
 
+    // vytvoří si kopii typu, který má rozvinout
     *result = type_info_clone(type);
 
     if (*result == NULL) {
         return 99;
     }
 
+    // zavolá pomocnou funkci na rozvinutí aliasů
     int error = expand_aliases(result, ctx, NULL);
 
     if (error != 0) {
@@ -2472,6 +3854,8 @@ int semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx, Type
         return error;
     }
 
+    // rozvinutím se můžou objevit množiny v jjiném tvaru než je očekáván podle ast, funkce ho
+    // upraví do správného tvaru
     normalise_union_tree(*result);
 
     return 0;
