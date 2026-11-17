@@ -10,12 +10,13 @@
 
 // #include "ierror.h"
 
+#include "token.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 /**
  * @brief Výčet stavů FSM
  */
@@ -92,6 +93,21 @@ typedef struct LStack {
 } tLStack;
 
 /**
+ * @brief Stroktura tokenu ve frontě
+ */
+typedef struct FIFO_Elem {
+    tToken *token;
+    struct FIFO_Elem *next;
+} tFIFO_Elem;
+
+/**
+ * @brief Struktura pro frontu tokenů
+ */
+typedef struct FIFO {
+    tFIFO_Elem *first;
+} tFIFO;
+
+/**
  * @brief Inicializace zásobníku
  * @param stack Ukazatel na zásobník, který se má inicializovat
  */
@@ -123,5 +139,38 @@ int lstack_top(tLStack *stack);
  * @return true, pokud je zásobník prázdný, jinak false
  */
 bool lstack_empty(tLStack *stack);
+
+/**
+ * @brief Inicializace fronty tokenů
+ * @param queue Ukazatel na inicializovanou frontu
+ * @return true, pokud je zásobník prázdný, jinak false
+ */
+void fifo_init(tFIFO *queue);
+
+/**
+ * @brief Vložení prvku na konec fronty
+ * @param token Token vkládaný na konec
+ * @param first Prvek, za který se má vkládat
+ */
+void fifo_add(tToken *token, tFIFO_Elem **first);
+
+/**
+ * @brief Získání prvního prvku ze fronty
+ * @param queue Fronta, jejíž prvek se vrací
+ * @return Token na začátku fronty
+ */
+tToken fifo_get(tFIFO *queue);
+
+/**
+ * @brief Uvolnění paměti fronty
+ * @param queue Fronta, která se uvolní
+ */
+void fifo_clean(tFIFO *queue);
+
+/**
+ * @brief Uvolnění paměti prvku fronty
+ * @param elem Prvek, který se uvolní
+ */
+void clean_elem(tFIFO_Elem *elem);
 
 #endif /*LEXER_H*/

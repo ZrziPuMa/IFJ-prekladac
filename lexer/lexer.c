@@ -12,6 +12,7 @@
 
 FILE *file;
 tLStack *indent_stack;
+tFIFO *queue;
 int line;
 int parent_cnt;
 int block_com_cnt;
@@ -20,6 +21,7 @@ int indent_cnt;
 void lexer_init(FILE *f) {
     file = f;
     lstack_init(indent_stack);
+    fifo_init(queue);
     parent_cnt = 0;
     line = 1;
     block_com_cnt = 0;
@@ -359,7 +361,27 @@ tToken get_token() {
                     } else if (last_indent < indent_cnt) {
                         lstack_push(indent_cnt, indent_stack);
                         token.type = TOK_NEWLINE;
-                        tToken in_line_tok;
+                        tToken indent_tok;
+                        indent_tok.type = TOK_INDENT;
+                        fifo_add(&indent_tok, &queue->first);
+                        completed = true;
+                        break;
+                    } else {
+                        lstack_pop(indent_stack);
+                        token.type = TOK_NEWLINE;
+                        tToken dedent_tok;
+                        dedent_tok.type = TOK_DEDENT;
+                        fifo_add(&dedent_tok, &queue->first);
+                        while (indent_cnt < last_indent) {
+                            fifo_add(&token, &queue->first);
+                            fifo_add(&dedent_tok, &queue->first);
+                            lstack_pop(indent_stack);
+                        }
+                        if (last_indent < indent_cnt) {
+                            // error
+                        }
+                        completed = true;
+                        break;
                     }
                 }
                 break;
@@ -390,6 +412,8 @@ tToken get_token() {
                     token.type = TOK_ID;
                     token.val.str = str.string;
                     ungetc(c, file);
+                    check_keyword(&token, &str);
+                    check_var_type(&token, &str);
                     completed = true;
                     break;
                 } else {
@@ -503,4 +527,60 @@ bool lstack_empty(tLStack *stack) {
         return true;
     }
     return stack->top == NULL;
+}
+
+void fifo_init(tFIFO *queue) {
+    if (!queue) {
+        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
+        return;
+    }
+    queue = (tFIFO *)malloc(sizeof(tFIFO));
+    if (queue == NULL) {
+        // print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+        return;
+    }
+    queue->first = NULL;
+}
+
+void fifo_add(tToken *token, tFIFO_Elem **first) {
+    if (first == NULL) {
+        (*first) = (tFIFO_Elem *)malloc(sizeof(tFIFO_Elem));
+        if (first == NULL) {
+            // print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+            return;
+        }
+        (*first)->token = token;
+        (*first)->next = NULL;
+        return;
+    }
+    fifo_add(token, (*first)->next);
+}
+
+tToken fifo_get(tFIFO *queue) {
+    if (!queue) {
+        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
+        return;
+    }
+    tToken out;
+    tFIFO_Elem *temp = queue->first;
+    out = *queue->first->token;
+    queue->first = temp->next;
+    free(temp);
+    return out;
+}
+
+void clean_elem(tFIFO_Elem *elem) {
+    if (elem == NULL) {
+        return;
+    }
+    clean_elem(elem->next);
+    free(elem);
+}
+
+void fifo_clean(tFIFO *queue) {
+    if (queue == NULL) {
+        return;
+    }
+    clean_elem(queue->first);
+    free(queue);
 }

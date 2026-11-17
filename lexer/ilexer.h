@@ -14,21 +14,6 @@
 #include <stdio.h>
 
 /**
- * @brief Stroktura tokenu ve frontě
- */
-typedef struct FIFO_Elem {
-    tToken *token;
-    struct FIFO_Elem *next;
-} tFIFO_Elem;
-
-/**
- * @brief Struktura pro frontu tokenů
- */
-typedef struct FIFO {
-    tFIFO_Elem *first;
-} tFIFO;
-
-/**
  * @brief Inicializace lexeru
  * @param file Zdrojový soubor s kódem
  */
