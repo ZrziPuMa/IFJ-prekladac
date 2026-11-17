@@ -34,6 +34,9 @@ typedef struct SemanticFunctionSymbol {
 
     SemanticFunctionState state;
     struct SemanticFunctionSymbol *next;
+    bool is_buildin;
+    TypeInfo *builtin_signatures[2];
+
 } SemanticFunctionSymbol;
 
 typedef struct AliasPath {
@@ -124,7 +127,8 @@ int semantic_check_function(ASTNode *function, SemanticContext *ctx);
  * @param expected_type Očekávaný typ hodnoty bloku, nebo NULL
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type);
+int semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
+                         bool used_as_value);
 
 /* ==================================================
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
@@ -330,7 +334,7 @@ int semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo 
  * @param ctx Kontext sémantické analýzy
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_register_params(ASTNode *param_list, SemanticContext *ctx);
+int semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
 
 /**
  * @brief Zpracuje jednu větev case výrazu match
@@ -417,6 +421,57 @@ tBtNode *semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx);
 
 bool compare_unions(const TypeInfo *a, const TypeInfo *b);
 
-int semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
+int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                       SemanticFunctionSymbol **matched_method);
 
+bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type);
+
+/**
+ * @brief vytvoří návratový typ vestavěné funkce
+ *
+ * @param built_def vestavěná funkce
+ * @return TypeInfo* návratový typ
+ */
+TypeInfo *builtin_ret_type(BuiltinDef *built_def);
+
+/**
+ * @brief vytvoří celý typ vestavěné funkce
+ *
+ * @param built_def vestavěná funkce
+ * @return TypeInfo* typ funkce
+ */
+TypeInfo *builtin_type(BuiltinDef *built_def);
+
+/**
+ * @brief zaregistruje vestavěné funkce
+ *
+ * @param ctx kontext sémantické analýzy
+ * @return int chybový kód
+ */
+int register_buildin_func(SemanticContext *ctx);
+
+int semantic_register_global(SemanticContext *ctx, char *name, tBtContentType type,
+                             ASTNode *declaration);
+
+int register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode *ext);
+int check_globals(ASTNode *program, SemanticContext *ctx);
+int semantic_build_function_type(const ASTNode *param_group, const TypeInfo *return_type,
+                                 TypeInfo **result);
+int semantic_ensure_func_type(SemanticFunctionSymbol *func_sym, SemanticContext *ctx);
+
+int call_param_group_count(const ASTNode *group);
+int call_builtin_type(const SemanticFunctionSymbol *func, const ASTNode *args,
+                      const TypeInfo **result);
+int call_list_method_type(const char *name, const TypeInfo *list, TypeInfo **out);
+
+int call_constructor_type(ASTNode *class_def, TypeInfo **res_type);
+int call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind, int *own_groups);
+int call_apply_group(ASTNode *group, SemanticContext *ctx, const TypeInfo *current,
+                     TypeInfo **next);
+int semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                              SemanticFunctionSymbol **matched_method);
+int is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                       SemanticFunctionSymbol **matched_method);
+
+int semantic_fill_unit_else(ASTNode *node);
 #endif // SEMANTICS_H
