@@ -9,7 +9,6 @@
 #define LEXER_H
 
 #include "ilexer.h"
-#include "token.h"
 // #include "ierror.h"
 
 #include <ctype.h>
@@ -24,9 +23,7 @@
 typedef enum {
     state_start,
     state_plus,
-    state_minus,
     state_concatenation,
-    state_multiply,
     state_pipe,
     state_or,
     state_ampersand,
@@ -48,15 +45,10 @@ typedef enum {
     state_interpolateds,
     state_interp_ID,
 
-    state_Lpar,
-    state_Rpar,
-    state_Lbrack,
-    state_Rbrack,
-
-    state_colon,
-    state_semicolon,
     state_dot,
-    state_comma,
+
+    state_exclam,
+    // state_s,
 
     state_zero,
     state_int,
@@ -71,15 +63,17 @@ typedef enum {
     state_left_arrow,
 
     state_at,
-    state_at_main,
+    state_main1,
+    state_main2,
+    state_main3,
+
     state_not,
     state_not_equal,
     state_equal,
     state_is_equal,
     state_right_arrow,
 
-    state_EOL,
-    state_EOF,
+    state_eol
 } sState;
 
 /**
