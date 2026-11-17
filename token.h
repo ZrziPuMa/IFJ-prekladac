@@ -19,6 +19,7 @@
  */
 typedef enum
 {
+    TOK_EMPTY,              // počáteční stav
     TOK_EOF,                // konec vstupu
     TOK_NEWLINE,            // konec logického řádku (kromě těch uvnitř závorek a ${})
     TOK_INDENT,             // zvýšení odsazení
