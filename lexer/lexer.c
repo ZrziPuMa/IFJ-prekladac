@@ -8,15 +8,30 @@
 // #include "ierror.h"
 #include "lexer.h"
 
+#include "idynamic_string.h"
 #include "ilexer.h"
 #include "token.h"
 
 FILE *file;
 tLStack *indent_stack;
+tLStack *par_stack;
 
 void lexer_init(FILE *f) {
     file = f;
     lstack_init(indent_stack);
+    lstack_init(par_stack);
+}
+
+tToken get_token() {
+    char c;
+    sStr str;
+    if (string_init(&str)) {
+        // print_error(ERR_INTERNAL, -1, "Chyba: Chyba inicializace stringu.");
+    }
+
+    tToken token;
+    token.type = TOK_EMPTY;
+    token.state = state_start;
 }
 
 void lstack_init(tLStack *stack) {
@@ -32,7 +47,7 @@ void lstack_init(tLStack *stack) {
     stack->top = NULL;
 }
 
-void lstack_push(tLStackElem *new, tLStack *stack) {
+void lstack_push(tLStackElem *new_elem, tLStack *stack) {
     if (!stack) {
         // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
         return;
@@ -44,7 +59,7 @@ void lstack_push(tLStackElem *new, tLStack *stack) {
         return;
     }
 
-    new_scope->count = new->count;
+    new_scope->count = new_elem->count;
     new_scope->next = stack->top;
     stack->top = new_scope;
 }

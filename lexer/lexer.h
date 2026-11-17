@@ -90,10 +90,10 @@ void lstack_init(tLStack *stack);
 
 /**
  * @brief Vložení nového odsazení nebo zanoření závorek
- * @param new Nové odsazení nebo zanoření
+ * @param new_elem Nové odsazení nebo zanoření
  * @param stack Ukazatel na zásobník, kam se vloží
  */
-void lstack_push(tLStackElem *new, tLStack *stack);
+void lstack_push(tLStackElem *new_elem, tLStack *stack);
 
 /**
  * @brief Odebrání posledního  odsazení nebo zanoření
