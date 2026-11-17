@@ -14,17 +14,23 @@ FILE *file;
 tLStack *indent_stack;
 int line;
 int parent_cnt;
+int block_com_cnt;
+int indent_cnt;
 
 void lexer_init(FILE *f) {
     file = f;
     lstack_init(indent_stack);
     parent_cnt = 0;
     line = 1;
+    block_com_cnt = 0;
+    indent_cnt = 0;
+    lstack_push(indent_cnt, indent_stack);
 }
 
 tToken get_token() {
     int c;
     sStr str;
+    bool com_nl = false;
     if (string_init(&str)) {
         // print_error(ERR_INTERNAL, -1, "Chyba: Chyba inicializace stringu.");
     }
@@ -32,7 +38,8 @@ tToken get_token() {
     tToken token;
     token.type = TOK_EMPTY;
     token.state = state_start;
-    int indent_cnt = 0;
+    token.newline_before = false;
+
     bool completed = false;
 
     while (!completed) {
@@ -333,13 +340,61 @@ tToken get_token() {
                 token.newline_before = true;
                 line++;
 
-                if (c == '-') {
-                    token.type = TOK_LEFT_ARROW;
+                if (parent_cnt) {
+                    token.state = state_start;
+                } else if (c == '\t') {
+                    token.type = TOK_ERROR;
+                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    completed = true;
+                } else if (c == ' ') {
+                    indent_cnt++;
+                } else {
+                    ungetc(c, file);
+                    int last_indent = lstack_top(indent_stack);
+
+                    if (last_indent == indent_cnt) {
+                        token.type = TOK_NEWLINE;
+                        completed = true;
+                        break;
+                    } else if (last_indent < indent_cnt) {
+                        lstack_push(indent_cnt, indent_stack);
+                        token.type = TOK_NEWLINE;
+                        tToken in_line_tok;
+                    }
+                }
+                break;
+
+            case state_underscore:
+                if (isalnum(c) || c == '_') {
+                    string_add(&str, '_');
+                    string_add(&str, (char)c);
+                    token.state = state_ID;
+                    break;
+                } else if (c == ' ') {
+                    token.type = TOK_UNDERSCORE;
+                    ungetc(c, file);
                     completed = true;
                     break;
                 } else {
-                    token.type = TOK_LESSTHEN;
+                    token.type = TOK_ERROR;
+                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    completed = true;
+                    break;
+                }
+
+            case state_ID:
+                if (isalnum(c) || c == '_') {
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == ' ') {
+                    token.type = TOK_ID;
+                    token.val.str = str.string;
                     ungetc(c, file);
+                    completed = true;
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     completed = true;
                     break;
                 }
@@ -349,16 +404,41 @@ tToken get_token() {
                     token.type = TOK_NEWLINE;
                     token.state = state_eol;
                     break;
-                } else if (c == '=') {
-                    token.type = TOK_LESSEQ;
-                    completed = true;
-                    break;
                 } else {
-                    token.type = TOK_LESSTHEN;
-                    ungetc(c, file);
-                    completed = true;
                     break;
                 }
+
+            case state_com_block:
+                block_com_cnt++;
+                if (c == '*') {
+                    token.state = state_com_block_2;
+                    break;
+                } else {
+                    if (c == '\n') {
+                        if (com_nl) {
+                            line++;
+                        }
+                        com_nl = true;
+                        break;
+                    }
+                }
+
+            case state_com_block_2:
+                if (c == '/') {
+                    block_com_cnt--;
+                    if (block_com_cnt == 0) {
+                        if (com_nl) {
+                            token.state = state_eol;
+                        } else {
+                            token.state = state_start;
+                        }
+                    } else {
+                        token.state = state_com_block;
+                    }
+                } else {
+                    token.state = state_com_block;
+                }
+                break;
 
             default:
                 break;
@@ -379,7 +459,7 @@ void lstack_init(tLStack *stack) {
     stack->top = NULL;
 }
 
-void lstack_push(tLStackElem *new_elem, tLStack *stack) {
+void lstack_push(int count, tLStack *stack) {
     if (!stack) {
         // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo
         // zásobník.");
@@ -392,7 +472,7 @@ void lstack_push(tLStackElem *new_elem, tLStack *stack) {
         return;
     }
 
-    new_scope->count = new_elem->count;
+    new_scope->count = count;
     new_scope->next = stack->top;
     stack->top = new_scope;
 }
@@ -411,11 +491,11 @@ void lstack_pop(tLStack *stack) {
     }
 }
 
-tLStackElem *lstack_top(tLStack *stack) {
+int lstack_top(tLStack *stack) {
     if (stack == NULL) {
-        return NULL;
+        return -1;
     }
-    return stack->top;
+    return stack->top->count;
 }
 
 bool lstack_empty(tLStack *stack) {

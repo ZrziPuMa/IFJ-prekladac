@@ -8,7 +8,6 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "ilexer.h"
 // #include "ierror.h"
 
 #include <ctype.h>
@@ -31,6 +30,7 @@ typedef enum {
     state_slash,
     state_com_line,
     state_com_block,
+    state_com_block_2,
     state_com_end,
     state_underscore,
     state_ID,
@@ -77,6 +77,21 @@ typedef enum {
 } sState;
 
 /**
+ * @brief Datový typ pro prvek zásobníku
+ */
+typedef struct stack_elem {
+    int count;
+    struct stack_elem *next; // Ukazatel na další prvek zásobníku
+} tLStackElem;
+
+/**
+ * @brief Datový typ pro zásobník lexeru
+ */
+typedef struct LStack {
+    tLStackElem *top;
+} tLStack;
+
+/**
  * @brief Inicializace zásobníku
  * @param stack Ukazatel na zásobník, který se má inicializovat
  */
@@ -84,10 +99,10 @@ void lstack_init(tLStack *stack);
 
 /**
  * @brief Vložení nového odsazení nebo zanoření závorek
- * @param new_elem Nové odsazení nebo zanoření
+ * @param count Aktuální počet odsazení
  * @param stack Ukazatel na zásobník, kam se vloží
  */
-void lstack_push(tLStackElem *new_elem, tLStack *stack);
+void lstack_push(int count, tLStack *stack);
 
 /**
  * @brief Odebrání posledního  odsazení nebo zanoření
@@ -98,9 +113,9 @@ void lstack_pop(tLStack *stack);
 /**
  * @brief Získání vrcholu zásobníku
  * @param stack Ukazatel na zásobník
- * @return Ukazatel na vrchol zásobníku
+ * @return Poslední velikost odsazení, -1 při chybě
  */
-tLStackElem *lstack_top(tLStack *stack);
+int lstack_top(tLStack *stack);
 
 /**
  * @brief Kontrola, zda je zásobník prázdný

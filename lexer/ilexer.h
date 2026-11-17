@@ -14,19 +14,19 @@
 #include <stdio.h>
 
 /**
- * @brief Datový typ pro prvek zásobníku
+ * @brief Stroktura tokenu ve frontě
  */
-typedef struct stack_elem {
-    int count;
-    struct stack_elem *next; // Ukazatel na další prvek zásobníku
-} tLStackElem;
+typedef struct FIFO_Elem {
+    tToken *token;
+    struct FIFO_Elem *next;
+} tFIFO_Elem;
 
 /**
- * @brief Datový typ pro zásobník lexeru
+ * @brief Struktura pro frontu tokenů
  */
-typedef struct LStack {
-    tLStackElem *top;
-} tLStack;
+typedef struct FIFO {
+    tFIFO_Elem *first;
+} tFIFO;
 
 /**
  * @brief Inicializace lexeru
