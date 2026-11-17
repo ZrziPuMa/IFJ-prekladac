@@ -9,6 +9,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
+#include "lexer.h"
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -88,7 +89,6 @@ typedef enum
     TOK_ERROR               // chybový token
 } tTokenType;
 
-
 /**
  * @brief Datový typ pro hodnotu tokenu
  */
@@ -98,25 +98,23 @@ typedef struct {
     char *str;
 } tTokenVal;
 
-
 /**
  * @brief Datový typ pro token
  */
 typedef struct
 {
+    sState state;
     tTokenType type;
     tTokenVal val;
     int line;
     bool newline_before;
 } tToken;
 
-
 /**
  * @brief Uvolní token
  * @param t Ukazatel na token
  */
 void token_free(tToken *t);
-
 
 /**
  * @brief Vrátí název tokenu jako řetězec
@@ -125,13 +123,11 @@ void token_free(tToken *t);
  */
 const char *token_type_name(tTokenType type);
 
-
 /**
  * @brief Vypíše token na výstup pro účely ladění
  * @param t Ukazatel na token
  * @param out Ukazatel na výstupní soubor
  */
 void token_dump(const tToken *t, FILE *out);
-
 
 #endif // TOKEN_H
