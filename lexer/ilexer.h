@@ -22,7 +22,7 @@ void lexer_init(FILE *f);
 /**
  * @brief Vytvoření a poslání následujícího tokenu
  */
-tToken get_token();
+tToken give_token();
 
 /**
  * @brief Uvolnění paměti pro lexer

@@ -38,7 +38,10 @@ typedef enum {
 
     state_string_check,
     state_empty_str,
-    state_chain_end,
+
+    state_chain_lit,
+    state_cl1,
+    state_cl2,
     state_string_end,
     state_string,
     state_string_escape,
@@ -49,7 +52,6 @@ typedef enum {
     state_dot,
 
     state_exclam,
-    // state_s,
 
     state_zero,
     state_int,

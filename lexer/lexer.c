@@ -29,7 +29,7 @@ void lexer_init(FILE *f) {
     lstack_push(indent_cnt, indent_stack);
 }
 
-tToken get_token() {
+tToken give_token() {
     int c;
     sStr str;
     bool com_nl = false;
@@ -175,10 +175,12 @@ tToken get_token() {
                             string_add(&str, (char)c);
                         } else {
                             string_free(&str);
-                            // print_error(ERR_LEX, line, "");
+                            // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
+                            token.type = TOK_ERROR;
                         }
                         break;
                 }
+                break;
 
             case state_plus:
                 if (c == '+') {
@@ -378,13 +380,56 @@ tToken get_token() {
                             lstack_pop(indent_stack);
                         }
                         if (last_indent < indent_cnt) {
-                            // error
+                            // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                            token.type = TOK_ERROR;
                         }
                         completed = true;
                         break;
                     }
                 }
                 break;
+
+            case state_string_check:
+                if (c == '"') {
+                    token.state = state_empty_str;
+                    break;
+                } else if (c == '\n') {
+                    // print_error(ERR_LEX, line, "Chyba: (Jednořádkový) Řetězcový literál nesmí
+                    // obsahovat konec řádku");
+                    token.type = TOK_ERROR;
+                    break;
+                } else if (__isascii(c)) {
+                    token.state = state_string;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    string_free(&str);
+                    token.type = TOK_ERROR;
+                    break;
+                }
+
+            case state_empty_str:
+                if (c == '"') {
+                    token.state = state_chain_lit;
+                    break;
+                } else {
+                    string_free(&str);
+                    token.type = TOK_STRING;
+                    token.val.str = "\0";
+                    break;
+                }
+
+            case state_chain_lit:
+                if (c == '"') {
+                    token.state = state_cl1;
+                    break;
+                } else if (c == '\n') {
+                    break;
+                } else {
+                    string_add(&str, (char)c);
+                    token.type = TOK_ERROR;
+                    break;
+                }
 
             case state_underscore:
                 if (isalnum(c) || c == '_') {
@@ -408,17 +453,12 @@ tToken get_token() {
                 if (isalnum(c) || c == '_') {
                     string_add(&str, (char)c);
                     break;
-                } else if (c == ' ') {
+                } else {
                     token.type = TOK_ID;
                     token.val.str = str.string;
                     ungetc(c, file);
                     check_keyword(&token, &str);
                     check_var_type(&token, &str);
-                    completed = true;
-                    break;
-                } else {
-                    token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     completed = true;
                     break;
                 }
@@ -553,15 +593,17 @@ void fifo_add(tToken *token, tFIFO_Elem **first) {
         (*first)->next = NULL;
         return;
     }
-    fifo_add(token, (*first)->next);
+    fifo_add(token, &(*first)->next);
 }
 
 tToken fifo_get(tFIFO *queue) {
+    tToken out;
     if (!queue) {
         // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
-        return;
+        out.type = TOK_ERROR;
+        return out;
     }
-    tToken out;
+
     tFIFO_Elem *temp = queue->first;
     out = *queue->first->token;
     queue->first = temp->next;
