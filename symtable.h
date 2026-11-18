@@ -17,24 +17,28 @@
 /**
  * @brief Rotace stromu doleva
  * @param root Ukazatel na kořen stromu, který se má rotovat
+ * @return ErrorCode chybový kód
  */
 ErrorCode rotate_left(tBtNode **root);
 
 /**
  * @brief Rotace stromu doprava
  * @param root Ukazatel na kořen stromu, který se má rotovat
+ * @return ErrorCode chybový kód
  */
 ErrorCode rotate_right(tBtNode **root);
 
 /**
  * @brief Rotace stromu doleva a pak doprava
  * @param root Ukazatel na kořen stromu, který se má rotovat
+ * @return ErrorCode chybový kód
  */
 ErrorCode rotate_left_right(tBtNode **root);
 
 /**
  * @brief Rotace stromu doprava a pak doleva
  * @param root Ukazatel na kořen stromu, který se má rotovat
+ * @return ErrorCode chybový kód
  */
 ErrorCode rotate_right_left(tBtNode **root);
 
@@ -42,6 +46,7 @@ ErrorCode rotate_right_left(tBtNode **root);
  * @brief Nahrazení nejpravějším uzlem
  * @param node Uzel, který se má nahradit
  * @param root Ukazatel na kořen stromu
+ * @return ErrorCode chybový kód
  */
 ErrorCode replace_most_right(tBtNode *node, tBtNode **root);
 
@@ -49,6 +54,7 @@ ErrorCode replace_most_right(tBtNode *node, tBtNode **root);
  * @brief Nahrazení nejlevějším uzlem
  * @param node Uzel, který se má nahradit
  * @param root Ukazatel na kořen stromu
+ * @return ErrorCode chybový kód
  */
 ErrorCode replace_most_left(tBtNode *node, tBtNode **root);
 
@@ -63,6 +69,7 @@ int check_height(tBtNode **root, tBtNode ***first_unbalanced);
 /**
  * @brief Vyvážení stromu
  * @param root Ukazatel na kořen stromu
+ * @return ErrorCode chybový kód
  */
 ErrorCode realign_tree(tBtNode **root);
 

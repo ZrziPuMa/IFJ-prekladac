@@ -28,6 +28,7 @@ typedef struct stack {
 /**
  * @brief Inicializace zásobníku
  * @param stack Ukazatel na zásobník, který se má inicializovat
+ * @return ErrorCode chybový kód
  */
 ErrorCode stack_init(tStack *stack);
 
@@ -35,12 +36,14 @@ ErrorCode stack_init(tStack *stack);
  * @brief Vložení nového lokálního rozsahu platnosti (scope) na vrchol zásobníku
  * @param root Ukazatel na kořen stromu reprezentujícího nový lokální rozsah
  * @param stack Ukazatel na zásobník, na jehož vrchol se nový rozsah vloží
+ * @return ErrorCode chybový kód
  */
 ErrorCode symtable_push_scope(tBtNode **root, tStack *stack);
 
 /**
  * @brief Odebrání aktuálního lokálního rozsahu platnosti z vrcholu zásobníku
  * @param stack Ukazatel na zásobník, ze kterého se odebere aktuální rozsah platnosti
+ * @return ErrorCode chybový kód
  */
 ErrorCode symtable_pop_scope(tStack *stack);
 
@@ -49,6 +52,7 @@ ErrorCode symtable_pop_scope(tStack *stack);
  * @param stack Ukazatel na zásobník, do jehož bloku se bude vkládat
  * @param key Klíč symbolu, který bude vložen
  * @param data Data vloženého symbolu
+ * @return ErrorCode chybový kód
  */
 ErrorCode stack_insert(tStack *stack, char *key, tBtNodeData data);
 
@@ -57,6 +61,7 @@ ErrorCode stack_insert(tStack *stack, char *key, tBtNodeData data);
  * @param stack Ukazatel na zásobník, ve kterém se bude hledat
  * @param key Klíč hledaného symbolu
  * @param location Ukazatel, kam se uloží nalezený symbol
+ * @return ErrorCode chybový kód
  */
 ErrorCode stack_search_symbol(tStack *stack, char *key, tBtNode **location);
 
@@ -64,6 +69,7 @@ ErrorCode stack_search_symbol(tStack *stack, char *key, tBtNode **location);
  * @brief Získání vrcholu zásobníku
  * @param stack Ukazatel na zásobník
  * @return Ukazatel na vrchol zásobníku
+ * @return ErrorCode chybový kód
  */
 tStackElem *stack_top(tStack *stack);
 
