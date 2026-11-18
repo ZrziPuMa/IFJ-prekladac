@@ -20,6 +20,36 @@
 #include <stdlib.h>
 #include <string.h>
 
+void semantic_free_func_sym(tBtNode *node) {
+    if (node == NULL) {
+        return;
+    }
+
+    semantic_free_func_sym(node->left_child);
+    semantic_free_func_sym(node->right_child);
+
+    if (node->data == NULL || node->data->type != FUNCTION) {
+        return;
+    }
+
+    SemanticFunctionSymbol *func = node->data->value;
+
+    while (func != NULL) {
+        SemanticFunctionSymbol *next = func->next;
+
+        for (int i = 0; i < 2; i++) {
+            if (func->builtin_signatures[i] != NULL) {
+                type_info_free(func->builtin_signatures[i]);
+            }
+        }
+
+        free(func);
+        func = next;
+    }
+
+    node->data->value = NULL;
+}
+
 int check_semantics(ASTNode *root) {
     SemanticContext ctx = {0};
 
@@ -55,6 +85,10 @@ int check_semantics(ASTNode *root) {
     res = semantic_check_program(root, &ctx);
 
 cleanup:
+    // potřeba uvolnt zvlášť
+    semantic_free_func_sym(ctx.ext_symbols);
+    semantic_free_func_sym(ctx.symbols);
+
     symtable_dispose(&ctx.ext_symbols);
     symtable_dispose(&ctx.symbols);
 
@@ -64,13 +98,6 @@ cleanup:
 /* ==================================================
  * FUNKCE PRO 1. A 2. PRŮCHOD AST
  * ================================================== */
-
-typedef struct {
-    char *name;
-    TypeClass result;
-    int argc;
-    TypeClass args[3];
-} BuiltinDef;
 
 TypeInfo *builtin_ret_type(BuiltinDef *built_def) {
     if (built_def == NULL) {

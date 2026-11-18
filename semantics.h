@@ -44,6 +44,13 @@ typedef struct AliasPath {
     struct AliasPath *previous;
 } AliasPath;
 
+typedef struct {
+    char *name;
+    TypeClass result;
+    int argc;
+    TypeClass args[3];
+} BuiltinDef;
+
 /**
  * @brief Sdílený kontext jednoho běhu sémantické analýzy
  *
