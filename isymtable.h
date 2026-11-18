@@ -8,6 +8,8 @@
 #ifndef ISYMTABLE_H
 #define ISYMTABLE_H
 
+#include "ierror.h"
+
 #include <stdbool.h>
 #include <string.h>
 
@@ -43,7 +45,7 @@ struct bt_node {
  * @brief Inicializace prázdné tabulky symbolů
  * @param root Ukazatel, který bude ukazovat na kořen inicializovaného (pod)stromu
  */
-void symtable_init(tBtNode **root);
+ErrorCode symtable_init(tBtNode **root);
 
 /**
  * @brief Vložení nového prvku do stromu
@@ -51,7 +53,7 @@ void symtable_init(tBtNode **root);
  * @param key Klíč, pod kterým se prvek uloží
  * @param data Data uloženého prvku
  */
-void symtable_insert(tBtNode **root, char *key, tBtNodeData data);
+ErrorCode symtable_insert(tBtNode **root, char *key, tBtNodeData data);
 
 /**
  * @brief Vyhledávání v tabulce symbolů
@@ -59,25 +61,25 @@ void symtable_insert(tBtNode **root, char *key, tBtNodeData data);
  * @param key Klíč vyhledávaného prvku
  * @param location Ukazatel, ve kterém se vrátí umístění nalezeného prvku
  */
-void symtable_search(tBtNode **root, char *key, tBtNode **location);
+ErrorCode symtable_search(tBtNode **root, char *key, tBtNode **location);
 
 /**
  * @brief Odstranění prvku z tabulky symbolů
  * @param root Ukazatel na kořen (pod)stromu, ze kterého se prvek odstraní
  * @param key Klíč odstraňovaného prvku
  */
-void symtable_delete(tBtNode **root, char *key);
+ErrorCode symtable_delete(tBtNode **root, char *key);
 
 /**
  * @brief Uvolnění alokovaných zdrojů v uzlu
  * @param root Ukazatel na kořen (pod)stromu, který se bude uvolňovat
  */
-void symtable_node_free(tBtNode **root);
+ErrorCode symtable_node_free(tBtNode **root);
 
 /**
  * @brief Systematické uvolnění alokovaných zdrojů v tabulce symbolů
  * @param root Ukazatel na kořen (pod)stromu, který se bude uvolňovat
  */
-void symtable_dispose(tBtNode **root);
+ErrorCode symtable_dispose(tBtNode **root);
 
 #endif // ISYMTABLE_H

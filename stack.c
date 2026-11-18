@@ -13,66 +13,71 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void stack_init(tStack *stack) {
+ErrorCode stack_init(tStack *stack) {
     if (!stack) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
-        return;
+        return ERR_INTERNAL;
     }
     stack->top = NULL;
+    return ERR_OK;
 }
 
-void symtable_push_scope(tBtNode **root, tStack *stack) {
+ErrorCode symtable_push_scope(tBtNode **root, tStack *stack) {
     if (!stack || !root) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
-        return;
+        return ERR_INTERNAL;
     }
 
     tStackElem *new_scope = (tStackElem *)malloc(sizeof(tStackElem));
     if (new_scope == NULL) {
-        print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
-        return;
+        return ERR_INTERNAL;
     }
 
     new_scope->scope = *root;
     new_scope->next = stack->top;
     stack->top = new_scope;
+    return ERR_OK;
 }
 
-void symtable_pop_scope(tStack *stack) {
+ErrorCode symtable_pop_scope(tStack *stack) {
     if (stack == NULL) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
-        return;
+        return ERR_INTERNAL;
     }
 
     if (stack->top) {
         tStackElem *top_scope = stack->top;
         stack->top = top_scope->next;
 
-        symtable_dispose(&(top_scope->scope));
+        ErrorCode err = symtable_dispose(&(top_scope->scope));
         free(top_scope);
+        return err;
     }
+    return ERR_OK;
 }
 
-void stack_insert(tStack *stack, char *key, tBtNodeData data) {
+ErrorCode stack_insert(tStack *stack, char *key, tBtNodeData data) {
     if (!stack || !stack->top)
-        return;
-    symtable_insert(&(stack->top->scope), key, data);
+        return ERR_INTERNAL;
+    return symtable_insert(&(stack->top->scope), key, data);
 }
 
-void stack_search_symbol(tStack *stack, char *key, tBtNode **location) {
+ErrorCode stack_search_symbol(tStack *stack, char *key, tBtNode **location) {
+    if (!location)
+        return ERR_INTERNAL;
     if (!stack) {
         *location = NULL;
-        return;
+        return ERR_INTERNAL;
     }
 
     tStackElem *current = stack->top;
     while (current != NULL) {
-        symtable_search(&(current->scope), key, location);
+        ErrorCode err = symtable_search(&(current->scope), key, location);
+        if (err != ERR_OK)
+            return err;
         if (*location != NULL)
-            return;
+            return ERR_OK;
         current = current->next;
     }
     *location = NULL;
+    return ERR_OK;
 }
 
 tStackElem *stack_top(tStack *stack) {
