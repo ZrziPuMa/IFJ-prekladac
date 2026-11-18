@@ -39,6 +39,7 @@ tToken give_token() {
 
     tToken token;
     token.type = TOK_EMPTY;
+    token.line = line;
     token.state = state_start;
     token.newline_before = false;
 
@@ -52,10 +53,12 @@ tToken give_token() {
                     case EOF:
                         completed = true;
                         token.type = TOK_EOF;
+                        token.line = line;
                         break;
 
                     case '\n':
                         token.type = TOK_NEWLINE;
+                        token.line = line;
                         token.state = state_eol;
                         break;
 
@@ -66,50 +69,59 @@ tToken give_token() {
 
                     case '*':
                         token.type = TOK_MUL;
+                        token.line = line;
                         completed = true;
                         break;
 
                     case '-':
                         token.type = TOK_MINUS;
+                        token.line = line;
                         completed = true;
                         break;
 
                     case ']':
                         token.type = TOK_RBRACKET;
+                        token.line = line;
                         parent_cnt--;
                         completed = true;
                         break;
 
                     case '[':
                         token.type = TOK_LBRACKET;
+                        token.line = line;
                         parent_cnt++;
                         completed = true;
                         break;
 
                     case '(':
                         token.type = TOK_LPAR;
+                        token.line = line;
                         parent_cnt++;
                         completed = true;
                         break;
 
                     case ')':
                         token.type = TOK_RPAR;
+                        token.line = line;
                         parent_cnt--;
                         completed = true;
                         break;
 
                     case ':':
                         token.type = TOK_COLON;
+                        token.line = line;
                         completed = true;
                         break;
 
                     case ';':
                         token.type = TOK_SEMICOLON;
+                        token.line = line;
                         completed = true;
                         break;
 
                     case ',':
                         token.type = TOK_COMMA;
+                        token.line = line;
                         completed = true;
                         break;
 
@@ -177,6 +189,7 @@ tToken give_token() {
                             string_free(&str);
                             // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
                             token.type = TOK_ERROR;
+                            token.line = line;
                         }
                         break;
                 }
@@ -185,10 +198,12 @@ tToken give_token() {
             case state_plus:
                 if (c == '+') {
                     token.type = TOK_CONCAT;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_PLUS;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -197,10 +212,12 @@ tToken give_token() {
             case state_greater_than:
                 if (c == '=') {
                     token.type = TOK_GREATEREQ;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_GREATERTHEN;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -209,10 +226,12 @@ tToken give_token() {
             case state_exclam:
                 if (c == '=') {
                     token.type = TOK_NOTEQ;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_NOT;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -221,10 +240,12 @@ tToken give_token() {
             case state_pipe:
                 if (c == '|') {
                     token.type = TOK_OR;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_PIPE;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -233,14 +254,17 @@ tToken give_token() {
             case state_lesser_than:
                 if (c == '-') {
                     token.type = TOK_LEFT_ARROW;
+                    token.line = line;
                     completed = true;
                     break;
                 } else if (c == '=') {
                     token.type = TOK_LESSEQ;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_LESSTHEN;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -249,14 +273,17 @@ tToken give_token() {
             case state_equal:
                 if (c == '=') {
                     token.type = TOK_EQ;
+                    token.line = line;
                     completed = true;
                     break;
                 } else if (c == '>') {
                     token.type = TOK_RIGHT_ARROW;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_ASSIGN;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -270,6 +297,7 @@ tToken give_token() {
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -283,6 +311,7 @@ tToken give_token() {
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -296,6 +325,7 @@ tToken give_token() {
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -304,11 +334,13 @@ tToken give_token() {
             case state_main3:
                 if (c == 'n') {
                     token.type = TOK_AT_MAIN;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -317,11 +349,13 @@ tToken give_token() {
             case state_ampersand:
                 if (c == '&') {
                     token.type = TOK_AND;
+                    token.line = line;
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     completed = true;
                     break;
                 }
@@ -335,6 +369,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_DIV;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -349,6 +384,7 @@ tToken give_token() {
                 } else if (c == '\t') {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     completed = true;
                 } else if (c == ' ') {
                     indent_cnt++;
@@ -358,21 +394,26 @@ tToken give_token() {
 
                     if (last_indent == indent_cnt) {
                         token.type = TOK_NEWLINE;
+                        token.line = line;
                         completed = true;
                         break;
                     } else if (last_indent < indent_cnt) {
                         lstack_push(indent_cnt, indent_stack);
                         token.type = TOK_NEWLINE;
+                        token.line = line;
                         tToken indent_tok;
                         indent_tok.type = TOK_INDENT;
+                        indent_tok.line = line;
                         fifo_add(&indent_tok, &queue->first);
                         completed = true;
                         break;
                     } else {
                         lstack_pop(indent_stack);
                         token.type = TOK_NEWLINE;
+                        token.line = line;
                         tToken dedent_tok;
                         dedent_tok.type = TOK_DEDENT;
+                        dedent_tok.line = line;
                         fifo_add(&dedent_tok, &queue->first);
                         while (indent_cnt < last_indent) {
                             fifo_add(&token, &queue->first);
@@ -428,6 +469,7 @@ tToken give_token() {
                 } else {
                     string_add(&str, (char)c);
                     token.type = TOK_ERROR;
+                    token.line = line;
                     break;
                 }
 
@@ -439,12 +481,14 @@ tToken give_token() {
                     break;
                 } else if (c == ' ') {
                     token.type = TOK_UNDERSCORE;
+                    token.line = line;
                     ungetc(c, file);
                     completed = true;
                     break;
                 } else {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    token.line = line;
                     completed = true;
                     break;
                 }
@@ -456,6 +500,7 @@ tToken give_token() {
                 } else {
                     token.type = TOK_ID;
                     token.val.str = str.string;
+                    token.line = line;
                     ungetc(c, file);
                     check_keyword(&token, &str);
                     check_var_type(&token, &str);
