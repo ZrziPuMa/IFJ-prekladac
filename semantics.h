@@ -41,8 +41,8 @@ typedef struct SemanticFunctionSymbol {
 } SemanticFunctionSymbol;
 
 typedef struct AliasPath {
-    char *name;
-    struct AliasPath *previous;
+    const char *name;
+    const struct AliasPath *previous;
 } AliasPath;
 
 typedef struct {
@@ -84,7 +84,7 @@ typedef struct SemanticContext {
  * @param program Kořenový uzel AST obsahujícího program k analýze
  * @param ctx Ukazatel na strukturu SemanticContext, do které se v tabulce symbolů ukládají globální
  * symboly
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_collect_globals(ASTNode *program, SemanticContext *ctx);
 
@@ -101,7 +101,7 @@ ErrorCode semantic_collect_globals(ASTNode *program, SemanticContext *ctx);
  *
  * @param program Kořenový uzel AST_PROGRAM; jeho potomci se mohou měnit
  * @param ctx Kontext analýzy s registrovanými globálními symboly
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_check_program(ASTNode *program, SemanticContext *ctx);
 
@@ -115,18 +115,9 @@ ErrorCode semantic_check_program(ASTNode *program, SemanticContext *ctx);
  * @param node Adresa ukazatele v AST na uzel, který se analyzuje. Může být nahrazen novým uzlem
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ výrazu, nebo NULL, pokud není známý
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *expected_type);
-
-/**
- * @brief Zkontroluje danou definici funkce a její tělo
- *
- * @param function Uzel typu AST_FUNC_DEF
- * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
- */
-ErrorCode semantic_check_function(ASTNode *function, SemanticContext *ctx);
 
 /**
  * @brief Zkontroluje příkazy daného bloku a určí jeho výsledný typ
@@ -134,10 +125,10 @@ ErrorCode semantic_check_function(ASTNode *function, SemanticContext *ctx);
  * @param block Uzel typu AST_BLOCK
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ hodnoty bloku, nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
-                         bool used_as_value);
+                               bool used_as_value);
 
 /* ==================================================
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
@@ -149,7 +140,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
  * @brief Určí typ literálu podle jeho druhu a uloží jej do AST
  *
  * @param node Uzel typu AST_LITERAL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_literal(ASTNode *node);
 
@@ -159,7 +150,7 @@ ErrorCode semantic_literal(ASTNode *node);
  * @param node Adresa ukazatele v AST na uzel typu AST_IDENTIFIER. Může být nahrazen uzlem
  * AST_FUNC_CALL, pokud se jedná o volání funkce.
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_identifier(ASTNode **node, SemanticContext *ctx);
 
@@ -168,7 +159,7 @@ ErrorCode semantic_identifier(ASTNode **node, SemanticContext *ctx);
  *
  * @param node Uzel typu AST_BINARY_OP
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_binary_op(ASTNode *node, SemanticContext *ctx);
 
@@ -177,7 +168,7 @@ ErrorCode semantic_binary_op(ASTNode *node, SemanticContext *ctx);
  *
  * @param node Uzel typu AST_UNARY_OP
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_unary_op(ASTNode *node, SemanticContext *ctx);
 
@@ -187,7 +178,7 @@ ErrorCode semantic_unary_op(ASTNode *node, SemanticContext *ctx);
  * @param node Uzel typu AST_FUNC_CALL
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ výsledku, nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_func_call(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
 
@@ -197,7 +188,7 @@ ErrorCode semantic_func_call(ASTNode *node, SemanticContext *ctx, const TypeInfo
  * @param node Adresa ukazatele v AST na uzel typu AST_MEMBER_ACCESS. Může být nahrazen uzlem
  * AST_FUNC_CALL, pokud se jedná o volání metody bez parametrů.
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_member_access(ASTNode **node, SemanticContext *ctx);
 
@@ -207,7 +198,7 @@ ErrorCode semantic_member_access(ASTNode **node, SemanticContext *ctx);
  * @param node Uzel typu AST_LIST_LITERAL
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ List[T], nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
 
@@ -220,7 +211,7 @@ ErrorCode semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeI
  *
  * @param node Uzel typu AST_VAR_DEF
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is_param);
 
@@ -229,7 +220,7 @@ ErrorCode semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, b
  *
  * @param node Uzel typu AST_CLASS_DEF
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_class_def(ASTNode *node, SemanticContext *ctx);
 
@@ -238,7 +229,7 @@ ErrorCode semantic_class_def(ASTNode *node, SemanticContext *ctx);
  *
  * @param node Uzel typu AST_TYPE_ALIAS
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_type_alias(ASTNode *node, SemanticContext *ctx);
 
@@ -247,7 +238,7 @@ ErrorCode semantic_type_alias(ASTNode *node, SemanticContext *ctx);
  *
  * @param node Uzel typu AST_EXTENSION_DEF
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_extension_def(ASTNode *node, SemanticContext *ctx);
 
@@ -257,7 +248,7 @@ ErrorCode semantic_extension_def(ASTNode *node, SemanticContext *ctx);
  * @param node Uzel typu AST_LAMBDA
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný funkční typ, nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
 
@@ -270,7 +261,7 @@ ErrorCode semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
  *
  * @param node Uzel typu AST_ASSIGNMENT
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_assignment(ASTNode *node, SemanticContext *ctx);
 
@@ -280,17 +271,17 @@ ErrorCode semantic_assignment(ASTNode *node, SemanticContext *ctx);
  * @param node Uzel typu AST_IF_EXPR
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ výsledku if, nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type,
-                     bool used_as_value);
+                           bool used_as_value);
 
 /**
  * @brief Zkontroluje podmínku a tělo cyklu while
  *
  * @param node Uzel typu AST_WHILE
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_while(ASTNode *node, SemanticContext *ctx);
 
@@ -299,7 +290,7 @@ ErrorCode semantic_while(ASTNode *node, SemanticContext *ctx);
  *
  * @param node Uzel typu AST_FOR
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_for(ASTNode *node, SemanticContext *ctx);
 
@@ -309,7 +300,7 @@ ErrorCode semantic_for(ASTNode *node, SemanticContext *ctx);
  * @param node Uzel typu AST_MATCH_EXPR
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ výsledku match, nebo NULL
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type);
 
@@ -318,7 +309,7 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
  *
  * @param node Uzel typu AST_RETURN
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_return(ASTNode *node, SemanticContext *ctx);
 
@@ -332,7 +323,7 @@ ErrorCode semantic_return(ASTNode *node, SemanticContext *ctx);
  * @param arg_list Uzel typu AST_ARG_LIST
  * @param ctx Kontext sémantické analýzy
  * @param param_types Seznam očekávaných typů parametrů propojený přes next
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo *param_types);
 
@@ -341,7 +332,7 @@ ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const Typ
  *
  * @param param_list Uzel typu AST_PARAM_LIST
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
 
@@ -351,10 +342,10 @@ ErrorCode semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
  * @param node Uzel typu AST_CASE_BRANCH
  * @param ctx Kontext sémantické analýzy
  * @param matched_type Typ hodnoty porovnávané výrazem match
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type,
-                         const TypeInfo *expected_type);
+                               const TypeInfo *expected_type);
 
 /**
  * @brief Zkontroluje jeden vzor a zavede případně vázané proměnné
@@ -362,7 +353,7 @@ ErrorCode semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeIn
  * @param node Uzel typu AST_PATTERN
  * @param ctx Kontext sémantické analýzy
  * @param matched_type Typ hodnoty analyzované výrazem match
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_pattern(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type);
 
@@ -371,7 +362,7 @@ ErrorCode semantic_pattern(ASTNode *node, SemanticContext *ctx, const TypeInfo *
  *
  * @param node Uzel typu AST_RANGE
  * @param ctx Kontext sémantické analýzy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx);
 
@@ -403,7 +394,7 @@ bool semantic_types_compatible(const TypeInfo *expected, const TypeInfo *actual)
  * @param a Typ prvního výrazu
  * @param b Typ druhého výrazu
  * @param result Adresa ukazatele, kam se uloží nově alokovaný společný typ
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_common_type(const TypeInfo *a, const TypeInfo *b, TypeInfo **result);
 
@@ -412,7 +403,7 @@ ErrorCode semantic_common_type(const TypeInfo *a, const TypeInfo *b, TypeInfo **
  *
  * @param expression Uzel výrazu, jehož typ se má ověřit
  * @param expected_type Očekávaný typ výrazu
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
 ErrorCode semantic_check_conversion(ASTNode *expression, const TypeInfo *expected_type);
 
@@ -421,9 +412,10 @@ ErrorCode semantic_check_conversion(ASTNode *expression, const TypeInfo *expecte
  *
  * @param type Typ, v němž se mají rozvinout aliasy
  * @param ctx Kontext sémantické analýzy, obsahující tabulku symbolů s aliasy
- * @return 0 při úspěchu, jinak chybový kód IFJ26
+ * @return chybový kód podle ierror.h
  */
-ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx, TypeInfo **result);
+ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx,
+                                      TypeInfo **result);
 
 bool semantic_always_returns(const ASTNode *node);
 
@@ -432,7 +424,7 @@ ErrorCode semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx, 
 bool compare_unions(const TypeInfo *a, const TypeInfo *b);
 
 ErrorCode is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                       SemanticFunctionSymbol **matched_method);
+                             SemanticFunctionSymbol **matched_method);
 
 bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type);
 
@@ -456,32 +448,127 @@ TypeInfo *builtin_type(BuiltinDef *built_def);
  * @brief zaregistruje vestavěné funkce
  *
  * @param ctx kontext sémantické analýzy
- * @return int chybový kód
+ * @return chybový kód podle ierror.h
  */
 ErrorCode register_buildin_func(SemanticContext *ctx);
 
+/**
+ * @brief vytvoří globální deklaraci a dá so tabulky globálních symbolů
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param name klíč pro tabulku
+ * @param type typ uzlu
+ * @param declaration uzel co se přidává
+ * @return chybový kód podle ierror.h
+ */
 ErrorCode semantic_register_global(SemanticContext *ctx, char *name, tBtContentType type,
-                             ASTNode *declaration);
+                                   ASTNode *declaration);
 
+/**
+ * @brief zaregistruje extension funkci
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param declaration uzel s funkcí
+ * @param ext uzel s extension částí funkce
+ * @return chybový kód podle ierror.h
+ */
 ErrorCode register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode *ext);
+
+/**
+ * @brief zpracuje globální deklarace aliasů a tříd
+ *
+ * @param program program který kontroluje
+ * @param ctx kontext sémantické analýzy
+ * @return chybový kód podle ierror.h
+ */
 ErrorCode check_globals(ASTNode *program, SemanticContext *ctx);
+
+/**
+ * @brief vytvoří typ funkce
+ *
+ * @param param_group skupina parametrů
+ * @param return_type návratový typ
+ * @param result výsledný typ funkce
+ * @return chybový kód podle ierror.h
+ */
 ErrorCode semantic_build_function_type(const ASTNode *param_group, const TypeInfo *return_type,
-                                 TypeInfo **result);
+                                       TypeInfo **result);
+
+/**
+ * @brief zkontroluje stav kontroly funkce
+ *
+ * @param func_sym struktura s funkcí
+ * @param ctx kontext sémantické analýzy
+ * @return chybový kód podle ierror.h
+ */
 ErrorCode semantic_ensure_func_type(SemanticFunctionSymbol *func_sym, SemanticContext *ctx);
 
+/**
+ * @brief zjistí počet parametrů
+ *
+ * @param group skupina parametrů
+ * @return int počet parametrů
+ */
 int call_param_group_count(const ASTNode *group);
+
+/**
+ * @brief vrátí typ u vestavěné funkce a ověří, že v místě jejího volání má správný počet argumentů
+ *
+ * @param func symbol s deklaradí funkce
+ * @param args počet argumentů volání
+ * @param result výsledný typ
+ * @return ErrorCode chybový kód podle ierror.h
+ */
 ErrorCode call_builtin_type(const SemanticFunctionSymbol *func, const ASTNode *args,
-                      const TypeInfo **result);
+                            const TypeInfo **result);
+
+/**
+ * @brief vyřeší některé vestavěné funkce co pracují s List
+ *
+ * @param name název volané funkce
+ * @param list typ listu
+ * @param out výsledný typ
+ * @return ErrorCode chybový kód podle ierror.h
+ */
 ErrorCode call_list_method_type(const char *name, const TypeInfo *list, TypeInfo **out);
 
+/**
+ * @brief vytvoří typ pro třídu
+ *
+ * @param class_def definice třídy
+ * @param res_type výsledný typ
+ * @return ErrorCode chybový kód podle ierror.h
+ */
 ErrorCode call_constructor_type(ASTNode *class_def, TypeInfo **res_type);
-ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind, int *own_groups);
-ErrorCode call_apply_group(ASTNode *group, SemanticContext *ctx, const TypeInfo *current,
-                     TypeInfo **next);
-ErrorCode semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                              SemanticFunctionSymbol **matched_method);
-ErrorCode is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                       SemanticFunctionSymbol **matched_method);
 
+/**
+ * @brief řeší přípravu volání
+ *
+ * @param call uzel s voláním
+ * @param ctx kontext sémantické analýzy
+ * @param kind druh volání
+ * @param own_groups počet skupin
+ * @return ErrorCode chybový kód podle ierror.h
+ */
+ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind, int *own_groups);
+
+/**
+ * @brief řeší member acces když je extension
+ *
+ * @param node řešený uzel
+ * @param ctx kontext sémantické analýzy
+ * @param result výsledný typ
+ * @param matched_method ukazatel na strukturu s nalezenou extension funkcí
+ * @return ErrorCode chybový kód podle ierror.h
+ */
+ErrorCode semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
+                                    SemanticFunctionSymbol **matched_method);
+
+/**
+ * @brief doplní () do else pro případ, kdy je if na konci bloku jako příkaz bez else větve
+ *
+ * @param node uzel podmínky
+ * @return ErrorCode chybový kód podle ierror.h
+ */
 ErrorCode semantic_fill_unit_else(ASTNode *node);
 #endif // SEMANTICS_H

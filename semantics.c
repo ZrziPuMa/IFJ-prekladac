@@ -266,6 +266,7 @@ ErrorCode register_buildin_func(SemanticContext *ctx) {
         // vytvoří si nový symbol pro funkci a vloží ke globálním deklaracím
         SemanticFunctionSymbol *func_sym = calloc(1, sizeof *func_sym);
         if (func_sym == NULL) {
+            type_info_free(func_type);
             return semantic_error(ctx, ERR_INTERNAL, NULL);
         }
         func_sym->is_buildin = true;
@@ -274,26 +275,16 @@ ErrorCode register_buildin_func(SemanticContext *ctx) {
         tBtNodeData data = {.type = FUNCTION, .value = func_sym};
         err = symtable_insert(&ctx->symbols, built_def->name, data);
         if (err != ERR_OK) {
-            return semantic_error(ctx, err, NULL);
-        }
-
-        // kontrola že nenastala chyba při vkládání
-        tBtNode *inserted = NULL;
-        err = symtable_search(&ctx->symbols, built_def->name, &inserted);
-        if (err != ERR_OK) {
-            return semantic_error(ctx, err, NULL);
-        }
-        if (inserted == NULL || inserted->data == NULL || inserted->data->value != func_sym) {
             type_info_free(func_type);
             free(func_sym);
-            return semantic_error(ctx, ERR_INTERNAL, NULL);
+            return semantic_error(ctx, err, NULL);
         }
     }
     return ERR_OK;
 }
 
 ErrorCode semantic_register_global(SemanticContext *ctx, char *name, tBtContentType type,
-                                    ASTNode *declaration) {
+                                   ASTNode *declaration) {
     if (ctx == NULL || declaration == NULL || name == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, declaration);
     }
@@ -324,7 +315,11 @@ ErrorCode semantic_register_global(SemanticContext *ctx, char *name, tBtContentT
         data.value = info;
         info->is_buildin = false;
     }
-    return semantic_error(ctx, symtable_insert(&ctx->symbols, name, data), declaration);
+    err = semantic_error(ctx, symtable_insert(&ctx->symbols, name, data), declaration);
+    if (type == FUNCTION && err != ERR_OK && data.value != NULL) {
+        free(data.value);
+    }
+    return err;
 }
 
 ErrorCode register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode *ext) {
@@ -378,6 +373,9 @@ ErrorCode register_ext_func(SemanticContext *ctx, ASTNode *declaration, ASTNode 
         tBtNodeData data = {.type = FUNCTION, .value = info};
         err = symtable_insert(&ctx->ext_symbols, declaration->data.func_def.name, data);
         if (err != ERR_OK) {
+            if (info != NULL) {
+                free(info);
+            }
             return semantic_error(ctx, err, declaration);
         }
     } else {
@@ -464,7 +462,8 @@ ErrorCode semantic_collect_globals(ASTNode *program, SemanticContext *ctx) {
             case AST_FUNC_DEF:
                 if (definition->data.func_def.is_main) {
                     if (found_main) {
-                        return semantic_error(ctx, ERR_SEM_REDEF, definition); // Opakovaná definice @main
+                        return semantic_error(ctx, ERR_SEM_REDEF,
+                                              definition); // Opakovaná definice @main
                     }
                     found_main = true;
                 }
@@ -517,7 +516,8 @@ ErrorCode semantic_collect_globals(ASTNode *program, SemanticContext *ctx) {
                     return semantic_error(ctx, ERR_INTERNAL, definition);
                 }
 
-                ErrorCode result = register_ext_func(ctx, pos, definition->data.extension_def.receiver);
+                ErrorCode result =
+                    register_ext_func(ctx, pos, definition->data.extension_def.receiver);
                 if (result != 0) {
                     return semantic_error(ctx, result, definition);
                 }
@@ -528,7 +528,7 @@ ErrorCode semantic_collect_globals(ASTNode *program, SemanticContext *ctx) {
     }
 
     if (!found_main) { // v programu chybí funkce main
-        return semantic_error(ctx, ERR_SEM_UNDEF, program);
+        return semantic_error(ctx, ERR_SEM_UNDEF, NULL);
     }
     return ERR_OK;
 }
@@ -669,7 +669,9 @@ ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *e
             res = semantic_member_access(node, ctx);
             break;
         case AST_RANGE:
-            return semantic_error(ctx, ERR_SEM_TYPE, node != NULL ? *node : NULL); // půjde řešit jen z určitých míst, nemůže být všude
+            return semantic_error(
+                ctx, ERR_SEM_TYPE,
+                node != NULL ? *node : NULL); // půjde řešit jen z určitých míst, nemůže být všude
 
         case AST_RETURN:
             res = semantic_return(*node, ctx);
@@ -694,7 +696,7 @@ ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *e
 }
 
 ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
-                         bool used_as_value) {
+                               bool used_as_value) {
     // úvodní kontroly
     if (block == NULL || ctx == NULL || block->type != AST_BLOCK || ctx->scope_stack == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, block);
@@ -783,7 +785,7 @@ ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeI
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
  * ================================================== */
 ErrorCode semantic_build_function_type(const ASTNode *param_group, const TypeInfo *return_type,
-                                 TypeInfo **result) {
+                                       TypeInfo **result) {
     if (return_type == NULL || result == NULL) {
         return ERR_INTERNAL;
     }
@@ -960,7 +962,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
         // vloží do tabulky
         tBtNodeData receiver_data = {.type = VARIABLE, .value = receiver};
         res = symtable_insert(&function_stack.top->scope, receiver->data.var_def.identifier,
-                        receiver_data);
+                              receiver_data);
         if (res != ERR_OK) {
             goto cleanup;
         }
@@ -1146,7 +1148,8 @@ ErrorCode semantic_identifier(ASTNode **node, SemanticContext *ctx) {
 
     // najde deklaraci toho identifikátoru
     tBtNode *var = NULL;
-    ErrorCode search_res = semantic_find_symbol(ctx->scope_stack, (*node)->data.identifier.name, ctx, &var);
+    ErrorCode search_res =
+        semantic_find_symbol(ctx->scope_stack, (*node)->data.identifier.name, ctx, &var);
     if (search_res != ERR_OK) {
         return semantic_error(ctx, search_res, *node);
     }
@@ -1419,7 +1422,7 @@ int call_param_group_count(const ASTNode *group) {
 /* Z overloadu vestavene funkce vybere podle poctu argumentu.
  * Vraci vypujceny typ; kopii udela az volajici. */
 ErrorCode call_builtin_type(const SemanticFunctionSymbol *func, const ASTNode *args,
-                      const TypeInfo **result) {
+                            const TypeInfo **result) {
     if (func == NULL || result == NULL || !func->is_buildin) {
         return ERR_INTERNAL;
     }
@@ -1552,7 +1555,8 @@ ErrorCode call_constructor_type(ASTNode *class_def, TypeInfo **res_type) {
     return ERR_OK;
 }
 
-ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind, int *own_groups) {
+ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind,
+                              int *own_groups) {
     if (call == NULL || ctx == NULL || kind == NULL || own_groups == NULL ||
         call->type != AST_FUNC_CALL || !call->data.func_call.target) {
         return semantic_error(ctx, ERR_INTERNAL, call);
@@ -1708,7 +1712,7 @@ ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kin
 }
 
 ErrorCode call_apply_group(ASTNode *group, SemanticContext *ctx, const TypeInfo *current,
-                     TypeInfo **next) {
+                           TypeInfo **next) {
     if (!group || group->type != AST_ARG_LIST || !ctx || !current || !next) {
         return ERR_INTERNAL;
     }
@@ -1804,7 +1808,7 @@ cleanup:
 }
 
 ErrorCode semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                              SemanticFunctionSymbol **matched_method) {
+                                    SemanticFunctionSymbol **matched_method) {
     if (node == NULL || ctx == NULL || result == NULL || matched_method == NULL ||
         node->type != AST_MEMBER_ACCESS || node->data.member_access.object == NULL ||
         node->data.member_access.member_name == NULL) {
@@ -1860,7 +1864,7 @@ ErrorCode semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInf
             }
 
             ErrorCode error = semantic_resolve_type_alias(receiver->data.var_def.declared_type, ctx,
-                                                    &temporary_type);
+                                                          &temporary_type);
 
             if (error != 0) {
                 return semantic_error(ctx, error, node);
@@ -1915,7 +1919,7 @@ ErrorCode semantic_extension_member(ASTNode *node, SemanticContext *ctx, TypeInf
 }
 
 ErrorCode is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **result,
-                       SemanticFunctionSymbol **matched_method) {
+                             SemanticFunctionSymbol **matched_method) {
     if (node == NULL || ctx == NULL || result == NULL || matched_method == NULL ||
         node->type != AST_MEMBER_ACCESS || node->data.member_access.object == NULL ||
         node->data.member_access.member_name == NULL) {
@@ -1962,7 +1966,8 @@ ErrorCode is_mem_acc_allowed(ASTNode *node, SemanticContext *ctx, TypeInfo **res
     if (receiver == TYPE_CUSTOM) {
         // najde jeho definici v globálních symbolech
         tBtNode *symbol = NULL;
-        ErrorCode search_res = symtable_search(&ctx->symbols, object_type->data.custom_name, &symbol);
+        ErrorCode search_res =
+            symtable_search(&ctx->symbols, object_type->data.custom_name, &symbol);
         if (search_res != ERR_OK) {
             return semantic_error(ctx, search_res, node);
         }
@@ -2138,7 +2143,8 @@ ErrorCode semantic_member_access(ASTNode **node, SemanticContext *ctx) {
 }
 
 // hotova
-ErrorCode semantic_list_literal(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type) {
+ErrorCode semantic_list_literal(ASTNode *node, SemanticContext *ctx,
+                                const TypeInfo *expected_type) {
     if (node == NULL || ctx == NULL || node->type != AST_LIST_LITERAL) {
         return semantic_error(ctx, ERR_INTERNAL, node);
     }
@@ -2258,7 +2264,8 @@ ErrorCode semantic_assignment(ASTNode *node, SemanticContext *ctx) {
 
     // najde definici proměnné na levé straně přiřazení, pokud není, chyba
     tBtNode *definition = NULL;
-    ErrorCode search_res = semantic_find_symbol(ctx->scope_stack, node->data.assignment.target, ctx, &definition);
+    ErrorCode search_res =
+        semantic_find_symbol(ctx->scope_stack, node->data.assignment.target, ctx, &definition);
     if (search_res != ERR_OK) {
         return semantic_error(ctx, search_res, node);
     }
@@ -2272,7 +2279,8 @@ ErrorCode semantic_assignment(ASTNode *node, SemanticContext *ctx) {
     }
 
     if (tar_var->data.var_def.is_mutable != true) {
-        return semantic_error(ctx, ERR_SEM_UNAUTH_WRITE, node); // proměnná není modifikovatelná, nelze přiřadit
+        return semantic_error(ctx, ERR_SEM_UNAUTH_WRITE,
+                              node); // proměnná není modifikovatelná, nelze přiřadit
     }
 
     // vyřeší pravou stranu přiazení
@@ -2317,7 +2325,8 @@ ErrorCode semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, b
 
     tBtNode *exists = NULL;
     // zkontroluje, jestli v aktuálním scope už není definice proměnné stejného jména
-    ErrorCode search_res = symtable_search(&stack_top(scope)->scope, node->data.var_def.identifier, &exists);
+    ErrorCode search_res =
+        symtable_search(&stack_top(scope)->scope, node->data.var_def.identifier, &exists);
     if (search_res != ERR_OK) {
         return semantic_error(ctx, search_res, node);
     }
@@ -2402,9 +2411,9 @@ ErrorCode semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, b
     // vloží do aktuálního scope
     tBtNodeData node_symtab = {.value = node, .type = VARIABLE};
 
-    return semantic_error(ctx,
-                          symtable_insert(&stack_top(scope)->scope, node->data.var_def.identifier, node_symtab),
-                          node);
+    return semantic_error(
+        ctx, symtable_insert(&stack_top(scope)->scope, node->data.var_def.identifier, node_symtab),
+        node);
 }
 
 // hotova
@@ -2833,7 +2842,7 @@ ErrorCode semantic_fill_unit_else(ASTNode *node) {
 
 // asi hotovo
 ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type,
-                     bool used_as_value) {
+                           bool used_as_value) {
     if (node == NULL || ctx == NULL || node->type != AST_IF_EXPR) {
         return semantic_error(ctx, ERR_INTERNAL, node);
     }
@@ -2845,7 +2854,7 @@ ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *
     }
     // podmínka musí mít typ boolean
     if (node->data.if_expr.condition->expr_type->type_class != TYPE_BOOLEAN) {
-        return semantic_error(ctx, ERR_SEM_TYPE, node);
+        return semantic_error(ctx, ERR_SEM_TYPE, node->data.if_expr.condition);
     }
 
     // zpracuje blok po if
@@ -2926,7 +2935,7 @@ ErrorCode semantic_while(ASTNode *node, SemanticContext *ctx) {
 
     // podmínka musí být typu boolean
     if (node->data.while_loop.condition->expr_type->type_class != TYPE_BOOLEAN) {
-        return semantic_error(ctx, ERR_SEM_TYPE, node);
+        return semantic_error(ctx, ERR_SEM_TYPE, node->data.while_loop.condition);
     }
 
     // zpracuje tělo cyklu
@@ -2995,7 +3004,8 @@ ErrorCode semantic_for(ASTNode *node, SemanticContext *ctx) {
     }
     // dá do něj proměnnou cyklu
     tBtNodeData var_data = {.value = node->data.for_loop.iter_var, .type = VARIABLE};
-    res = symtable_insert(&for_scope, node->data.for_loop.iter_var->data.var_def.identifier, var_data);
+    res = symtable_insert(&for_scope, node->data.for_loop.iter_var->data.var_def.identifier,
+                          var_data);
     if (res != ERR_OK) {
         symtable_dispose(&for_scope);
         return semantic_error(ctx, res, node);
@@ -3182,8 +3192,8 @@ ErrorCode semantic_return(ASTNode *node, SemanticContext *ctx) {
     TypeInfo *func_ret = NULL;
 
     // vezme si návratový typ funkce
-    ErrorCode res = semantic_resolve_type_alias(ctx->current_function->data.func_def.return_type, ctx,
-                                          &func_ret);
+    ErrorCode res = semantic_resolve_type_alias(ctx->current_function->data.func_def.return_type,
+                                                ctx, &func_ret);
     if (res != 0) {
         return semantic_error(ctx, res, node);
     }
@@ -3241,7 +3251,8 @@ ErrorCode semantic_return(ASTNode *node, SemanticContext *ctx) {
  * ================================================== */
 
 // hotovo
-ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const TypeInfo *param_types) {
+ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx,
+                                  const TypeInfo *param_types) {
     if (node == NULL || ctx == NULL || node->type != AST_ARG_LIST) {
         return semantic_error(ctx, ERR_INTERNAL, node);
     }
@@ -3259,7 +3270,7 @@ ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx, const Typ
 
         // porovná, jestli je kompatibilní s očekávaným typem
         if (!semantic_types_compatible(expected, (*actual)->expr_type)) {
-            return semantic_error(ctx, ERR_SEM_ARGS, node);
+            return semantic_error(ctx, ERR_SEM_ARGS, *actual);
         }
 
         // pokud je potřeba, nastaví konverzi
@@ -3302,7 +3313,7 @@ ErrorCode semantic_register_param_list(ASTNode *node, SemanticContext *ctx) {
 }
 
 ErrorCode semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type,
-                         const TypeInfo *expected_type) {
+                               const TypeInfo *expected_type) {
     if (node == NULL || ctx == NULL || matched_type == NULL || node->type != AST_CASE_BRANCH ||
         ctx->scope_stack == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, node);
@@ -3578,7 +3589,8 @@ ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx) {
     return ERR_OK;
 }
 
-ErrorCode semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx, tBtNode **location) {
+ErrorCode semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx,
+                               tBtNode **location) {
     if (stack == NULL || name == NULL || ctx == NULL || location == NULL) {
         return ERR_INTERNAL;
     }
@@ -3662,7 +3674,7 @@ bool compare_unions(const TypeInfo *a, const TypeInfo *b) {
     }
 
     bool are_equal = true;
-    TypeInfo *position_a = a;
+    const TypeInfo *position_a = a;
     // Prochází všechny typy v union z parametru 'a' a kontroluje, zda jsou obsaženy v parametru
     // 'b'
     while (position_a != NULL && position_a->type_class == TYPE_UNION && are_equal) {
@@ -3751,6 +3763,8 @@ bool semantic_types_compatible(const TypeInfo *expected, const TypeInfo *actual)
             TypeInfo double_type = {.type_class = TYPE_DOUBLE, .next = NULL};
             compatible = semantics_compare_union_with_type(expected, &double_type);
         }
+    } else if (expected->type_class == TYPE_UNION && actual->type_class == TYPE_UNION) {
+        compatible = compare_unions(actual, expected);
     }
     return compatible;
 }
@@ -3760,7 +3774,7 @@ ErrorCode semantic_common_type(const TypeInfo *a, const TypeInfo *b, TypeInfo **
         return ERR_INTERNAL; // Chyba: Neplatný vstup
     }
     *result = NULL;
-    TypeInfo *ret_type = NULL;
+    const TypeInfo *ret_type = NULL;
 
     if (semantic_types_equal(a, b)) {
         ret_type = a; // Typy jsou stejné, vrací se jeden z nich
@@ -3863,6 +3877,8 @@ void normalise_union_tree(TypeInfo *type) {
                 // návratový typ
                 normalise_union_tree(tmp->data.func_type.return_type);
                 break;
+            default:
+                break;
         }
         // posune se po levé diagonále o prvek dál
         pos = pos->data.union_type.left;
@@ -3882,6 +3898,8 @@ void normalise_union_tree(TypeInfo *type) {
 
             // Navratovy typ funkce.
             normalise_union_tree(pos->data.func_type.return_type);
+            break;
+        default:
             break;
     }
 }
@@ -3913,7 +3931,7 @@ static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const Ali
     TypeInfo *type = *slot;
 
     switch (type->type_class) {
-        case TYPE_CUSTOM:
+        case TYPE_CUSTOM: {
             tBtNode *symbol = NULL;
 
             // najde v tabulce symbolů definici aliasu
@@ -3965,8 +3983,9 @@ static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const Ali
 
             // pokračuje v hledání dalších aliasů
             return expand_aliases(slot, ctx, &current);
+        }
 
-        case TYPE_UNION:
+        case TYPE_UNION: {
             // zavolá rozložení aliasů nad pravým i levým podstromem
             ErrorCode result = expand_aliases(&type->data.union_type.left, ctx, path);
 
@@ -3975,12 +3994,13 @@ static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const Ali
             }
 
             return expand_aliases(&type->data.union_type.right, ctx, path);
+        }
 
         case TYPE_LIST:
             // zavolá rozvinutí aliasů nad seznamem prvků listu
             return expand_aliases(&type->data.list_element_type, ctx, path);
 
-        case TYPE_FUNCTION:
+        case TYPE_FUNCTION: {
             // Rozvine aliasy ve všech parametrech
             TypeInfo **param = &type->data.func_type.param_types;
 
@@ -3996,6 +4016,7 @@ static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const Ali
 
             // Rozvine alias v návratovém typu
             return expand_aliases(&type->data.func_type.return_type, ctx, path);
+        }
 
         case TYPE_INT:
         case TYPE_DOUBLE:
@@ -4012,7 +4033,8 @@ static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const Ali
     }
 }
 
-ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx, TypeInfo **result) {
+ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx,
+                                      TypeInfo **result) {
     if (type == NULL || ctx == NULL || result == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, NULL);
     }
