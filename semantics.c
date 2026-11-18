@@ -2161,12 +2161,12 @@ int semantic_assignment(ASTNode *node, SemanticContext *ctx) {
     // najde definici proměnné na levé straně přiřazení, pokud není, chyba
     tBtNode *definition = semantic_find_symbol(ctx->scope_stack, node->data.assignment.target, ctx);
     if (definition == NULL || definition->data->type != VARIABLE) {
-        return 3; // nedefinovaná proměnná
+        return 7; // nedefinovaná proměnná
     }
 
     ASTNode *tar_var = (ASTNode *)definition->data->value;
     if (tar_var->type != AST_VAR_DEF) {
-        return 3; // na levé straně není proměnná
+        return 7; // na levé straně není proměnná
     }
 
     if (tar_var->data.var_def.is_mutable != true) {
@@ -2275,6 +2275,12 @@ int semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, bool is
 
         if (result != 0) {
             return result;
+        }
+
+        ASTNode *initializer = node->data.var_def.initializer;
+        if (initializer->type == AST_IDENTIFIER && initializer->data.identifier.var_id == -1 &&
+            initializer->expr_type != NULL && initializer->expr_type->type_class == TYPE_FUNCTION) {
+            return 6;
         }
 
         // jeho typ nastaví jako expr_type
@@ -2540,8 +2546,16 @@ int semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *expecte
 
     // zpracuje tělo funkce
     bool body_used_as_value = expected_return == NULL || expected_return->type_class != TYPE_UNIT;
+
+    if (expected_return == NULL) {
+        return_value = semantic_fill_unit_else(node->data.lambda.body);
+        if (return_value != 0) {
+            goto cleanup;
+        }
+    }
     return_value =
         semantic_check_block(node->data.lambda.body, ctx, body_expected, body_used_as_value);
+
     if (return_value != 0) {
         goto cleanup;
     }
@@ -2655,7 +2669,7 @@ int semantic_fill_unit_else(ASTNode *node) {
         return 0;
     }
 
-    // Pokud jde o blok, zajímá nás jen poslední příkaz.
+    // pokud jde o blok, dojdeme na poslední příkaz tohoto bloku
     if (node->type == AST_BLOCK) {
         ASTNode *last = node->data.block.statements;
 
@@ -2670,11 +2684,12 @@ int semantic_fill_unit_else(ASTNode *node) {
         return semantic_fill_unit_else(last);
     }
 
+    // zajímá nás pouze if
     if (node->type != AST_IF_EXPR) {
         return 0;
     }
 
-    // Chybějící else doplníme jako else ().
+    // chybějící else doplníme jako else ()
     if (node->data.if_expr.else_block == NULL) {
         ASTNode *unit = ast_create_unit_lit(node->line);
         if (unit == NULL) {
@@ -2690,7 +2705,7 @@ int semantic_fill_unit_else(ASTNode *node) {
         node->data.if_expr.else_block = else_block;
     }
 
-    // Totéž uděláme u koncových if uvnitř obou větví.
+    // to stenjé se zkontroluje pro blok uvnitř if a else
     int res = semantic_fill_unit_else(node->data.if_expr.then_block);
     if (res != 0) {
         return res;
@@ -2934,7 +2949,7 @@ int semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected
         }
 
         // zpracuje větev
-        res = semantic_case_branch(act_branch, ctx, matched_type);
+        res = semantic_case_branch(act_branch, ctx, matched_type, expected_type);
         if (res != 0) {
             if (ret_type != NULL) {
                 type_info_free(ret_type);
@@ -3155,7 +3170,8 @@ int semantic_register_param_list(ASTNode *node, SemanticContext *ctx) {
     return 0;
 }
 
-int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type) {
+int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type,
+                         const TypeInfo *expected_type) {
     if (node == NULL || ctx == NULL || matched_type == NULL || node->type != AST_CASE_BRANCH ||
         ctx->scope_stack == NULL) {
         return 99;
@@ -3192,7 +3208,7 @@ int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *ma
     }
 
     // zpracuje tělo case větve
-    res = semantic_check_block(node->data.case_branch.body, ctx, NULL, true);
+    res = semantic_check_block(node->data.case_branch.body, ctx, expected_type, true);
     if (res != 0) {
         symtable_pop_scope(ctx->scope_stack);
         return res;

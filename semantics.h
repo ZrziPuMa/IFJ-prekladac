@@ -344,7 +344,8 @@ int semantic_register_param_list(ASTNode *node, SemanticContext *ctx);
  * @param matched_type Typ hodnoty porovnávané výrazem match
  * @return 0 při úspěchu, jinak chybový kód IFJ26
  */
-int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type);
+int semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeInfo *matched_type,
+                         const TypeInfo *expected_type);
 
 /**
  * @brief Zkontroluje jeden vzor a zavede případně vázané proměnné
