@@ -10,6 +10,8 @@
 
 #include "idynamic_string.h"
 
+#include <stdlib.h>
+
 FILE *file;
 tLStack *indent_stack;
 tFIFO *queue;
@@ -30,6 +32,9 @@ void lexer_init(FILE *f) {
 }
 
 tToken give_token() {
+    if (queue->first) {
+        return fifo_get(queue);
+    }
     int c;
     sStr str;
     bool com_nl = false;
@@ -163,10 +168,12 @@ tToken give_token() {
 
                     case '.':
                         token.state = state_dot;
+                        string_add(&str, (char)c);
                         break;
 
                     case '0':
                         token.state = state_zero;
+                        string_add(&str, (char)c);
                         break;
 
                     case ' ':
@@ -190,6 +197,8 @@ tToken give_token() {
                             // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
                             token.type = TOK_ERROR;
                             token.line = line;
+                            token.val.i_val = 1;
+                            completed = true;
                         }
                         break;
                 }
@@ -298,6 +307,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -312,6 +322,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -326,6 +337,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -341,6 +353,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -356,6 +369,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     completed = true;
                     break;
                 }
@@ -378,13 +392,13 @@ tToken give_token() {
             case state_eol:
                 token.newline_before = true;
                 line++;
-
                 if (parent_cnt) {
                     token.state = state_start;
                 } else if (c == '\t') {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     completed = true;
                 } else if (c == ' ') {
                     indent_cnt++;
@@ -423,6 +437,7 @@ tToken give_token() {
                         if (last_indent < indent_cnt) {
                             // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                             token.type = TOK_ERROR;
+                            token.val.i_val = 1;
                         }
                         completed = true;
                         break;
@@ -438,6 +453,7 @@ tToken give_token() {
                     // print_error(ERR_LEX, line, "Chyba: (Jednořádkový) Řetězcový literál nesmí
                     // obsahovat konec řádku");
                     token.type = TOK_ERROR;
+                    token.val.i_val = 1;
                     break;
                 } else if (__isascii(c)) {
                     token.state = state_string;
@@ -446,6 +462,22 @@ tToken give_token() {
                 } else {
                     string_free(&str);
                     token.type = TOK_ERROR;
+                    token.val.i_val = 1;
+                    break;
+                }
+
+            case state_string:
+                if (c == '"') {
+                    token.state = state_string_end;
+                    break;
+                } else if (c == '\n') {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    // print_error(ERR_LEX, line, "Chyba: String nesmí obsahovat nový řádek.");
+                    break;
+                } else {
+                    string_add(&str, (char)c);
                     break;
                 }
 
@@ -464,14 +496,51 @@ tToken give_token() {
                 if (c == '"') {
                     token.state = state_cl1;
                     break;
-                } else if (c == '\n') {
+                } else if (c == '\n' || c == '\t' || c == '\\' || c == '\r' || c == '\"') {
+                    if (c == '\n') {
+                        line++;
+                    }
+                    string_add(&str, '\\');
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == '\\') {
+                    string_add(&str, '\\');
+                    string_add(&str, '\\');
                     break;
                 } else {
-                    string_add(&str, (char)c);
-                    token.type = TOK_ERROR;
-                    token.line = line;
                     break;
                 }
+
+            case state_cl1:
+                if (c == '"') {
+                    token.state = state_cl2;
+                    break;
+                } else {
+                    token.state = state_chain_lit;
+                    ungetc(c, file);
+                    string_add(&str, '"');
+                    break;
+                }
+
+            case state_cl2:
+                if (c == '"') {
+                    token.state = state_string_end;
+                    break;
+                } else {
+                    token.state = state_chain_lit;
+                    ungetc(c, file);
+                    string_add(&str, '"');
+                    string_add(&str, '"');
+                    break;
+                }
+
+            case state_string_end:
+                token.type = TOK_STRING;
+                token.line = line;
+                token.val.str = str.string;
+                string_free(&str);
+                completed = true;
+                break;
 
             case state_underscore:
                 if (isalnum(c) || c == '_') {
@@ -489,6 +558,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
+                    token.val.i_val = 1;
                     completed = true;
                     break;
                 }
@@ -549,10 +619,204 @@ tToken give_token() {
                 }
                 break;
 
+            case state_zero:
+                if (c == ' ') {
+                    token.type = TOK_INT;
+                    token.val.i_val = 0;
+                    completed = true;
+                    break;
+                } else if (isdigit(c)) {
+                    token.type = TOK_ERROR;
+                    // print_error(ERR_LEX, line, "Chyba: Číslo nesmí začínat 0, pokud to není jeho
+                    // hodnota.");
+                    token.line = line;
+                    token.val.i_val = 1;
+                    string_free(&str);
+                    completed = true;
+                    break;
+                } else if (c == '.') {
+                    token.state = state_dot;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_INT;
+                    token.line = line;
+                    token.val.i_val = 0;
+                    completed = true;
+                    break;
+                }
+
+            case state_dot:
+                if (c == ' ') {
+                    token.type = TOK_INT;
+                    token.val.i_val = (int)strtol(str.string, NULL, 10);
+                    string_free(&str);
+                    completed = true;
+                    break;
+                } else if (isdigit(c)) {
+                    token.state = state_decimal;
+                    token.type = TOK_DOUBLE;
+                    string_add(&str, (char)c);
+                    completed = true;
+                    break;
+                } else if (c == 't' || c == 'f' || c == 'l') {
+                    token.type = TOK_INT;
+                    token.line = line;
+                    token.val.i_val = (int)strtol(str.string, NULL, 10);
+                    fifo_add(&token, &queue->first);
+                    tToken dot_tok;
+                    dot_tok.type = TOK_DOT;
+                    dot_tok.line = line;
+                    fifo_add(&dot_tok, &queue->first);
+                    ungetc(c, file);
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    // print_error(ERR_INTERNAL, -1, "Chyba: Neočekávaný znak.");
+                    token.line = line;
+                    token.val.i_val = 1;
+                    completed = true;
+                    break;
+                }
+
+            case state_int:
+                if (c == '_') {
+                    token.state = state_int_unders;
+                    break;
+                } else if (isdigit(c)) {
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == 'e' || c == 'E') {
+                    token.state = state_exponent;
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == '.') {
+                    token.state = state_dot;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_INT;
+                    token.line = line;
+                    token.val.i_val = (int)strtol(str.string, NULL, 10);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_int_unders:
+                if (isdigit(c)) {
+                    token.state = state_int;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    string_free(&str);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_exponent:
+                if (c == '+' || c == '-' || isdigit(c)) {
+                    token.state = state_exp_end;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_exp_unders:
+                if (isdigit(c)) {
+                    token.state = state_exponent;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    string_free(&str);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_decimal:
+                if (c == '_') {
+                    token.state = state_dec_unders;
+                    break;
+                } else if (isdigit(c)) {
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == 'e' || c == 'E') {
+                    token.state = state_exponent;
+                    string_add(&str, (char)c);
+                    break;
+                } else if (c == 'd' || c == 'D') {
+                    token.state = state_exp_d;
+                    break;
+                } else {
+                    token.type = TOK_DOUBLE;
+                    token.line = line;
+                    token.val.d_val = strtod(str.string, NULL);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_exp_end:
+                if (c == '_') {
+                    token.state = state_exp_unders;
+                    break;
+                } else if (isdigit(c)) {
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_DOUBLE;
+                    token.line = line;
+                    token.val.d_val = strtod(str.string, NULL);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
+            case state_exp_d:
+                token.type = TOK_DOUBLE;
+                token.line = line;
+                token.val.d_val = strtod(str.string, NULL);
+                ungetc(c, file);
+                completed = true;
+
+            case state_dec_unders:
+                if (isdigit(c)) {
+                    token.state = state_decimal;
+                    string_add(&str, (char)c);
+                    break;
+                } else {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    string_free(&str);
+                    ungetc(c, file);
+                    completed = true;
+                    break;
+                }
+
             default:
                 break;
         }
     }
+    return token;
+}
+
+void lexer_free() {
+    fifo_clean(queue);
 }
 
 void lstack_init(tLStack *stack) {
@@ -646,6 +910,7 @@ tToken fifo_get(tFIFO *queue) {
     if (!queue) {
         // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         out.type = TOK_ERROR;
+        out.val.i_val = 99;
         return out;
     }
 

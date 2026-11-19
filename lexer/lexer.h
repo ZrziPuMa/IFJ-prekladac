@@ -42,15 +42,19 @@ typedef enum {
     state_chain_lit,
     state_cl1,
     state_cl2,
+    state_chain_esc,
     state_string_end,
     state_string,
-    state_string_escape,
+    state_string_esc,
 
     state_interpolateds,
     state_interp_ID,
 
     state_dot,
-
+    state_int_unders,
+    state_dec_unders,
+    state_exp_unders,
+    state_exp_end,
     state_exclam,
 
     state_zero,
