@@ -4,7 +4,7 @@
  * @brief Hlavičkový soubor tokenů
  * @author Daniela Sladká, xsladkd00
  * @author František Bilavčík, xbilavf00
-*/
+ */
 
 #ifndef TOKEN_H
 #define TOKEN_H
@@ -13,23 +13,22 @@
 #include <stdio.h>
 
 /**
- *  @brief Typ pro typy tokenů 
+ *  @brief Typ pro typy tokenů
  */
-typedef enum
-{
-    TOK_EOF,                // konec vstupu
-    TOK_NEWLINE,            // konec logického řádku (kromě těch uvnitř závorek a ${})
-    TOK_INDENT,             // zvýšení odsazení
-    TOK_DEDENT,             // snižení odsazení
-    TOK_ID,                 // identifikátor
-    TOK_INT,                // celočíselný literál
-    TOK_DOUBLE,             // desetinný literál
-    TOK_BOOL,               // boolean
-    TOK_STRING,             // řetezec
-    TOK_UNIT,               // jednotka (prázdný výraz)
-    TOK_FUNCTION,           // klíčové slovo vestavěné funkce
-    TOK_TYPE_LIT,           // klíčové slovo typ
-    TOK_TYPE,               // datový typ (int, double, bool, string)
+typedef enum {
+    TOK_EOF,      // konec vstupu
+    TOK_NEWLINE,  // konec logického řádku (kromě těch uvnitř závorek a ${})
+    TOK_INDENT,   // zvýšení odsazení
+    TOK_DEDENT,   // snižení odsazení
+    TOK_ID,       // identifikátor
+    TOK_INT,      // celočíselný literál
+    TOK_DOUBLE,   // desetinný literál
+    TOK_BOOL,     // boolean
+    TOK_STRING,   // řetezec
+    TOK_UNIT,     // jednotka (prázdný výraz)
+    TOK_FUNCTION, // klíčové slovo vestavěné funkce
+    TOK_TYPE_LIT, // klíčové slovo typ
+    TOK_TYPE,     // datový typ (int, double, bool, string)
 
     // Kličová slova
     TOK_DEF,
@@ -86,12 +85,11 @@ typedef enum
     TOK_INTERP_EXPR_BEGIN,  // ${
     TOK_INTERP_EXPR_END,    // }
     TOK_INTERP_STRING_PART, // prostý text
-    TOKEN_COUNT            // počet tokenů (pro iterace cyklů)
+    TOKEN_COUNT             // počet tokenů (pro iterace cyklů)
 } tTokenType;
 
-
 /**
- *  @brief Typ pro vestavěné funkce 
+ *  @brief Typ pro vestavěné funkce
  */
 typedef enum {
     BF_print,
@@ -109,7 +107,6 @@ typedef enum {
     BF_chr,
 } bBuiltinFuncs;
 
-
 /**
  * @brief Datový typ pro hodnotu tokenu
  */
@@ -121,25 +118,21 @@ typedef struct {
     bBuiltinFuncs BuiltInFunc;
 } tTokenVal;
 
-
 /**
  * @brief Datový typ pro token
  */
-typedef struct
-{
+typedef struct {
     tTokenType type;
     tTokenVal val;
     int line;
     bool newline_before;
 } tToken;
 
-
 /**
  * @brief Uvolní token
  * @param t Ukazatel na token
  */
 void token_free(tToken *t);
-
 
 /**
  * @brief Vrátí název tokenu jako řetězec
@@ -148,13 +141,11 @@ void token_free(tToken *t);
  */
 const char *token_type_name(tTokenType type);
 
-
 /**
  * @brief Vypíše token na výstup pro účely ladění
  * @param t Ukazatel na token
  * @param out Ukazatel na výstupní soubor
  */
 void token_dump(const tToken *t, FILE *out);
-
 
 #endif // TOKEN_H

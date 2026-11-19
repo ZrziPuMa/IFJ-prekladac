@@ -5,10 +5,9 @@
  * @author Daniela Sladká, xsladkd00
  */
 
-#include "lexer.h"
-
 #include "idynamic_string.h"
 #include "ierror.h"
+#include "ilexer.h"
 
 #include <stdlib.h>
 
@@ -22,8 +21,8 @@ int indent_cnt;
 
 void lexer_init(FILE *f) {
     file = f;
-    lstack_init(indent_stack);
-    fifo_init(queue);
+    lstack_init(&indent_stack);
+    fifo_init(&queue);
     parent_cnt = 0;
     line = 1;
     block_com_cnt = 0;
@@ -450,8 +449,9 @@ tToken give_token() {
                     token.state = state_empty_str;
                     break;
                 } else if (c == '\n') {
-                    print_error(ERR_LEX, line, "Chyba: (Jednořádkový) Řetězcový literál nesmí
-                    obsahovat konec řádku");
+                    print_error(
+                        ERR_LEX, line,
+                        "Chyba: (Jednořádkový) Řetězcový literál nesmí obsahovat konec řádku");
                     token.type = TOK_ERROR;
                     token.val.i_val = 1;
                     break;
@@ -627,8 +627,8 @@ tToken give_token() {
                     break;
                 } else if (isdigit(c)) {
                     token.type = TOK_ERROR;
-                    print_error(ERR_LEX, line, "Chyba: Číslo nesmí začínat 0, pokud to není jeho
-                    hodnota.");
+                    print_error(ERR_LEX, line,
+                                "Chyba: Číslo nesmí začínat 0, pokud to není jeho hodnota.");
                     token.line = line;
                     token.val.i_val = 1;
                     string_free(&str);
@@ -820,23 +820,22 @@ void lexer_free() {
     fifo_clean(queue);
 }
 
-void lstack_init(tLStack *stack) {
-    if (!stack) {
+void lstack_init(tLStack **stack) {
+    if (!stack || !(*stack)) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
-    stack = (tLStack *)malloc(sizeof(tLStack));
-    if (stack == NULL) {
+    *stack = (tLStack *)malloc(sizeof(tLStack));
+    if ((*stack) == NULL) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
-    stack->top = NULL;
+    (*stack)->top = NULL;
 }
 
 void lstack_push(int count, tLStack *stack) {
     if (!stack) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo
-        zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
         return;
     }
 
@@ -879,27 +878,30 @@ bool lstack_empty(tLStack *stack) {
     return stack->top == NULL;
 }
 
-void fifo_init(tFIFO *queue) {
-    if (!queue) {
+void fifo_init(tFIFO **queue) {
+    if (!queue || !(*queue)) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         return;
     }
-    queue = (tFIFO *)malloc(sizeof(tFIFO));
-    if (queue == NULL) {
+    *queue = (tFIFO *)malloc(sizeof(tFIFO));
+    if ((*queue) == NULL) {
         print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
         return;
     }
-    queue->first = NULL;
+    (*queue)->first = NULL;
 }
 
 void fifo_add(tToken *token, tFIFO_Elem **first) {
-    if (first == NULL) {
+    if (first != NULL && (*first) == NULL) {
         (*first) = (tFIFO_Elem *)malloc(sizeof(tFIFO_Elem));
-        if (first == NULL) {
+        if ((*first) == NULL) {
             print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
             return;
         }
-        (*first)->token = token;
+        (*first)->token->line = token->line;
+        (*first)->token->newline_before = token->newline_before;
+        (*first)->token->type = token->type;
+        (*first)->token->val = token->val;
         (*first)->next = NULL;
         return;
     }
