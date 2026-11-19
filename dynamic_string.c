@@ -93,6 +93,9 @@ int string_init(sStr *str) {
 }
 
 void string_free(sStr *str) {
+    if (str->string == NULL) {
+        return;
+    }
     free(str->string);
 }
 
