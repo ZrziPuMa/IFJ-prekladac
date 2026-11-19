@@ -23,18 +23,26 @@ void create_prolog(const ASTNode *main_def) {
 }
 
 void create_func_def(const ASTNode *func, GenState *stt) {
-    (void)stt;
     printf("LABEL $func_%s\n", func->data.func_def.name);
     printf("CREATEFRAME\n");
     printf("PUSHFRAME\n");
 
     define_param_groups(func->data.func_def.param_groups);
 
-    define_local_vars(func->data.func_def.body);
+    declare_local_vars(func->data.func_def.body);
 
-    // TODO: Doplnit tvorbu těla funkce
+    // AI help (dovysvetlit)
+    const TypeInfo *fn_type = func->expr_type;
+    stt->func_name = func->data.func_def.name;
+    stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
+                    fn_type->data.func_type.return_type != NULL &&
+                    fn_type->data.func_type.return_type->type_class == TYPE_UNIT);
 
-    printf("PUSHS nil@nil\n");
+    gen_block(func->data.func_def.body->data.block.statements, stt, !stt->is_unit);
+    if (stt->is_unit) {
+        printf("PUSHS nil@nil\n");
+    }
+
     printf("LABEL $func_%s$end\n", func->data.func_def.name);
     printf("POPFRAME\n");
     printf("RETURN\n");
@@ -63,7 +71,7 @@ void define_params(const ASTNode *items) {
     printf("POPS LF@%s$%d\n", identifier, var_id);
 }
 // AI help
-void define_local_vars(const ASTNode *command) {
+void declare_local_vars(const ASTNode *command) {
     while (command != NULL) {
 
         switch (command->type) {
@@ -74,7 +82,7 @@ void define_local_vars(const ASTNode *command) {
                     const int var_id = command->data.var_def.var_id;
                     printf("DEFVAR LF@%s$%d\n", identifier, var_id);
                 }
-                define_local_vars(command->data.var_def.initializer);
+                declare_local_vars(command->data.var_def.initializer);
                 break;
 
             case AST_PATTERN:
@@ -85,80 +93,80 @@ void define_local_vars(const ASTNode *command) {
                         printf("DEFVAR LF@%s$%d\n", identifier, var_id);
                     }
                 } else if (command->data.pattern.pat_type == PATTERN_CONSTRUCTOR) {
-                    define_local_vars(command->data.pattern.detail.constructor.args);
+                    declare_local_vars(command->data.pattern.detail.constructor.args);
                 }
                 break;
 
             // 2. Bloky a řídicí konstrukce
             case AST_BLOCK:
-                define_local_vars(command->data.block.statements);
+                declare_local_vars(command->data.block.statements);
                 break;
 
             case AST_IF_EXPR:
-                define_local_vars(command->data.if_expr.condition);
-                define_local_vars(command->data.if_expr.then_block);
-                define_local_vars(command->data.if_expr.else_block);
+                declare_local_vars(command->data.if_expr.condition);
+                declare_local_vars(command->data.if_expr.then_block);
+                declare_local_vars(command->data.if_expr.else_block);
                 break;
 
             case AST_WHILE:
-                define_local_vars(command->data.while_loop.condition);
-                define_local_vars(command->data.while_loop.body);
+                declare_local_vars(command->data.while_loop.condition);
+                declare_local_vars(command->data.while_loop.body);
                 break;
 
             case AST_FOR:
-                define_local_vars(command->data.for_loop.iter_var);
-                define_local_vars(command->data.for_loop.source);
-                define_local_vars(command->data.for_loop.guards);
-                define_local_vars(command->data.for_loop.body);
+                declare_local_vars(command->data.for_loop.iter_var);
+                declare_local_vars(command->data.for_loop.source);
+                declare_local_vars(command->data.for_loop.guards);
+                declare_local_vars(command->data.for_loop.body);
                 break;
 
             case AST_MATCH_EXPR:
-                define_local_vars(command->data.match_expr.matched_expr);
-                define_local_vars(command->data.match_expr.cases);
+                declare_local_vars(command->data.match_expr.matched_expr);
+                declare_local_vars(command->data.match_expr.cases);
                 break;
 
             case AST_CASE_BRANCH:
-                define_local_vars(command->data.case_branch.pattern);
-                define_local_vars(command->data.case_branch.guard);
-                define_local_vars(command->data.case_branch.body);
+                declare_local_vars(command->data.case_branch.pattern);
+                declare_local_vars(command->data.case_branch.guard);
+                declare_local_vars(command->data.case_branch.body);
                 break;
 
             // 3. Příkazy, výrazy a seznamy s poduzly
             case AST_RETURN:
-                define_local_vars(command->data.return_stmt.value);
+                declare_local_vars(command->data.return_stmt.value);
                 break;
 
             case AST_ASSIGNMENT:
-                define_local_vars(command->data.assignment.value);
+                declare_local_vars(command->data.assignment.value);
                 break;
 
             case AST_BINARY_OP:
-                define_local_vars(command->data.bin_op.left);
-                define_local_vars(command->data.bin_op.right);
+                declare_local_vars(command->data.bin_op.left);
+                declare_local_vars(command->data.bin_op.right);
                 break;
 
             case AST_UNARY_OP:
-                define_local_vars(command->data.unary_op.operand);
+                declare_local_vars(command->data.unary_op.operand);
                 break;
 
             case AST_FUNC_CALL:
-                define_local_vars(command->data.func_call.target);
-                define_local_vars(command->data.func_call.arg_groups);
+                declare_local_vars(command->data.func_call.target);
+                declare_local_vars(command->data.func_call.arg_groups);
                 break;
 
             case AST_ARG_LIST:
             case AST_LIST_LITERAL:
-                define_local_vars(command->data.list.items);
+                declare_local_vars(command->data.list.items);
                 break;
 
             case AST_MEMBER_ACCESS:
-                define_local_vars(command->data.member_access.object);
+                declare_local_vars(command->data.member_access.object);
                 break;
 
             case AST_RANGE:
-                define_local_vars(command->data.range.start);
-                define_local_vars(command->data.range.end);
-                define_local_vars(command->data.range.step);
+                declare_local_vars(command->data.range.start);
+                declare_local_vars(command->data.range.end);
+                declare_local_vars(command->data.range.step);
                 break;
 
             case AST_LAMBDA:
@@ -413,6 +421,129 @@ void gen_expr(const ASTNode *expr) {
 
     if (expr->to_double == true) {
         printf("INT2FLOATS\n");
+    }
+}
+
+// AI help
+/*
+ * Spolupráce s AI při návrhu a implementaci funkce gen_block:
+ * Vzhledem k postupnému vývoji a ladění nelze uvést jeden izolovaný prompt. S AI byl
+ * navržen mechanismus správy datového zásobníku na konci bloku (parametr keep_result
+ * a příznak val_on_stack pro rozlišení návratové hodnoty funkce od mezivýsledků
+ * zahazovaných do GF@%tmp1, včetně ošetření typu Unit). Následně byla s pomocí AI
+ * vygenerována kostra větvení switch a implementovány jednotlivé větve základního
+ * zadání (AST_VAR_DEF, AST_ASSIGNMENT, AST_RETURN se skokem na $end, AST_IF_EXPR,
+ * AST_WHILE s generováním unikátních návěští přes l_cnt, AST_BLOCK a default).
+ * Výsledný kód byl autorem zkontrolován a integrován do generátoru.
+ */
+void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
+    // Pokud je tělo funkce prázdné vracíme nil na zásobník
+    if (statement == NULL && keep_result) {
+        printf("PUSHS nil@nil\n");
+        return;
+    }
+
+    while (statement != NULL) {
+        // AI help
+        /*
+         * Prompt: Uz jsem si napsal while cyklus co projde vsechny prikazy v bloku az po NULL.
+         * napis mi nyni kostru prikazu switch, ktery bude rozhodovat podle statement->type, jaky
+         * vybere case: AST_VAR_DEF, AST_ASSIGNMENT a zbytek jako je if a while vcetne rozsireni
+         */
+        bool val_on_stack = keep_result && (statement->next == NULL);
+
+        switch (statement->type) {
+            // 1. Základní zadání (příkazy)
+            case AST_VAR_DEF: {
+                if (statement->data.var_def.initializer != NULL) {
+                    gen_expr(statement->data.var_def.initializer);
+                    printf("POPS LF@%s$%d\n", statement->data.var_def.identifier,
+                           statement->data.var_def.var_id);
+                }
+                if (val_on_stack) {
+                    printf("PUSHS nil@nil\n");
+                }
+                break;
+            }
+
+            case AST_ASSIGNMENT:
+                gen_expr(statement->data.assignment.value);
+                printf("POPS LF@%s$%d\n", statement->data.assignment.target,
+                       statement->data.assignment.var_id);
+                if (val_on_stack) {
+                    printf("PUSHS nil@nil\n");
+                }
+                break;
+
+            case AST_RETURN:
+                if (statement->data.return_stmt.value != NULL) {
+                    gen_expr(statement->data.return_stmt.value);
+                    if (stt->is_unit) {
+                        printf("POPS GF@%%tmp1\n");
+                        printf("PUSHS nil@nil\n");
+                    }
+                } else {
+                    printf("PUSHS nil@nil\n");
+                }
+                printf("JUMP $func_%s$end\n", stt->func_name);
+
+                break;
+
+            case AST_IF_EXPR: {
+                int id = stt->l_cnt++;
+                gen_expr(statement->data.if_expr.condition);
+                printf("PUSHS bool@false\n");
+                printf("JUMPIFEQS $if_else_%d\n", id);
+
+                gen_block(statement->data.if_expr.then_block->data.block.statements, stt, false);
+                printf("JUMP $if_end_%d\n", id);
+
+                printf("LABEL $if_else_%d\n", id);
+                if (statement->data.if_expr.else_block != NULL) {
+                    gen_block(statement->data.if_expr.else_block->data.block.statements, stt,
+                              false);
+                }
+                printf("LABEL $if_end_%d\n", id);
+
+                if (val_on_stack) {
+                    printf("PUSHS nil@nil\n");
+                }
+                break;
+            }
+            case AST_WHILE: {
+                int id = stt->l_cnt++;
+                printf("LABEL $while_start_%d\n", id);
+                gen_expr(statement->data.while_loop.condition);
+                printf("PUSHS bool@false\n");
+                printf("JUMPIFEQS $while_end_%d\n", id);
+
+                gen_block(statement->data.while_loop.body->data.block.statements, stt, false);
+                printf("JUMP $while_start_%d\n", id);
+
+                printf("LABEL $while_end_%d\n", id);
+                if (val_on_stack) {
+                    printf("PUSHS nil@nil\n");
+                }
+                break;
+            }
+            case AST_BLOCK:
+                gen_block(statement->data.block.statements, stt, val_on_stack);
+                break;
+
+            // 2. Rozšíření (CONTROL)
+            case AST_FOR:
+                // TODO: dopsat rozsireni CONTROL
+                break;
+
+            // 3. Samostatně stojící výrazy a volání funkcí (vč. výrazů z rozšíření)
+            default:
+                gen_expr(statement);
+                if (!val_on_stack) {
+                    printf("POPS GF@%%tmp1\n");
+                }
+                break;
+        }
+        statement = statement->next;
     }
 }
 

@@ -39,7 +39,9 @@ typedef enum {
  *
  */
 typedef struct {
-    int l_cnt; // Čítač návěští
+    int l_cnt;             // Čítač návěští
+    const char *func_name; // Název aktuální funkce se kterou se pracuje
+    bool is_unit;
 } GenState;
 
 /**
@@ -72,11 +74,11 @@ void define_param_groups(const ASTNode *param_groups);
 void define_params(const ASTNode *items);
 
 /**
- * @brief Vypíše definice všech lokálních proměnných ve funkci (hoisting)
+ * @brief Vypíše deklarace všech lokálních proměnných ve funkci (hoisting)
  *
  * @param command
  */
-void define_local_vars(const ASTNode *command);
+void declare_local_vars(const ASTNode *command);
 
 /**
  * @brief Vyhodnotí zadaný výraz a nechá ho na vrcholu zásobníku
@@ -91,5 +93,13 @@ void gen_expr(const ASTNode *expr);
  * @param string
  */
 void string_lit_pushs(const char *string);
+
+/**
+ * @brief
+ *
+ * @param statement
+ * @param stt
+ */
+void gen_block(const ASTNode *statement, GenState *stt, bool keep_result);
 
 #endif
