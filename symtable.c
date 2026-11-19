@@ -7,6 +7,7 @@
  * Použití AI: Dovysvětlení logiky rotací a podchycení
  * ztráty paměti pomocí Gemini.
  */
+#define _POSIX_C_SOURCE 200809L
 
 #include "symtable.h"
 
