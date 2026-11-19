@@ -3,6 +3,8 @@
  * @file parser.h
  * @brief Interní rozhraní pro syntaktický analyzátor (parser) (Top-down, rekurzivní sestup)
  * @author František Bilavčík (<xbilavf00>)
+ *
+ * (AI) Používal jsem Claude Opus 5.5 na funkce uvedené v souboru parser.c
  */
 
 #ifndef PARSER_H
@@ -10,6 +12,7 @@
 
 #include "ast.h"
 #include "ierror.h"
+#include "ilexer.h"
 #include "token.h"
 
 #include <stdbool.h>
@@ -18,6 +21,25 @@
  * Vnitřní datový typ pro stav parseru
  * ===========================
  */
+// (AI) Claude Opus 5.5 – prompt: „Vytvoř mi strukturu pro filtraci NEWLINE a DEDENT tak, aby
+// korespondoval s naší dohodou o přijímání tokenů a byl v pořádku s naší implementací.“
+/**
+ * @brief Struktura pro filtraci tokenů. Stojí mezi lexerem a parserem.
+ * Zajišťuje správný sled tokenů kolem NEWLINE, tak, aby korespondoval s LL gramatikou
+ * Upraví proud z give_token(): NEWLINE za každým
+ * DEDENT, bez NEWLINE před ELSE/THEN/DO, bez zdvojených NEWLINE, na konci souboru NEWLINE
+ * a DEDENT NEWLINE za každou otevřenou úroveň, pak EOF i při každém dalším volání.
+ * Tokeny v held a out už patří parseru, uvolní je free_parser_state.
+ * Vynulovaný stav (init_parser_state) = začátek vstupu.
+ */
+typedef struct {
+    tToken held;     ///< token přečtený z lexeru dopředu (pro nahlédnutí)
+    bool has_held;   ///< true: held obsahuje platný token, jinak false
+    tToken out[3];   ///< tokeny připravené pro parser (nejvýš NEWLINE DEDENT NEWLINE)
+    int out_n;       ///< počet tokenů v out
+    tTokenType last; ///< typ posledního tokenu přidaného do out, TOK_EMPTY = zatím žádný
+    int depth;       ///< počet otevřených úrovní odsazení (INDENT − DEDENT)
+} TokenFilter;
 
 /**
  * @brief Reprezentuje stav parseru
@@ -27,6 +49,7 @@ typedef struct {
     tToken ahead[2];      ///< Pole pro nutné nahlédnutí
     int ahead_count;      ///< Počet tokenů v ahead
     ErrorCode error_code; ///< první zaregistrovaná chyba, 0 = bez chyby
+    TokenFilter filter;   ///< Filtr pro tokeny (pro správné zpracování odsazení a nových řádků)
 } ParserState;
 
 /*============================
@@ -49,8 +72,8 @@ void init_parser_state(ParserState *pstate);
 void free_parser_state(ParserState *pstate);
 
 /**
- * @brief Dá další token, prvně z ahead, případně volá lexer give_token(). Uvolní řetězec starého
- * current_token.val.str. Pokud dostane TOK_ERR, nastaví pstate->error_code = val.i_val
+ * @brief Dá další token, prvně z ahead, případně volá filtr read_token(). Uvolní řetězec starého
+ * current_token.val.str. Pokud dostane TOK_ERROR, nastaví pstate->error_code = val.i_val
  *
  * @param pstate Ukazatel na parser
  */
@@ -88,6 +111,18 @@ char *take_string(ParserState *pstate);
  * @return true, pokud je aktuální token identifikátor s textem text, jinak false
  */
 bool is_id_text(const ParserState *pstate, const char *text);
+
+// ============================
+// Funkce pro Filtraci tokenů (TokenFilter)
+// ===========================
+
+/**
+ * @brief Přečte token z lexeru a aplikuje filtraci tokenů (TokenFilter)
+ *
+ * @param filter Ukazatel na filtr
+ * @return Přečtený a filtrovaný token
+ */
+tToken read_token(TokenFilter *filter);
 
 /* ===========================
  * Funkce pro hlášení chyb

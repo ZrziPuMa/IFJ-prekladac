@@ -3,14 +3,72 @@
  * @file parser.c
  * @brief Implementace syntaktického analyzátoru (parser) (Top-down, rekurzivní sestup)
  * @author František Bilavčík (<xbilavf00>)
+ *
+ * (AI) Claude Opus 5.5 mi pomohl při analýze a testování parseru, při testování pokrytí pravidel a
+ * neterminálů a při generování pomocných funkcí pro filtraci tokenů. Dále jsem ho použil jako bug
+ * detector. Veškeré části kodu označene jako (AI) jsem od něj převzal.
  */
 
 #include "parser.h"
 
 #include "iparser.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// ====================================================
+// Pomocné funkce pro práci s parserem a filtraci tokenů
+// ====================================================
+
+/**
+ * @brief Vrátí token z filtru, nejdříve z held, jinak volá lexer give_token()
+ *
+ * @param f Ukazatel na filtr
+ * @return tToken Vrácený token
+ */
+static tToken raw(TokenFilter *f);
+
+/**
+ * @brief Vrátí typ tokenu z filtru, nejdříve z held, jinak volá lexer give_token()
+ *
+ * @param f Ukazatel na filtr
+ * @return tTokenType Typ tokenu
+ */
+static tTokenType peek(TokenFilter *f);
+
+/**
+ * @brief Přidá token na konec fronty out (v jednom kole read_token vzniknou nejvýš 3 tokeny)
+ *
+ * @param f Ukazatel na filtr
+ * @param t Token, který se má přidat
+ */
+static void fpush(TokenFilter *f, tToken t);
+
+/**
+ * @brief Vytvoří a přidá na konec fronty out token, který lexer neposlal (NEWLINE nebo DEDENT
+ * doplněný filtrem). Nastaví mu jen typ a řádek, ostatní položky jsou nulové (val.str = NULL,
+ * newline_before = false), takže ho parser může bezpečně uvolnit přes token_free. Nastaví last.
+ * @param f Ukazatel na filtr
+ * @param type Typ tokenu, který se má přidat
+ * @param line Řádek tokenu, který se má přidat
+ */
+static void fpush_new(TokenFilter *f, tTokenType type, int line);
+
+/**
+ * @brief Vrátí true, pokud je type ELSE, THEN nebo DO
+ * @param type Typ tokenu
+ * @return true, pokud je type ELSE, THEN nebo DO, jinak false
+ */
+static bool is_else_then_do(tTokenType type);
+
+/**
+ * @brief Uvolní filtr, uvolní tokeny, které filtr ještě drží. Token přečtený dopředu, který parser
+ * nedostal. Tokeny čekající ve frontě out. Vynuluje filtr (stejný stav jako po init_parser_state),
+ * druhé volání pak nic neuvolní znovu
+ * @param f Ukazatel na filtr
+ */
+static void filter_free(TokenFilter *f);
 
 void init_parser_state(ParserState *pstate) {
     // Inicializuje stav parseru a vynuluje ho
@@ -26,6 +84,7 @@ void free_parser_state(ParserState *pstate) {
         token_free(&pstate->ahead[i]);
     }
     pstate->ahead_count = 0;
+    filter_free(&pstate->filter);
 } // free_parser_state
 
 void next_token(ParserState *pstate) {
@@ -46,11 +105,11 @@ void next_token(ParserState *pstate) {
         pstate->ahead[pstate->ahead_count] = (tToken){0};
     } else {
         // zavolá lexer
-        pstate->current_token = give_token();
+        pstate->current_token = read_token(&pstate->filter);
     }
 
-    // Pokud je token typu TOK_ERR, nastaví pstate->error_code na val.i_val
-    if (pstate->current_token.type == TOK_ERR)
+    // Pokud je token typu TOK_ERROR, nastaví pstate->error_code na val.i_val
+    if (pstate->current_token.type == TOK_ERROR)
         pstate->error_code = (ErrorCode)pstate->current_token.val.i_val;
 } // next_token
 
@@ -65,11 +124,11 @@ void fill_ahead(ParserState *pstate) {
         // Jinak current_token
         else
             last = &pstate->current_token;
-        // Pokud je poslední token TOK_ERR nebo TOK_EOF, nevolá lexer
-        if (last->type == TOK_ERR || last->type == TOK_EOF)
+        // Pokud je poslední token TOK_ERROR nebo TOK_EOF, nevolá lexer
+        if (last->type == TOK_ERROR || last->type == TOK_EOF)
             return;
         // Zavolá lexer a uloží token do ahead
-        tToken t = give_token();
+        tToken t = read_token(&pstate->filter);
         pstate->ahead[pstate->ahead_count] = t;
         pstate->ahead_count++;
     }
@@ -104,7 +163,7 @@ bool is_id_text(const ParserState *pstate, const char *text) {
 
     // strcmp vrací 0, když se texty shodují
     return strcmp(tok->val.str, text) == 0;
-} //
+} // is_id_text
 
 void syntax_error(ParserState *pstate, const char *msg) {
     // Chyba 2: error_report a pstate->error_code = 2, jen když pstate->error_code == 0. (tedy
@@ -123,8 +182,154 @@ void out_of_memory(ParserState *pstate) {
     }
 } // out_of_memory
 
+// (AI) Claude Opus 5.5 – prompt: „Vytvoř pomocnou funkci raw(TokenFilter f), která bude vracet
+// tToken, kdy bude brát tokeny od lexeru, prvně se ale podívá do held, jestli má posílat nějaké
+// tokeny z něj, jinak volá give_token()
+static tToken raw(TokenFilter *f) {
+    // Pokud filtr drží token přečtený dopředu (z peek nebo vrácený EOF), vydá nejdřív ten
+    if (f->has_held) {
+        tToken t = f->held;
+        f->held =
+            (tToken){0}; // token teď patří volajícímu, ve filtru nezůstane kopie ukazatele na str
+        f->has_held = false;
+        return t;
+    }
+    // Jinak vezme další token od lexeru
+    return give_token();
+} // raw
+
+// peek(f):                             // typ dalšího tokenu, nespotřebuje ho
+//    když ne f.has_held: f.held ← give_token(); f.has_held ← true
+//     vrať f.held.type
+static tTokenType peek(TokenFilter *f) {
+    if (!f->has_held) {
+        f->held = give_token();
+        f->has_held = true;
+    }
+    return f->held.type;
+} // peek
+
+// (AI) Claude Opus 5.5 – prompt: „Napiš mi funkci static void fpush(TokenFilter *f, tToken t) která
+// přidá token na konec out a nastaví last.“
+static void fpush(TokenFilter *f, tToken t) {
+    // Přidá token na konec fronty out (v jednom kole read_token vzniknou nejvýš 3 tokeny)
+    f->out[f->out_n] = t;
+    f->out_n++;
+    // Zapamatuje si typ posledního tokenu, který dostane parser
+    f->last = t.type;
+} // fpush
+
+// (AI) Claude Opus 5.5 – prompt: „Proveď impelemtavi funkce fpush_new( TokenFilter *f, TokenType
+// type, int line), která přidá vložený token, jinak vynulovaný toke.“
+static void fpush_new(TokenFilter *f, tTokenType type, int line) {
+    // Token, který lexer neposlal (NEWLINE nebo DEDENT doplněný filtrem). Nastaví se jen typ a
+    // řádek, ostatní položky jsou nulové (val.str = NULL, newline_before = false), takže ho
+    // token_free bezpečně uvolní
+    tToken t = {.type = type, .line = line};
+    fpush(f, t);
+} // fpush_new
+
+static bool is_else_then_do(tTokenType type) {
+    // Vrátí true, pokud je type ELSE, THEN nebo DO
+    return type == TOK_ELSE || type == TOK_THEN || type == TOK_DO;
+} // is_else_then_do
+
+// (AI) Claude Opus 5.5 – prompt: „napiš mi funkci filter_free, který uvolní strukturu filtru.“
+static void filter_free(TokenFilter *f) {
+    // Struktura je součástí ParserState (nealokuje se), uvolní se jen tokeny, které filtr ještě
+    // drží Token přečtený dopředu, který parser nedostal
+    if (f->has_held)
+        token_free(&f->held);
+    // Tokeny čekající ve frontě out
+    for (int i = 0; i < f->out_n; i++)
+        token_free(&f->out[i]);
+    // Vynuluje filtr (stejný stav jako po init_parser_state), druhé volání pak nic neuvolní znovu
+    *f = (TokenFilter){0};
+} // filter_free
+
+tToken read_token(TokenFilter *filter) {
+
+    // Dokud není žádný token připravený pro parser
+    while (filter->out_n == 0) {
+
+        // vezme token z filtru, nejdříve z held, jinak volá lexer give_token()
+        tToken token = raw(filter);
+        switch (token.type) {
+            case TOK_NEWLINE:
+                // pokud poslední token byl jeden z těchto, tak se token zahodí a pokračuje se ve
+                // čtení dalšího tokenu
+                if (filter->last == TOK_NEWLINE || filter->last == TOK_INDENT ||
+                    filter->last == TOK_EMPTY || is_else_then_do(peek(filter))) {
+                    token_free(&token);
+                    break;
+                }
+                fpush(filter, token);
+                break;
+            case TOK_INDENT:
+            case TOK_DEDENT:
+                // pokud poslední token byl jeden z těchto, tak se token zahodí a pokračuje se ve
+                // čtení
+                if (filter->last != TOK_NEWLINE && filter->last != TOK_EMPTY) {
+                    fpush_new(filter, TOK_NEWLINE, token.line);
+                }
+                // aktualizuje hloubku odsazení
+                if (token.type == TOK_INDENT) {
+                    filter->depth++;
+                } else if (token.type == TOK_DEDENT && filter->depth > 0) {
+                    filter->depth--;
+                }
+                fpush(filter, token);
+
+                // Pokud je token DEDENT, a další token není NEWLINE ani ELSE/THEN/DO, tak se
+                // doplní;
+                if (token.type == TOK_DEDENT) {
+                    tTokenType next = peek(filter);
+                    if (next != TOK_NEWLINE && !is_else_then_do(next)) {
+                        fpush_new(filter, TOK_NEWLINE, token.line);
+                    }
+                }
+                break;
+
+            case TOK_EOF:
+                // když filter.last není EMPTY, NEWLINE ani EOF:
+                if (filter->last != TOK_EMPTY && filter->last != TOK_NEWLINE &&
+                    filter->last != TOK_EOF) {
+                    fpush_new(filter, TOK_NEWLINE, token.line);
+                }
+                // pokud je hloubka odsazení > 0, tak se doplní DEDENT a NEWLINE, a token EOF se
+                // uloží do held
+                if (filter->depth > 0) {
+                    filter->depth--;
+                    fpush_new(filter, TOK_DEDENT, token.line);
+                    fpush_new(filter, TOK_NEWLINE, token.line);
+                    filter->held = token;
+                    filter->has_held = true;
+                } else
+                    fpush(filter, token);
+
+                break;
+
+            default:
+                fpush(filter, token);
+                break;
+        }
+    } // while
+
+    // Vydá token z out, posune všechny tokeny v out doleva a sníží out_n
+    tToken ret_token = filter->out[0];
+    for (int i = 1; i < filter->out_n; i++) {
+        filter->out[i - 1] = filter->out[i];
+    }
+    filter->out_n--;
+    return ret_token;
+} // read_token
+
+// ===========================
+// Pomocná funkce pro parsováni argumentu
+// ===========================
 /**
  * @brief Parsuje skupiny argumentů, (args) nebo (args)(args)...
+ *
  * @param pstate Stav parseru.
  * @return Seznam skupin argumentů nebo NULL v případě chyby.
  */
@@ -161,7 +366,9 @@ fail:
     return NULL;
 } // parse_arg_groups
 
+// ==========================//
 // Funkce pro parse TOP-DOWN //
+// ==========================//
 
 ASTNode *parse_while(ParserState *pstate) {
     // Inicializace uzlů
@@ -906,7 +1113,7 @@ static bool is_expr_start(tTokenType t) {
         default:
             return false;
     }
-} // parse_return
+} // is_expr_start
 
 ASTNode *parse_return(ParserState *pstate) {
     int line = pstate->current_token.line;
