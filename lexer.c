@@ -812,6 +812,7 @@ tToken give_token() {
                 break;
         }
     }
+    string_free(&str);
     return token;
 }
 
