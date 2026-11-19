@@ -24,19 +24,19 @@
  * ========================================================================== */
 
 typedef enum {
-    TYPE_UNIT,     // jediná hodnota (), nenese informaci
-    TYPE_INT,      // celočíselný typ
-    TYPE_DOUBLE,   // desetinný typ
-    TYPE_STRING,   // řetězec
-    TYPE_BOOLEAN,  // rozšíření BOOLTHEN: Logický typ, bez rozšíření jen výsledek porovnání
-    TYPE_UNION,    // rozšíření ALGEBDT: Sjednocení (např. Int | String). Porovnává se jako množina
+    TYPE_UNIT,   // jediná hodnota (), nenese informaci
+    TYPE_INT,    // celočíselný typ
+    TYPE_DOUBLE, // desetinný typ
+    TYPE_STRING, // řetězec
+    TYPE_BOOLEAN, // rozšíření BOOLTHEN: Logický typ, bez rozšíření jen výsledek porovnání
+    TYPE_UNION, // rozšíření ALGEBDT: Sjednocení (např. Int | String). Porovnává se jako množina
     TYPE_FUNCTION, // k základu i rozšíření LAMBDAS: Funkční typ (např. (Int) => Boolean)
     TYPE_LIST,     // rozšíření LISTS: Homogenní seznam (např. List[Int])
     TYPE_CUSTOM,   // rozšíření ALGEBDT: Datové třídy nebo aliasy
-    TYPE_ANY,      // jakýkoliv typ, je používaný jen ve vestavěných funkcích (např. print(x: Any))
-    TYPE_NOTHING   // výraz, který nedoběhne (return, i s hodnotou); přenese se výš do bloku, if a
-                   // match, pokud jím končí všechny cesty. Je kompatibilní s každým typem,
-                   // lub(Nothing, T) = T (least upper bound)
+    TYPE_ANY, // jakýkoliv typ, je používaný jen ve vestavěných funkcích (např. print(x: Any))
+    TYPE_NOTHING // výraz, který nedoběhne (return, i s hodnotou); přenese se výš do bloku, if a
+                 // match, pokud jím končí všechny cesty. Je kompatibilní s každým typem,
+                 // lub(Nothing, T) = T (least upper bound)
 } TypeClass;
 
 typedef struct TypeInfo TypeInfo;
@@ -142,8 +142,8 @@ typedef enum {
     MEMBER_LIST_BUILTIN, // rozšíření LISTS: člen .head .tail .toString, nebo metoda .drop .take ...
                          // (cíl volání) .toString na hodnotě typu List je vždy MEMBER_LIST_BUILTIN
     MEMBER_RANGE_TOLIST, // rozšíření LISTS + CONTROL: (1 to 5).toList
-    MEMBER_EXTENSION     // rozšíření EXTKW: rozšiřující metoda; vždy jako cíl FUNC_CALL (x.twice
-                         // sémantika zabalí)
+    MEMBER_EXTENSION // rozšíření EXTKW: rozšiřující metoda; vždy jako cíl FUNC_CALL (x.twice
+                     // sémantika zabalí)
 } MemberKind;
 
 typedef struct ASTNode ASTNode;
@@ -174,7 +174,7 @@ struct ASTNode {
         struct {
             char *target;   // jméno proměnné vlevo (spec: vlevo smí být jen id)
             ASTNode *value; // výraz nebo volání vpravo
-            int var_id;     // vyplní sémantika: var_id deklarace, do které se zapisuje (0 < var_id,
+            int var_id; // vyplní sémantika: var_id deklarace, do které se zapisuje (0 < var_id,
                         // cílem je vždy lokální var); 0 = sémantika ještě neproběhla. Stejné jméno
                         // může mít víc deklarací (vnořené bloky)
         } assignment;
@@ -212,8 +212,8 @@ struct ASTNode {
             ASTNode *receiver; // příjemce jako parametr (AST_VAR_DEF): extension (value: Int) ->
                                // identifier "value", declared_type Int (vždy napsaný), is_mutable =
                                // false, initializer = NULL
-            ASTNode *methods;  // seznam AST_FUNC_DEF; volají se jen přes tečku, příjemce je jejich
-                               // skrytý 1. argument
+            ASTNode *methods; // seznam AST_FUNC_DEF; volají se jen přes tečku, příjemce je jejich
+                              // skrytý 1. argument
         } extension_def;
 
         // data.for_loop: AST_FOR
@@ -228,17 +228,17 @@ struct ASTNode {
 
         // data.func_call: AST_FUNC_CALL
         struct {
-            ASTNode *target;     // co se volá: identifikátor, člen (x.plus), nebo libovolný výraz
-                                 // (LAMBDAS, LISTS)
+            ASTNode *target; // co se volá: identifikátor, člen (x.plus), nebo libovolný výraz
+                             // (LAMBDAS, LISTS)
             ASTNode *arg_groups; // VŠECHNY bezprostředně následující skupiny argumentů (...) jako
                                  // seznam AST_ARG_LIST přes next; NULL = volání bez závorek
                                  // (answer, x.twice). Parser je nedělí.
-            int own_groups;      // vyplní sémantika: kolik prvních skupin patří volané definici
-                                 // (add(a)(b)(c) -> 3, goo() -> 1, answer -> 0, volání hodnoty
-                                 // f(1)/lst(2) -> 0). Každá další skupina se aplikuje na dosavadní
-                                 // výsledek: funkce = volání, List = index. -1 = sémantika ještě
-                                 // neproběhla (nastaví konstruktor).
-            CallKind call_kind;  // vyplní sémantika
+            int own_groups; // vyplní sémantika: kolik prvních skupin patří volané definici
+                            // (add(a)(b)(c) -> 3, goo() -> 1, answer -> 0, volání hodnoty
+                            // f(1)/lst(2) -> 0). Každá další skupina se aplikuje na dosavadní
+                            // výsledek: funkce = volání, List = index. -1 = sémantika ještě
+                            // neproběhla (nastaví konstruktor).
+            CallKind call_kind; // vyplní sémantika
         } func_call;
 
         // data.func_def: AST_FUNC_DEF
@@ -252,7 +252,7 @@ struct ASTNode {
             TypeInfo *return_type; // napsaný návratový typ; NULL = nenapsán. Sémantika ho nemění;
                                    // odvozený nebo rozvinutý typ funkce je v expr_type. Na
                                    // NULL/ne-NULL závisí pravidla spec 2.3
-            ASTNode *body;         // vždy AST_BLOCK (jednořádkové tělo parser zabalí)
+            ASTNode *body; // vždy AST_BLOCK (jednořádkové tělo parser zabalí)
         } func_def;
 
         // data.identifier: AST_IDENTIFIER
@@ -316,8 +316,8 @@ struct ASTNode {
             PatternType pat_type;   // Druh patternu
             char *bound_identifier; // jen PATTERN_TYPE_BINDING: je to n v case n: Int; jinak je to
                                     // NULL
-            int var_id;             // jen PATTERN_TYPE_BINDING: číslo deklarace n (podobně jako u
-                                    // var_def.var_id); jinak je to 0
+            int var_id; // jen PATTERN_TYPE_BINDING: číslo deklarace n (podobně jako u
+                        // var_def.var_id); jinak je to 0
             union {
                 ASTNode *literal_val; // PATTERN_LITERAL: case 0 => , srovnávání
                 TypeInfo *
@@ -326,8 +326,8 @@ struct ASTNode {
                 struct {
                     TypeInfo *class_type; // TYPE_CUSTOM se jménem třídy podle zápisu; sémantika ho
                                           // nemění.
-                    ASTNode *args;        // argumenty podle pořadí atributů (přes next), každý je:
-                                          // - AST_VAR_DEF: nová proměnná (a), is_mutable = false,
+                    ASTNode *args; // argumenty podle pořadí atributů (přes next), každý je:
+                                   // - AST_VAR_DEF: nová proměnná (a), is_mutable = false,
                     //   declared_type = NULL, initializer = NULL; var_id a typ
                     //   (expr_type) doplní sémantika,
                     // - AST_PATTERN s PATTERN_LITERAL (0, -1, "x"): porovnání,
@@ -347,7 +347,7 @@ struct ASTNode {
         struct {
             ASTNode *start; // dolní mez (výraz Int)
             ASTNode *end;   // horní mez (výraz Int)
-            ASTNode *step;  // "by" krok; NULL = krok o velikosti 1. Povoleno i u until
+            ASTNode *step;  // "by" krok; NULL = krok o velikosti 1.
             bool is_until;  // true = horní mez se nezahrnuje
         } range; // AST_RANGE smí stát JEN jako for_loop.source nebo jako object u .toList;
                  // jinak sémantika hlásí chybu.
@@ -378,18 +378,18 @@ struct ASTNode {
                         // LF@<identifier>$<var_id> -1 = deklarace, která není lokální proměnnou:
                         // atribut třídy (čte se přes p.x). Po sémantice tedy žádný VAR_DEF nemá 0
             char *identifier; // jméno proměnné, identifikátor (kopie řetězce, uvolní ast_free)
-            bool is_mutable;  // true = var, false = val
+            bool is_mutable;         // true = var, false = val
             TypeInfo *declared_type; // typ napsaný v kódu; NULL = nenapsán. Zapisuje parser,
                                      // sémantika ho NIKDY nemění (ani alias nenahrazuje). Skutečný
                                      // typ proměnné je v expr_type tohoto uzlu
-            ASTNode *initializer;    // výraz za = u val/var (povinný); jinak NULL
+            ASTNode *initializer; // výraz za = u val/var (povinný); jinak NULL
         } var_def;
 
         // data.while_loop: AST_WHILE
         struct {
             ASTNode *condition; // Podmínka, například binary_op, identifier, func_call, atd. (výraz
                                 // typu Boolean)
-            ASTNode *body;      // vždy AST_BLOCK
+            ASTNode *body; // vždy AST_BLOCK
         } while_loop;
 
     } data;
