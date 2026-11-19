@@ -1,0 +1,73 @@
+# file: .clang_tidy
+# brief: Konfigurační soubor pro clang_tidy
+# author: Martin Chlubna (<xchlubm00>)
+
+
+# ==============================================================================
+# KONFIGURACE CLANG-TIDY
+# ==============================================================================
+#
+# UPOZORNĚNÍ: Tento konfigurační soubor byl vygenerován pomocí umělé inteligence (Gemini)
+#
+# PŮVODNÍ PROMPT:
+# "Napiš mi konfigurační soubor .clang-tidy jehož úroveň kontrol bude odpovídat
+# školnímu projektu: překladač v jazyce C. v souboru napiš i hlavičku, ve které
+# bude zmíněno, že tento soubor byl vygenerován pomocí AI a vlož do něj i tento
+# prompt, pomocí kterého byl vytvořen. Do hlavičky napiš také stručný popis,
+# proč jsi zvolil danou konfiguraci a návod na to, co a proč změnit, pokud
+# bychom se rozhodli jinak."
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-assignment-in-if-condition,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  cert-*,
+  -cert-err33-c,
+  -cert-dcl03-c,
+  -cert-msc30-c,
+  -cert-msc50-cpp,
+  misc-*,
+  -misc-no-recursion,
+  -misc-include-cleaner,
+  -misc-use-internal-linkage,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-else-after-return,
+  -readability-IsolateDecl,
+  -readability-trailing-comma
+
+# Pokud chcete, aby jakékoliv varování shodilo překlad/CI, odkomentujte:
+# WarningsAsErrors: '*'
+
+# Analyzovat i hlavičkové soubory (.h) v projektu (kromě systémových)
+HeaderFilterRegex: '.*'
+
+FormatStyle: file
+
+CheckOptions:
+  # Zvýšený limit kognitivní složitosti kvůli stavovým automatům (lexer/parser)
+  readability-function-cognitive-complexity.Threshold: 60
+  readability-function-cognitive-complexity.IgnoreMacros: true
+
+  # Kontrola velikosti funkcí (rozumné maximum pro školní projekt v C)
+  readability-function-size.LineThreshold: 120
+  readability-function-size.ParameterThreshold: 6
+
+  # Povolení přiřazení v podmínce pouze pokud je v extra závorkách: while ((c = getchar()) != EOF)
+  bugprone-assignment-in-if-condition.AllowParenthesized: true
+
+  # ----------------------------------------------------------------------------
+  # VOLITELNÉ: Vynucení jmenných konvencí (pro aktivaci odkomentujte)
+  # ----------------------------------------------------------------------------
+  # readability-identifier-naming.FunctionCase: lower_case
+  # readability-identifier-naming.VariableCase: lower_case
+  # readability-identifier-naming.ParameterCase: lower_case
+  # readability-identifier-naming.StructCase: lower_case
+  # readability-identifier-naming.TypedefCase: lower_case
+  # readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  # readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

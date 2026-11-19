@@ -1,0 +1,25 @@
+// file: settings.json
+// brief: Konfigurační soubor pro nastavení VS Code
+// author: Martin Chlubna (<xchlubm00>)
+
+// UPOZORNĚNÍ: Tento konfigurační soubor byl vygenerován pomocí umělé inteligence (Gemini)
+
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "ms-vscode.cpptools",
+  "C_Cpp.formatting": "clangFormat",
+
+  // Zapnutí podtrhávání chyb z clang-tidy
+  "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+  "C_Cpp.codeAnalysis.clangTidy.run": "onSave",
+  "C_Cpp.codeAnalysis.clangTidy.useBuildPath": false,
+
+  // Detekce systémových hlaviček a nastavení pro C11
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+  "C_Cpp.default.cStandard": "c11",
+  "C_Cpp.codeAnalysis.clangTidy.extraCompilerArgs": [
+    "-std=c11",
+    "-Wall",
+    "-Wextra"
+  ]
+}

@@ -9,8 +9,6 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include "lexer.h"
-
 #include <stdbool.h>
 #include <stdio.h>
 
