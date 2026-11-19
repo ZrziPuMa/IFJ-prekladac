@@ -8,6 +8,7 @@
 #define ISEMANTICS_H
 
 #include "ast.h"
+#include "ierror.h"
 
 /**
  * @brief Provede kompletní semantickou analýzu AST a jeho obohacení.
@@ -15,6 +16,6 @@
  * @param root Ukazatel na kořen AST.
  * @return 0 při úspěchu, jinak chybový kód IFJ26.
  */
-int check_semantics(ASTNode *root);
+ErrorCode check_semantics(ASTNode *root);
 
 #endif // ISEMANTICS_H

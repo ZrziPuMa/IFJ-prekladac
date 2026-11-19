@@ -15,20 +15,20 @@
 /**
  *  @brief Typ pro typy tokenů
  */
-typedef enum {
-    TOK_EOF,      // konec vstupu
-    TOK_NEWLINE,  // konec logického řádku (kromě těch uvnitř závorek a ${})
-    TOK_INDENT,   // zvýšení odsazení
-    TOK_DEDENT,   // snižení odsazení
-    TOK_ID,       // identifikátor
-    TOK_INT,      // celočíselný literál
-    TOK_DOUBLE,   // desetinný literál
-    TOK_BOOL,     // boolean
-    TOK_STRING,   // řetezec
-    TOK_UNIT,     // jednotka (prázdný výraz)
-    TOK_FUNCTION, // klíčové slovo vestavěné funkce
-    TOK_TYPE_LIT, // klíčové slovo typ
-    TOK_TYPE,     // datový typ (int, double, bool, string)
+typedef enum
+{
+    TOK_EMPTY,              // počáteční stav
+    TOK_EOF,                // konec vstupu
+    TOK_NEWLINE,            // konec logického řádku (kromě těch uvnitř závorek a ${})
+    TOK_INDENT,             // zvýšení odsazení
+    TOK_DEDENT,             // snižení odsazení
+    TOK_ID,                 // identifikátor
+    TOK_INT,                // celočíselný literál
+    TOK_DOUBLE,             // desetinný literál
+    TOK_BOOL,               // boolean
+    TOK_STRING,             // řetezec
+    TOK_TYPE_LIT,           // klíčové slovo typ
+    TOK_TYPE,               // datový typ (int, double, bool, string, ...)
 
     // Kličová slova
     TOK_DEF,
@@ -85,27 +85,9 @@ typedef enum {
     TOK_INTERP_EXPR_BEGIN,  // ${
     TOK_INTERP_EXPR_END,    // }
     TOK_INTERP_STRING_PART, // prostý text
-    TOKEN_COUNT             // počet tokenů (pro iterace cyklů)
+    TOKEN_COUNT,            // počet tokenů (pro iterace cyklů)
+    TOK_ERROR               // chybový token
 } tTokenType;
-
-/**
- *  @brief Typ pro vestavěné funkce
- */
-typedef enum {
-    BF_print,
-    BF_readLine,
-    BF_readInt,
-    BF_readIntMaybe,
-    BF_readDouble,
-    BF_readDoubleMaybe,
-    BF_readBoolean,
-    BF_toStr,
-    BF_toInt,
-    BF_strLength,
-    BF_subStr,
-    BF_ord,
-    BF_chr,
-} bBuiltinFuncs;
 
 /**
  * @brief Datový typ pro hodnotu tokenu
@@ -114,14 +96,14 @@ typedef struct {
     long long i_val;
     double d_val;
     char *str;
-    bool isBuiltinFunc;
-    bBuiltinFuncs BuiltInFunc;
 } tTokenVal;
 
 /**
  * @brief Datový typ pro token
  */
-typedef struct {
+typedef struct
+{
+    sState state;
     tTokenType type;
     tTokenVal val;
     int line;
