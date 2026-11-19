@@ -31,7 +31,13 @@ void create_func_def(const ASTNode *func, GenState *stt) {
 
     declare_local_vars(func->data.func_def.body);
 
-    // AI help (dovysvetlit)
+    // AI help
+    /*
+     * Spolupráce s AI při návrhu předávání návratové hodnoty z těla funkce:
+     * S pomocí AI byla navržena detekce návratového typu TYPE_UNIT z uzel->expr_type
+     * a její propojení s parametrem keep_result v gen_block tak, aby každá funkce
+     * zanechala na datovém zásobníku právě jednu návratovou hodnotu (u Unit nil@nil).
+     */
     const TypeInfo *fn_type = func->expr_type;
     stt->func_name = func->data.func_def.name;
     stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
@@ -547,6 +553,86 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
     }
 }
 
+void create_builtin_functions() {
+    // toInt():
+    printf("LABEL $builtin_toInt\n");
+    printf("FLOAT2INTS\n");
+    printf("RETURN\n\n");
+
+    // chr():
+    printf("LABEL $builtin_chr\n");
+    printf("INT2CHARS\n");
+    printf("RETURN\n\n");
+
+    // strLength():
+    printf("LABEL $builtin_strLength\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("STRLEN GF@%%tmp2 GF@%%tmp1\n");
+    printf("PUSHS GF@%%tmp2\n");
+    printf("RETURN\n\n");
+
+    // readLine():
+    printf("LABEL $builtin_readLine\n");
+    printf("READ GF@%%tmp1 string\n");
+    printf("JUMPIFNEQ $builtin_readLine_end GF@%%tmp1 nil@nil\n");
+    printf("MOVE GF@%%tmp1 string@\n");
+    printf("LABEL $builtin_readLine_end\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    // readInt():
+    printf("LABEL $builtin_readInt\n");
+    printf("READ GF@%%tmp1 int\n");
+    printf("JUMPIFNEQ $builtin_readInt_end GF@%%tmp1 nil@nil\n");
+    printf("MOVE GF@%%tmp1 int@0\n");
+    printf("LABEL $builtin_readInt_end\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    // readDouble():
+    printf("LABEL $builtin_readDouble\n");
+    printf("READ GF@%%tmp1 float\n");
+    printf("JUMPIFNEQ $builtin_readDouble_end GF@%%tmp1 nil@nil\n");
+    printf("MOVE GF@%%tmp1 float@0x0p+0\n");
+    printf("LABEL $builtin_readDouble_end\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    // print():
+    printf("LABEL $builtin_print\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+    printf("JUMPIFNEQ $builtin_print_end GF@%%tmp2 string@nil\n");
+    printf("WRITE string@()\n");
+    printf("PUSHS nil@nil\n");
+    printf("RETURN\n");
+    printf("LABEL $builtin_print_end\n");
+    printf("WRITE GF@%%tmp1\n");
+    printf("PUSHS nil@nil\n");
+    printf("RETURN\n\n");
+
+    // ord():
+    printf("LABEL $builtin_ord\n");
+    printf("POPS GF@%%tmp2\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("LT GF@%%tmp3 GF@%%tmp2 int@0\n");
+    printf("JUMPIFEQ $builtin_ord_err GF@%%tmp3 bool@true\n");
+
+    printf("STRLEN GF@%%tmp3 GF@%%tmp1\n");
+    printf("LT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
+    printf("JUMPIFEQ $builtin_ord_err GF@%%tmp3 bool@false\n");
+
+    printf("STRI2INT GF@%%tmp3 GF@%%tmp1 GF@%%tmp2\n");
+    printf("PUSHS GF@%%tmp3\n");
+    printf("RETURN\n");
+
+    printf("LABEL $builtin_ord_err\n");
+    printf("PUSHS int@-1\n");
+    printf("RETURN\n\n");
+
+    //
+}
+
 ErrorCode generate_code(const ASTNode *root) {
     if (root == NULL) {
         return print_error(ERR_INTERNAL, -1, "Generátor přijal neplatný kořen stromu.");
@@ -598,6 +684,9 @@ ErrorCode generate_code(const ASTNode *root) {
         }
         curr_def = curr_def->next;
     }
+
+    // Vytvoření těl všech vestavěných funkcí
+    create_builtin_functions();
 
     return ERR_OK;
 }

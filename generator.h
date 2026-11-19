@@ -102,4 +102,10 @@ void string_lit_pushs(const char *string);
  */
 void gen_block(const ASTNode *statement, GenState *stt, bool keep_result);
 
+/**
+ * @brief Vytvoří návěští pro všechny vestavěné funkce z IFJ26
+ *
+ */
+void create_builtin_functions();
+
 #endif
