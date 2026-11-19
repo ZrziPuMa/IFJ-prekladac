@@ -16,6 +16,15 @@
 
 #include <stdlib.h>
 
+static char *sym_strdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = malloc(n);
+    if (p != NULL) {
+        memcpy(p, s, n);
+    }
+    return p;
+}
+
 ErrorCode symtable_init(tBtNode **root) {
     if (!root) {
         return ERR_INTERNAL;
@@ -42,7 +51,7 @@ ErrorCode symtable_insert(tBtNode **root, char *key, tBtNodeData data) {
             return ERR_INTERNAL;
         }
 
-        (*root)->key = strdup(key);
+        (*root)->key = sym_strdup(key);
         if ((*root)->key == NULL) {
             free((*root)->data);
             free(*root);

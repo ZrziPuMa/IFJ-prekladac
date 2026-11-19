@@ -4,7 +4,7 @@
  * @brief Hlavičkový soubor tokenů
  * @author Daniela Sladká, xsladkd00
  * @author František Bilavčík, xbilavf00
-*/
+ */
 
 #ifndef TOKEN_H
 #define TOKEN_H
@@ -13,22 +13,21 @@
 #include <stdio.h>
 
 /**
- *  @brief Typ pro typy tokenů 
+ *  @brief Typ pro typy tokenů
  */
-typedef enum
-{
-    TOK_EMPTY,              // počáteční stav
-    TOK_EOF,                // konec vstupu
-    TOK_NEWLINE,            // konec logického řádku (kromě těch uvnitř závorek a ${})
-    TOK_INDENT,             // zvýšení odsazení
-    TOK_DEDENT,             // snižení odsazení
-    TOK_ID,                 // identifikátor
-    TOK_INT,                // celočíselný literál
-    TOK_DOUBLE,             // desetinný literál
-    TOK_BOOL,               // boolean
-    TOK_STRING,             // řetezec
-    TOK_TYPE_LIT,           // klíčové slovo typ
-    TOK_TYPE,               // datový typ (int, double, bool, string, ...)
+typedef enum {
+    TOK_EMPTY,    // počáteční stav
+    TOK_EOF,      // konec vstupu
+    TOK_NEWLINE,  // konec logického řádku (kromě těch uvnitř závorek a ${})
+    TOK_INDENT,   // zvýšení odsazení
+    TOK_DEDENT,   // snižení odsazení
+    TOK_ID,       // identifikátor
+    TOK_INT,      // celočíselný literál
+    TOK_DOUBLE,   // desetinný literál
+    TOK_BOOL,     // boolean
+    TOK_STRING,   // řetezec
+    TOK_TYPE_LIT, // klíčové slovo typ
+    TOK_TYPE,     // datový typ (int, double, bool, string, ...)
 
     // Kličová slova
     TOK_DEF,
@@ -101,9 +100,8 @@ typedef struct {
 /**
  * @brief Datový typ pro token
  */
-typedef struct
-{
-    sState state;
+typedef struct {
+    int state;
     tTokenType type;
     tTokenVal val;
     int line;
