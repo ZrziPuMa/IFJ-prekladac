@@ -5,10 +5,10 @@
  * @author Daniela Sladká, xsladkd00
  */
 
-// #include "ierror.h"
 #include "lexer.h"
 
 #include "idynamic_string.h"
+#include "ierror.h"
 
 #include <stdlib.h>
 
@@ -39,7 +39,7 @@ tToken give_token() {
     sStr str;
     bool com_nl = false;
     if (string_init(&str)) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Chyba inicializace stringu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Chyba inicializace stringu.");
     }
 
     tToken token;
@@ -194,7 +194,7 @@ tToken give_token() {
                             string_add(&str, (char)c);
                         } else {
                             string_free(&str);
-                            // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
+                            print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
                             token.type = TOK_ERROR;
                             token.line = line;
                             token.val.i_val = 1;
@@ -305,7 +305,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     ungetc(c, file);
@@ -320,7 +320,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     ungetc(c, file);
@@ -335,7 +335,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     ungetc(c, file);
@@ -351,7 +351,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     ungetc(c, file);
@@ -367,7 +367,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     completed = true;
@@ -396,7 +396,7 @@ tToken give_token() {
                     token.state = state_start;
                 } else if (c == '\t') {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     completed = true;
@@ -435,7 +435,7 @@ tToken give_token() {
                             lstack_pop(indent_stack);
                         }
                         if (last_indent < indent_cnt) {
-                            // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                            print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                             token.type = TOK_ERROR;
                             token.val.i_val = 1;
                         }
@@ -450,8 +450,8 @@ tToken give_token() {
                     token.state = state_empty_str;
                     break;
                 } else if (c == '\n') {
-                    // print_error(ERR_LEX, line, "Chyba: (Jednořádkový) Řetězcový literál nesmí
-                    // obsahovat konec řádku");
+                    print_error(ERR_LEX, line, "Chyba: (Jednořádkový) Řetězcový literál nesmí
+                    obsahovat konec řádku");
                     token.type = TOK_ERROR;
                     token.val.i_val = 1;
                     break;
@@ -474,7 +474,7 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     token.line = line;
                     token.val.i_val = 1;
-                    // print_error(ERR_LEX, line, "Chyba: String nesmí obsahovat nový řádek.");
+                    print_error(ERR_LEX, line, "Chyba: String nesmí obsahovat nový řádek.");
                     break;
                 } else {
                     string_add(&str, (char)c);
@@ -556,7 +556,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
+                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
                     token.line = line;
                     token.val.i_val = 1;
                     completed = true;
@@ -627,8 +627,8 @@ tToken give_token() {
                     break;
                 } else if (isdigit(c)) {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_LEX, line, "Chyba: Číslo nesmí začínat 0, pokud to není jeho
-                    // hodnota.");
+                    print_error(ERR_LEX, line, "Chyba: Číslo nesmí začínat 0, pokud to není jeho
+                    hodnota.");
                     token.line = line;
                     token.val.i_val = 1;
                     string_free(&str);
@@ -672,7 +672,7 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ERROR;
-                    // print_error(ERR_INTERNAL, -1, "Chyba: Neočekávaný znak.");
+                    print_error(ERR_INTERNAL, -1, "Chyba: Neočekávaný znak.");
                     token.line = line;
                     token.val.i_val = 1;
                     completed = true;
@@ -822,12 +822,12 @@ void lexer_free() {
 
 void lstack_init(tLStack *stack) {
     if (!stack) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
     stack = (tLStack *)malloc(sizeof(tLStack));
     if (stack == NULL) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
     stack->top = NULL;
@@ -835,14 +835,14 @@ void lstack_init(tLStack *stack) {
 
 void lstack_push(int count, tLStack *stack) {
     if (!stack) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo
-        // zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo
+        zásobník.");
         return;
     }
 
     tLStackElem *new_scope = (tLStackElem *)malloc(sizeof(tLStackElem));
     if (new_scope == NULL) {
-        // print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
+        print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
         return;
     }
 
@@ -853,7 +853,7 @@ void lstack_push(int count, tLStack *stack) {
 
 void lstack_pop(tLStack *stack) {
     if (stack == NULL) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
 
@@ -881,12 +881,12 @@ bool lstack_empty(tLStack *stack) {
 
 void fifo_init(tFIFO *queue) {
     if (!queue) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         return;
     }
     queue = (tFIFO *)malloc(sizeof(tFIFO));
     if (queue == NULL) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
         return;
     }
     queue->first = NULL;
@@ -896,7 +896,7 @@ void fifo_add(tToken *token, tFIFO_Elem **first) {
     if (first == NULL) {
         (*first) = (tFIFO_Elem *)malloc(sizeof(tFIFO_Elem));
         if (first == NULL) {
-            // print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+            print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
             return;
         }
         (*first)->token = token;
@@ -909,7 +909,7 @@ void fifo_add(tToken *token, tFIFO_Elem **first) {
 tToken fifo_get(tFIFO *queue) {
     tToken out;
     if (!queue) {
-        // print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         out.type = TOK_ERROR;
         out.val.i_val = 99;
         return out;
