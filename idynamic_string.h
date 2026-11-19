@@ -5,16 +5,15 @@
  * @author Daniela Sladká, xsladkd00
  */
 
- 
 #ifndef IDYNAMIC_STRING_H
 #define IDYNAMIC_STRING_H
 
-#include <string.h>
-#include <stdbool.h>
 #include "token.h"
 
-#define MAX_LENGTH 128
+#include <stdbool.h>
+#include <string.h>
 
+#define MAX_LENGTH 128
 
 /**
  * @brief Struktura pro dynamic string
@@ -24,7 +23,6 @@ typedef struct {
     int length;
     int max_length;
 } sStr;
-
 
 /**
  * @brief Kontrola, zda se string shoduje s klíčovým slovem a nastavení tokenu
@@ -62,4 +60,4 @@ void string_free(sStr *str);
  */
 int string_add(sStr *str, char character);
 
-#endif //IDYNAMIC_STRING_H
+#endif // IDYNAMIC_STRING_H

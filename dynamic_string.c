@@ -1,19 +1,17 @@
 /**
  * Implementace tabulky symbolů jazyka IFJ26
  * @file dynamic_string.c
- * @brief Zdrojový soubor ADT dynamic string 
+ * @brief Zdrojový soubor ADT dynamic string
  * @author Daniela Sladká, xsladkd00
  */
 
+#include "idynamic_string.h"
+#include "ierror.h"
+#include "token.h"
 
-#include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
-
-#include "token.h"
-#include "ierror.h"
-#include "idynamic_string.h"
-
+#include <string.h>
 
 void check_keyword(tToken *token, sStr *str) {
     if (strcmp(str->string, "def") == 0) {
@@ -41,13 +39,13 @@ void check_keyword(tToken *token, sStr *str) {
     } else if (strcmp(str->string, "class") == 0) {
         token->type = TOK_CLASS;
     } else if (strcmp(str->string, "extension") == 0) {
-    token->type = TOK_EXTENSION;
+        token->type = TOK_EXTENSION;
     } else if (strcmp(str->string, "for") == 0) {
-    token->type = TOK_FOR;
+        token->type = TOK_FOR;
     } else if (strcmp(str->string, "match") == 0) {
-    token->type = TOK_MATCH;
+        token->type = TOK_MATCH;
     } else if (strcmp(str->string, "type") == 0) {
-    token->type = TOK_TYPE_LIT;
+        token->type = TOK_TYPE_LIT;
     }
 }
 
@@ -76,11 +74,12 @@ int check_var_type(tToken *token, sStr *str) {
         token->type = TOK_TYPE;
         token->val.str = "List";
         return 1;
-    } else return 0;
+    } else
+        return 0;
 }
 
 int string_init(sStr *str) {
-    str->string = (char*)malloc(MAX_LENGTH);
+    str->string = (char *)malloc(MAX_LENGTH);
     if (str->string == NULL) {
         print_error(ERR_LEX, -1, "Chyba: Selhání alokace.");
         return 1;
@@ -100,10 +99,10 @@ void string_free(sStr *str) {
 }
 
 int string_add(sStr *str, char c) {
-    if ((str->length + 1) >= str->max_length ) {
+    if ((str->length + 1) >= str->max_length) {
         char *temp = realloc(str->string, str->max_length + MAX_LENGTH);
         if (temp == NULL) {
-        print_error(ERR_LEX, -1, "Chyba: Selhání realokace.");
+            print_error(ERR_LEX, -1, "Chyba: Selhání realokace.");
             return 1;
         } else {
             str->string = temp;
