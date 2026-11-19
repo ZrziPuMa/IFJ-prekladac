@@ -62,7 +62,7 @@ ErrorCode replace_most_left(tBtNode *node, tBtNode **root);
  * @brief Kontrola výšky stromu pro případnou rotaci
  * @param root Ukazatel na kořen stromu
  * @param first_unbalanced Ukazatel na první nevyvážený uzel
- * @return Výška stromu, -1 když dojde k chybě
+ * @return Výška stromu, -1 když dojde k chybě, -2 když je špatný ukazatel
  */
 int check_height(tBtNode **root, tBtNode ***first_unbalanced);
 

@@ -69,7 +69,6 @@ ErrorCode stack_search_symbol(tStack *stack, char *key, tBtNode **location);
  * @brief Získání vrcholu zásobníku
  * @param stack Ukazatel na zásobník
  * @return Ukazatel na vrchol zásobníku
- * @return ErrorCode chybový kód
  */
 tStackElem *stack_top(tStack *stack);
 
