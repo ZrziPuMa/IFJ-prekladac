@@ -51,7 +51,7 @@ MEM_INPUT = $(if $(wildcard $(TEST_INPUT)),$(TEST_INPUT),/dev/null)
 # ==============================================================================
 
 .PHONY: build all check check-format check-tidy check-cppcheck build-check \
-        format memcheck server-test test clean help
+        format memcheck server-test test clean help pack zip
 
 build: $(TARGET)
 
@@ -194,7 +194,72 @@ memcheck-%: bin_test_%
 # bin_test_generator:    generator.o ast.o symtable.o dynamic_string.o error.o
 
 # ==============================================================================
-# 6. ÚKLID PŘELOŽENÝCH SOUBORŮ
+# 6. ZABALENÍ PROJEKTU K ODEVZDÁNÍ (dle sekcí 5 a 6 zadání)
+# ==============================================================================
+ARCHIVE ?= $(FIT_LOGIN).zip
+INCLUDE_TESTS ?= 1
+
+zip: pack
+
+pack:
+	@test "$(FIT_LOGIN)" != "xlogin00" || \
+		{ echo "❌ CHYBA: Nastavte FIT_LOGIN vedoucího týmu (např. make pack FIT_LOGIN=xnovak00)"; exit 1; }
+	@echo "--> Kontroluji povinné soubory v kořeni projektu..."
+	@for f in Makefile dokumentace.pdf rozdeleni rozsireni; do \
+		test -f "$$f" || { echo "❌ CHYBA: Chybí povinný soubor '$$f'!"; exit 1; }; \
+	done
+	@test -n "$(SRCS)" || { echo "❌ CHYBA: Nebyly nalezeny žádné zdrojové soubory (*.c)!"; exit 1; }
+	@echo "--> Kontroluji formát 'rozdeleni' a 'rozsireni' (LF konce řádků, součet 100 %)..."
+	@for f in rozdeleni rozsireni; do \
+		if ! tr -d '\r' < "$$f" | cmp -s - "$$f"; then \
+			echo "❌ CHYBA: Soubor '$$f' obsahuje windowsovské konce řádků (CRLF)! Převeďte jej na LF."; \
+			exit 1; \
+		fi; \
+		if [ -s "$$f" ] && [ "$$(tail -c 1 "$$f" | wc -l)" -eq 0 ]; then \
+			echo "❌ CHYBA: Soubor '$$f' nekončí znakem nového řádku (LF)!"; \
+			exit 1; \
+		fi; \
+	done
+	@awk -F: ' \
+		!/^[0-9]+:[a-z0-9]+:[0-9]+$$/ { print "❌ CHYBA: Neplatný formát řádku v rozdeleni: " $$0; exit 1 } \
+		{ sum += $$3 } \
+		END { if (sum != 100) { printf "❌ CHYBA: Součet procent v rozdeleni je %d %% (musí být 100 %%)!\n", sum; exit 1 } } \
+	' rozdeleni
+	@echo "--> Sestavuji čistý archiv '$(ARCHIVE)'..."
+	@rm -f "$(ARCHIVE)"
+	@TMP_DIR=$$(mktemp -d); \
+	trap 'rm -rf "$$TMP_DIR"' EXIT; \
+	cp Makefile $(SRCS) $(HDRS) dokumentace.pdf rozdeleni rozsireni "$$TMP_DIR/"; \
+	if [ "$(INCLUDE_TESTS)" = "1" ] && [ -d "$(TEST_DIR)" ]; then \
+		mkdir -p "$$TMP_DIR/$(TEST_DIR)"; \
+		find "$(TEST_DIR)" -maxdepth 1 -type f ! -name '.*' ! -name '*.o' ! -name '*.d' \
+			! -name '*.exe' ! -name '*.out' ! -name 'bin_test_*' \
+			-exec cp {} "$$TMP_DIR/$(TEST_DIR)/" \; ; \
+	fi; \
+	BAD_FILES=$$(cd "$$TMP_DIR" && find . -mindepth 1 \( -name '.*' -o -name '__MACOSX' \)); \
+	if [ -n "$$BAD_FILES" ]; then \
+		echo "❌ CHYBA: Archiv obsahuje zakázané skryté soubory nebo __MACOSX:"; \
+		echo "$$BAD_FILES"; \
+		exit 1; \
+	fi; \
+	BAD_NAMES=$$(cd "$$TMP_DIR" && find . -mindepth 1 | grep -Ev '^\./[a-zA-Z0-9._/-]+$$'); \
+	if [ -n "$$BAD_NAMES" ]; then \
+		echo "❌ CHYBA: Nepovolené znaky v názvech souborů/adresářů:"; \
+		echo "$$BAD_NAMES"; \
+		exit 1; \
+	fi; \
+	OUT_ABS="$$(pwd)/$(ARCHIVE)"; \
+	(cd "$$TMP_DIR" && zip -rq "$$OUT_ABS" .)
+	@echo "✅ Archiv '$(ARCHIVE)' je připraven k odevzdání!"
+	@if [ -x "./is_it_ok.sh" ]; then \
+		echo "--> Spouštím ověřovací skript is_it_ok.sh..."; \
+		./is_it_ok.sh "$(ARCHIVE)"; \
+	else \
+		echo "ℹ️  Tip: Ověřte výsledný archiv skriptem is_it_ok.sh z e-learningu IFJ."; \
+	fi
+
+# ==============================================================================
+# 7. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
 clean:
 	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS)
