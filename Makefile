@@ -264,11 +264,11 @@ IC26INT ?= ic26int
 
 # End-to-end testy: make e2e, jen jedna skupina: make e2e FILTER=sem_
 e2e: build
-    COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+	COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
 
 # Totéž, ale překladač běží pod valgrindem
 e2e-valgrind: build
-    VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
 
 .PHONY: e2e e2e-valgrind
 
