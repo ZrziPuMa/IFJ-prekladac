@@ -630,7 +630,101 @@ void create_builtin_functions() {
     printf("PUSHS int@-1\n");
     printf("RETURN\n\n");
 
-    //
+    // toStr():
+    printf("LABEL $builtin_toStr\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+
+    printf("JUMPIFEQ $builtin_toStr_end GF@%%tmp2 string@string\n");
+    printf("JUMPIFEQ $builtin_toStr_int GF@%%tmp2 string@int\n");
+    printf("JUMPIFEQ $builtin_toStr_float GF@%%tmp2 string@float\n");
+    printf("JUMPIFEQ $builtin_toStr_bool GF@%%tmp2 string@bool\n");
+    printf("JUMPIFEQ $builtin_toStr_nil GF@%%tmp2 string@nil\n");
+
+    printf("LABEL $builtin_toStr_int\n");
+    printf("INT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("JUMP $builtin_toStr_end\n");
+
+    printf("LABEL $builtin_toStr_float\n");
+    printf("FLOAT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("JUMP $builtin_toStr_end\n");
+
+    printf("LABEL $builtin_toStr_bool\n");
+    printf("JUMPIFEQ $builtin_toStr_bool_true GF@%%tmp1 bool@true\n");
+    printf("MOVE GF@%%tmp1 string@false\n");
+    printf("JUMP $builtin_toStr_end\n");
+    printf("LABEL $builtin_toStr_bool_true\n");
+    printf("MOVE GF@%%tmp1 string@true\n");
+    printf("JUMP $builtin_toStr_end\n");
+
+    printf("LABEL $builtin_toStr_nil\n");
+    printf("MOVE GF@%%tmp1 string@()\n");
+
+    printf("LABEL $builtin_toStr_end\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    // subStr():
+    printf("LABEL $builtin_subStr\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@str\n");
+    printf("DEFVAR LF@start\n");
+    printf("DEFVAR LF@end\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@ch\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@end\n");
+    printf("POPS LF@start\n");
+    printf("POPS LF@str\n");
+
+    printf("STRLEN LF@len LF@str\n");
+
+    // AI help
+    /*
+     * Prompt: Napis mi blok kodu, ktery provede vsechny pozadovane kontroly a v pripade
+     * neuspechu skoci na navesti $builtin_subStr_err ktere uz mam v kodu napsane
+     */
+
+    // 1. start < 0
+    printf("LT LF@cmp LF@start int@0\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+
+    // 2. end < 0
+    printf("LT LF@cmp LF@end int@0\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+
+    // 3. start > end
+    printf("GT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+
+    // 4. start > len
+    printf("GT LF@cmp LF@start LF@len\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+
+    // 5. end > len
+    printf("GT LF@cmp LF@end LF@len\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+
+    printf("MOVE LF@res string@\n");
+    printf("LABEL $builtin_subStr_loop\n");
+    printf("LT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_subStr_end LF@cmp bool@false\n");
+    printf("GETCHAR LF@ch LF@str LF@start\n");
+    printf("CONCAT LF@res LF@res LF@ch\n");
+    printf("ADD LF@start LF@start int@1\n");
+    printf("JUMP $builtin_subStr_loop\n");
+
+    printf("LABEL $builtin_subStr_err\n");
+    printf("EXIT int@40\n");
+
+    printf("LABEL $builtin_subStr_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
 }
 
 ErrorCode generate_code(const ASTNode *root) {
