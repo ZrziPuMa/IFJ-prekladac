@@ -85,7 +85,7 @@ void declare_local_vars(const ASTNode *command);
  *
  * @param expr
  */
-void gen_expr(const ASTNode *expr);
+void gen_expr(const ASTNode *expr, GenState *stt);
 
 /**
  * @brief Pomocná funkce pro výpis instrukce PUSHS pro literál typu string

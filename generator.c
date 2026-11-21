@@ -47,6 +47,8 @@ void create_func_def(const ASTNode *func, GenState *stt) {
     gen_block(func->data.func_def.body->data.block.statements, stt, !stt->is_unit);
     if (stt->is_unit) {
         printf("PUSHS nil@nil\n");
+    } else if (func->data.func_def.body->to_double) {
+        printf("INT2FLOATS\n");
     }
 
     printf("LABEL $func_%s$end\n", func->data.func_def.name);
@@ -213,7 +215,7 @@ void string_lit_pushs(const char *string) {
 /* Prompt: Vytvoř mi strukturu switche ve funkci gen_expr.
  * samotnou logiku funkce si pote doplnim sam
  */
-void gen_expr(const ASTNode *expr) {
+void gen_expr(const ASTNode *expr, GenState *stt) {
 
     if (expr == NULL) {
         return;
@@ -266,7 +268,7 @@ void gen_expr(const ASTNode *expr) {
         case AST_UNARY_OP:
             switch (expr->data.unary_op.operator_token) {
                 case OP_PLUS:
-                    gen_expr(expr->data.unary_op.operand);
+                    gen_expr(expr->data.unary_op.operand, stt);
                     break;
 
                 case OP_MINUS:
@@ -275,12 +277,12 @@ void gen_expr(const ASTNode *expr) {
                     } else {
                         printf("PUSHS int@0\n");
                     }
-                    gen_expr(expr->data.unary_op.operand);
+                    gen_expr(expr->data.unary_op.operand, stt);
                     printf("SUBS\n");
                     break;
 
                 case OP_NOT:
-                    gen_expr(expr->data.unary_op.operand);
+                    gen_expr(expr->data.unary_op.operand, stt);
                     printf("NOTS\n");
                     break;
 
@@ -290,9 +292,40 @@ void gen_expr(const ASTNode *expr) {
             break;
 
         case AST_BINARY_OP:
-            // TODO: Dodelat BOOLTHEN operatory
-            gen_expr(expr->data.bin_op.left);
-            gen_expr(expr->data.bin_op.right);
+
+            // BOOLTHEN operátory:
+            if (expr->data.bin_op.operator_token == OP_AND) {
+                int id = stt->l_cnt++;
+                gen_expr(expr->data.bin_op.left, stt);
+                printf("PUSHS bool@false\n");
+                printf("JUMPIFEQS $and_false_%d\n", id);
+
+                gen_expr(expr->data.bin_op.right, stt);
+
+                printf("JUMP $and_end_%d\n", id);
+                printf("LABEL $and_false_%d\n", id);
+                printf("PUSHS bool@false\n");
+                printf("LABEL $and_end_%d\n", id);
+                break;
+
+            } else if (expr->data.bin_op.operator_token == OP_OR) {
+                int id = stt->l_cnt++;
+                gen_expr(expr->data.bin_op.left, stt);
+                printf("PUSHS bool@true\n");
+                printf("JUMPIFEQS $or_true_%d\n", id);
+
+                gen_expr(expr->data.bin_op.right, stt);
+
+                printf("JUMP $or_end_%d\n", id);
+                printf("LABEL $or_true_%d\n", id);
+                printf("PUSHS bool@true\n");
+                printf("LABEL $or_end_%d\n", id);
+                break;
+            }
+
+            // Normální operátory:
+            gen_expr(expr->data.bin_op.left, stt);
+            gen_expr(expr->data.bin_op.right, stt);
 
             switch (expr->data.bin_op.operator_token) {
                 case OP_PLUS:
@@ -367,7 +400,7 @@ void gen_expr(const ASTNode *expr) {
                 const ASTNode *curr_item = curr_arg_group->data.list.items;
 
                 while (curr_item != NULL) {
-                    gen_expr(curr_item);
+                    gen_expr(curr_item, stt);
                     curr_item = curr_item->next;
                 }
                 curr_arg_group = curr_arg_group->next;
@@ -462,7 +495,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
             // 1. Základní zadání (příkazy)
             case AST_VAR_DEF: {
                 if (statement->data.var_def.initializer != NULL) {
-                    gen_expr(statement->data.var_def.initializer);
+                    gen_expr(statement->data.var_def.initializer, stt);
                     printf("POPS LF@%s$%d\n", statement->data.var_def.identifier,
                            statement->data.var_def.var_id);
                 }
@@ -473,7 +506,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
             }
 
             case AST_ASSIGNMENT:
-                gen_expr(statement->data.assignment.value);
+                gen_expr(statement->data.assignment.value, stt);
                 printf("POPS LF@%s$%d\n", statement->data.assignment.target,
                        statement->data.assignment.var_id);
                 if (val_on_stack) {
@@ -483,7 +516,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
 
             case AST_RETURN:
                 if (statement->data.return_stmt.value != NULL) {
-                    gen_expr(statement->data.return_stmt.value);
+                    gen_expr(statement->data.return_stmt.value, stt);
                     if (stt->is_unit) {
                         printf("POPS GF@%%tmp1\n");
                         printf("PUSHS nil@nil\n");
@@ -497,7 +530,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
 
             case AST_IF_EXPR: {
                 int id = stt->l_cnt++;
-                gen_expr(statement->data.if_expr.condition);
+                gen_expr(statement->data.if_expr.condition, stt);
                 printf("PUSHS bool@false\n");
                 printf("JUMPIFEQS $if_else_%d\n", id);
 
@@ -519,7 +552,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
             case AST_WHILE: {
                 int id = stt->l_cnt++;
                 printf("LABEL $while_start_%d\n", id);
-                gen_expr(statement->data.while_loop.condition);
+                gen_expr(statement->data.while_loop.condition, stt);
                 printf("PUSHS bool@false\n");
                 printf("JUMPIFEQS $while_end_%d\n", id);
 
@@ -543,7 +576,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
 
             // 3. Samostatně stojící výrazy a volání funkcí (vč. výrazů z rozšíření)
             default:
-                gen_expr(statement);
+                gen_expr(statement, stt);
                 if (!val_on_stack) {
                     printf("POPS GF@%%tmp1\n");
                 }
@@ -595,6 +628,15 @@ void create_builtin_functions() {
     printf("JUMPIFNEQ $builtin_readDouble_end GF@%%tmp1 nil@nil\n");
     printf("MOVE GF@%%tmp1 float@0x0p+0\n");
     printf("LABEL $builtin_readDouble_end\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    // readBoolean():
+    printf("LABEL $builtin_readBoolean\n");
+    printf("READ GF@%%tmp1 bool\n");
+    printf("JUMPIFNEQ $builtin_readBoolean_end GF@%%tmp1 nil@nil\n");
+    printf("MOVE GF@%%tmp1 bool@false\n");
+    printf("LABEL $builtin_readBoolean_end\n");
     printf("PUSHS GF@%%tmp1\n");
     printf("RETURN\n\n");
 
@@ -701,9 +743,9 @@ void create_builtin_functions() {
     printf("GT LF@cmp LF@start LF@end\n");
     printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
 
-    // 4. start > len
-    printf("GT LF@cmp LF@start LF@len\n");
-    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@true\n");
+    // 4. start >= len
+    printf("LT LF@cmp LF@start LF@len\n");
+    printf("JUMPIFEQ $builtin_subStr_err LF@cmp bool@false\n");
 
     // 5. end > len
     printf("GT LF@cmp LF@end LF@len\n");
