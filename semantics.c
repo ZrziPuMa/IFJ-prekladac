@@ -4,8 +4,8 @@
  * semantics.h
  * @author Natalie Morávková (<xmoravn00>)
  *
- * při vývoji byla použita AI (ChatGPT, github copilot) pro kontrolu kódu, pomoc s opravami
- * funkcionality kódu a vyhledávání informací ke kontrole ze specifikace IFJ26
+ * při vývoji byla použita AI (ChatGPT, github copilot) pro kontrolu kódu, pomoc s opravami 
+ * funkcionality kódu, pomoc s implementací složitějších částí a vyhledávání informací ke kontrole ze specifikace IFJ26
  */
 
 #include "semantics.h"
@@ -963,7 +963,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
     if (res != ERR_OK) {
         goto cleanup;
     }
-    if (function_stack.top == NULL) {
+    if (stack_empty(&function_stack)) {
         res = ERR_INTERNAL;
         goto cleanup;
     }
@@ -1004,7 +1004,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
 
         // vloží do tabulky
         tBtNodeData receiver_data = {.type = VARIABLE, .value = receiver};
-        res = symtable_insert(&function_stack.top->scope, receiver->data.var_def.identifier,
+        res = symtable_insert(&stack_top(&function_stack)->scope, receiver->data.var_def.identifier,
                               receiver_data);
         if (res != ERR_OK) {
             goto cleanup;
@@ -1131,7 +1131,7 @@ cleanup:
         type_info_free(function_type);
     }
 
-    while (function_stack.top != NULL) {
+    while (!stack_empty(&function_stack)) {
         ErrorCode pop_res = symtable_pop_scope(&function_stack);
         if (res == ERR_OK) {
             res = pop_res;
@@ -2727,7 +2727,7 @@ ErrorCode semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
     if (return_value != ERR_OK) {
         goto cleanup;
     }
-    if (lambda_stack.top == NULL) {
+    if (stack_empty(&lambda_stack)) {
         return_value = ERR_INTERNAL;
         goto cleanup;
     }
@@ -2845,7 +2845,7 @@ cleanup:
     if (function_type != NULL) {
         type_info_free(function_type);
     }
-    while (lambda_stack.top) {
+    while (stack_empty(&lambda_stack)) {
         ErrorCode pop_res = symtable_pop_scope(&lambda_stack);
         if (return_value == ERR_OK) {
             return_value = pop_res;
@@ -2945,7 +2945,6 @@ ErrorCode semantic_fill_unit_else(ASTNode *node) {
     return semantic_fill_unit_else(node->data.if_expr.else_block);
 }
 
-// asi hotovo
 ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type,
                            bool used_as_value) {
     if (node == NULL || ctx == NULL || node->type != AST_IF_EXPR) {
@@ -2985,7 +2984,7 @@ ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *
     }
 
     TypeInfo *ret_type = NULL;
-    // irčí návratový typ
+    // určí návratový typ
     if (used_as_value) {
         // if jako výraz: musí být společný typ obou větví
         // společný typ se nastaví jako ret_type
@@ -3701,7 +3700,7 @@ ErrorCode semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx,
     }
     *location = NULL;
 
-    tStackElem *scope = stack->top;
+    tStackElem *scope = stack_top(stack);
 
     // projde všechny tabulky symbolů v zásobníku, pokud najde odpovídající uzel, vrátí ho
     while (scope != NULL) {
@@ -3736,13 +3735,7 @@ bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type
     return semantic_types_equal(match_type, case_type);
 }
 
-/**
- * @brief Vyhledá, jestli parametru "un" obsahuje typ y parametru "type"
- *
- * @param un Typeinfo ve kterém se hledá typ
- * @param type Typeinfo, který se hledá v parametru "un"
- * @return true pokud je typ z parametru "type" obsažen v parametru "un", jinak false
- */
+
 bool semantics_compare_union_with_type(const TypeInfo *un, const TypeInfo *type) {
     if (un == NULL || type == NULL) {
         return false;
@@ -3766,13 +3759,6 @@ bool semantics_compare_union_with_type(const TypeInfo *un, const TypeInfo *type)
     return type_in_union;
 }
 
-/**
- * @brief Porovná, jestli union parametru 'b' obsahuje všechny typy z union parametru 'a'
- *
- * @param a TypeInfo typu union, ze kterého se porovnávají typy
- * @param b TypeInfo typu union, ve kterém se hledají typy z parametru 'a'
- * @return true pokud všechny typy z parametru 'a' jsou obsaženy v parametru 'b', jinak false
- */
 bool compare_unions(const TypeInfo *a, const TypeInfo *b) {
     if (a == NULL || b == NULL) {
         return false;
