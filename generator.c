@@ -449,8 +449,51 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             break;
         case AST_LIST_LITERAL:
             break;
-        case AST_MEMBER_ACCESS:
+        // AI help
+        /*
+         * Prompty:
+         * 1. Napis mi tedy switch pro case AST_MEMBER_ACCESS, ktery bude rozhodovat podle member
+         * kind a bude obsahovat vsechny case z enumu member kind
+         *
+         * 2. napis mi blok kodu, ktery bude vybirat, ktereou builtin funkci zavola podle
+         * member_name
+         */
+        case AST_MEMBER_ACCESS: {
+            switch (expr->data.member_access.member_kind) {
+                case MEMBER_VALUE_BUILTIN:
+                    gen_expr(expr->data.member_access.object, stt);
+
+                    const char *member_name = expr->data.member_access.member_name;
+                    if (strcmp(member_name, "toString") == 0) {
+                        printf("CALL $builtin_toStr\n");
+                    } else if (strcmp(member_name, "toInt") == 0) {
+                        printf("CALL $builtin_toInt\n");
+                    } else if (strcmp(member_name, "floor") == 0) {
+                        printf("CALL $builtin_floor\n");
+                    } else if (strcmp(member_name, "length") == 0) {
+                        printf("CALL $builtin_strLength\n");
+                    }
+                    break;
+
+                case MEMBER_FIELD:
+                    break;
+
+                case MEMBER_LIST_BUILTIN:
+                    break;
+
+                case MEMBER_RANGE_TOLIST:
+                    break;
+
+                case MEMBER_EXTENSION:
+                    break;
+
+                case MEMBER_UNRESOLVED:
+                default:
+                    break;
+            }
             break;
+        }
+
         case AST_RANGE:
             break;
 
@@ -766,6 +809,23 @@ void create_builtin_functions() {
     printf("LABEL $builtin_subStr_end\n");
     printf("PUSHS LF@res\n");
     printf("POPFRAME\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    /*
+     * Prompt: Pridej mi do moji funkce s vestavenymi funkcemi funkci floor, ktera bude fungovat
+     * tak, ze orizne hodnotu typu double smerem k minus nekonecnu.
+     */
+    // floor (rozšíření VALMEM)
+    printf("LABEL $builtin_floor\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("FLOAT2INT GF@%%tmp2 GF@%%tmp1\n");
+    printf("INT2FLOAT GF@%%tmp2 GF@%%tmp2\n");
+    printf("GT GF@%%tmp3 GF@%%tmp2 GF@%%tmp1\n");
+    printf("JUMPIFNEQ $builtin_floor_end GF@%%tmp3 bool@true\n");
+    printf("SUB GF@%%tmp2 GF@%%tmp2 float@0x1p+0\n");
+    printf("LABEL $builtin_floor_end\n");
+    printf("PUSHS GF@%%tmp2\n");
     printf("RETURN\n\n");
 }
 
