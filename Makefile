@@ -257,9 +257,23 @@ pack:
 	else \
 		echo "ℹ️  Tip: Ověřte výsledný archiv skriptem is_it_ok.sh z e-learningu IFJ."; \
 	fi
+# ==============================================================================
+# 7. END TO END TESTY
+# ==============================================================================
+IC26INT ?= ic26int
+
+# End-to-end testy: make e2e, jen jedna skupina: make e2e FILTER=sem_
+e2e: build
+	COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+
+# Totéž, ale překladač běží pod valgrindem
+e2e-valgrind: build
+	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+
+.PHONY: e2e e2e-valgrind
 
 # ==============================================================================
-# 7. ÚKLID PŘELOŽENÝCH SOUBORŮ
+# 8. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
 clean:
 	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS)
