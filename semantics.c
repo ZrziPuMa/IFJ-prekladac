@@ -3922,6 +3922,48 @@ ErrorCode semantic_check_conversion(ASTNode *expression, const TypeInfo *expecte
     return ERR_OK; // Úspěch
 }
 
+void remove_union_duplicates(TypeInfo **slot) {
+    if (slot == NULL || *slot == NULL) {
+        return;
+    }
+
+    TypeInfo *type = *slot;
+    switch (type->type_class) {
+        case TYPE_UNION:
+            // odstraní duplicity z obou podstromů
+            remove_union_duplicates(&type->data.union_type.left);
+            remove_union_duplicates(&type->data.union_type.right);
+
+            // po normalizaci je pravá větev jediný člen unionu
+            if (type->data.union_type.right->type_class != TYPE_UNION &&
+                semantics_compare_union_with_type(type->data.union_type.left,
+                                                  type->data.union_type.right)) {
+
+                // ponechá levou větev a odstraní nadbytečný pravý člen
+                TypeInfo *left = type->data.union_type.left;
+                type->data.union_type.left = NULL;
+                type_replace(slot, left);
+            }
+            break;
+
+        case TYPE_LIST:
+            // vyřeší vnitřek listu
+            remove_union_duplicates(&type->data.list_element_type);
+            break;
+
+        case TYPE_FUNCTION:
+            for (TypeInfo **param = &type->data.func_type.param_types; *param != NULL;
+                 param = &(*param)->next) {
+                remove_union_duplicates(param);
+            }
+            remove_union_duplicates(&type->data.func_type.return_type);
+            break;
+
+        default:
+            break;
+    }
+}
+
 void normalise_union_tree(TypeInfo *type) {
     if (type == NULL) {
         return;
@@ -3995,14 +4037,6 @@ void normalise_union_tree(TypeInfo *type) {
     }
 }
 
-/**
- * @brief projde cestu aliasů path a zjistí, jestli se nějaký alias na cestě neopakuje (vyskytly
- * by se cykly)
- *
- * @param path cesta aliasů
- * @param name jméno aliasu, který se hledá v path
- * @return true pokud se alias s jménem namu už na cestě vyskytuje, jinak false
- */
 bool alias_in_path(const AliasPath *path, const char *name) {
     const AliasPath *path_pos = path;
     while (path_pos != NULL) {
@@ -4014,7 +4048,7 @@ bool alias_in_path(const AliasPath *path, const char *name) {
     return false;
 }
 
-static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath *path) {
+ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath *path) {
     if (slot == NULL || *slot == NULL || ctx == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, NULL);
     }
@@ -4149,6 +4183,7 @@ ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx
     // rozvinutím se můžou objevit množiny v jjiném tvaru než je očekáván podle ast, funkce ho
     // upraví do správného tvaru
     normalise_union_tree(*result);
+    remove_union_duplicates(result);
 
     return ERR_OK;
 }
