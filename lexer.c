@@ -46,6 +46,7 @@ tToken give_token() {
     tToken token;
     token.type = TOK_EMPTY;
     token.line = line;
+    token.val.str = NULL;
     token.state = state_start;
     token.newline_before = false;
 
@@ -450,20 +451,21 @@ tToken give_token() {
                 if (c == '"') {
                     token.state = state_empty_str;
                     break;
-                } else if (c == '\n') {
+                } else if (c == '\\') {
+                    token.state = state_string_esc;
+                    break;
+                } else if (c == '\n' || c == EOF || c < 0 || c > 127) {
                     print_error(
                         ERR_LEX, line,
-                        "Chyba: (Jednořádkový) Řetězcový literál nesmí obsahovat konec řádku");
+                        "Chyba: Řetězcový literál je neukončený nebo obsahuje nepovolený znak.");
                     token.type = TOK_ERROR;
+                    token.line = line;
                     token.val.i_val = 1;
-                    break;
-                } else if (__isascii(c)) {
-                    token.state = state_string;
-                    string_add(&str, (char)c);
+                    completed = true;
                     break;
                 } else {
-                    token.type = TOK_ERROR;
-                    token.val.i_val = 1;
+                    token.state = state_string;
+                    string_add(&str, (char)c);
                     break;
                 }
 
@@ -471,11 +473,17 @@ tToken give_token() {
                 if (c == '"') {
                     token.state = state_string_end;
                     break;
-                } else if (c == '\n') {
+                } else if (c == '\\') {
+                    token.state = state_string_esc;
+                    break;
+                } else if (c == '\n' || c == EOF || c < 0 || c > 127) {
+                    print_error(
+                        ERR_LEX, line,
+                        "Chyba: Řetězcový literál je neukončený nebo obsahuje nepovolený znak.");
                     token.type = TOK_ERROR;
                     token.line = line;
                     token.val.i_val = 1;
-                    print_error(ERR_LEX, line, "Chyba: String nesmí obsahovat nový řádek.");
+                    completed = true;
                     break;
                 } else {
                     string_add(&str, (char)c);
@@ -488,7 +496,9 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_STRING;
-                    token.val.str = NULL;
+                    token.val.str = "";
+                    ungetc(c, file);
+                    completed = true;
                     break;
                 }
 
@@ -507,6 +517,13 @@ tToken give_token() {
                     string_add(&str, '\\');
                     string_add(&str, '\\');
                     break;
+                } else if (c == EOF) {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    print_error(ERR_LEX, line, "Chyba: Konec souboru před ukončením stringu.");
+                    completed = true;
+                    break;
                 } else {
                     break;
                 }
@@ -514,6 +531,13 @@ tToken give_token() {
             case state_cl1:
                 if (c == '"') {
                     token.state = state_cl2;
+                    break;
+                } else if (c == EOF) {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    print_error(ERR_LEX, line, "Chyba: Konec souboru před ukončením stringu.");
+                    completed = true;
                     break;
                 } else {
                     token.state = state_chain_lit;
@@ -525,6 +549,13 @@ tToken give_token() {
             case state_cl2:
                 if (c == '"') {
                     token.state = state_string_end;
+                    break;
+                } else if (c == EOF) {
+                    token.type = TOK_ERROR;
+                    token.line = line;
+                    token.val.i_val = 1;
+                    print_error(ERR_LEX, line, "Chyba: Konec souboru před ukončením stringu.");
+                    completed = true;
                     break;
                 } else {
                     token.state = state_chain_lit;
@@ -538,6 +569,7 @@ tToken give_token() {
                 token.type = TOK_STRING;
                 token.line = line;
                 token.val.str = str.string;
+                str.string = NULL;
                 completed = true;
                 break;
 
@@ -568,11 +600,17 @@ tToken give_token() {
                     break;
                 } else {
                     token.type = TOK_ID;
-                    token.val.str = str.string;
+                    token.val.str = NULL;
                     token.line = line;
                     ungetc(c, file);
                     check_keyword(&token, &str);
-                    check_var_type(&token, &str);
+                    if (token.type == TOK_ID) {
+                        check_var_type(&token, &str);
+                    }
+                    if (token.type == TOK_ID || token.type == TOK_TYPE) {
+                        token.val.str = str.string;
+                        str.string = NULL;
+                    }
                     completed = true;
                     break;
                 }
@@ -812,6 +850,12 @@ tToken give_token() {
 
 void lexer_free() {
     fifo_clean(queue);
+    queue = NULL;
+    while (indent_stack != NULL && !lstack_empty(indent_stack)) {
+        lstack_pop(indent_stack);
+    }
+    free(indent_stack);
+    indent_stack = NULL;
 }
 
 void lstack_init(tLStack **stack) {
@@ -893,15 +937,13 @@ void fifo_add(tToken *token, tFIFO_Elem **first) {
             return;
         }
         (*first)->token = (tToken *)malloc(sizeof(tToken));
-        if ((*first)->next == NULL) {
+        if ((*first)->token == NULL) {
             print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
             free(*first);
+            *first == NULL;
             return;
         }
-        (*first)->token->line = token->line;
-        (*first)->token->newline_before = token->newline_before;
-        (*first)->token->type = token->type;
-        (*first)->token->val = token->val;
+        *((*first)->token) = *token;
         (*first)->next = NULL;
         return;
     }
