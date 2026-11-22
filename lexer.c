@@ -5,6 +5,8 @@
  * @author Daniela Sladká, xsladkd00
  */
 
+#include "lexer.h"
+
 #include "idynamic_string.h"
 #include "ierror.h"
 #include "ilexer.h"
@@ -192,7 +194,6 @@ tToken give_token() {
                             token.type = TOK_INT;
                             string_add(&str, (char)c);
                         } else {
-                            string_free(&str);
                             print_error(ERR_LEX, line, "Chyba: Neočekávaný znak.");
                             token.type = TOK_ERROR;
                             token.line = line;
@@ -375,6 +376,7 @@ tToken give_token() {
 
             case state_slash:
                 if (c == '*') {
+                    block_com_cnt++;
                     token.state = state_com_block;
                     break;
                 } else if (c == '/') {
@@ -460,7 +462,6 @@ tToken give_token() {
                     string_add(&str, (char)c);
                     break;
                 } else {
-                    string_free(&str);
                     token.type = TOK_ERROR;
                     token.val.i_val = 1;
                     break;
@@ -486,9 +487,8 @@ tToken give_token() {
                     token.state = state_chain_lit;
                     break;
                 } else {
-                    string_free(&str);
                     token.type = TOK_STRING;
-                    token.val.str = "\0";
+                    token.val.str = NULL;
                     break;
                 }
 
@@ -538,7 +538,6 @@ tToken give_token() {
                 token.type = TOK_STRING;
                 token.line = line;
                 token.val.str = str.string;
-                string_free(&str);
                 completed = true;
                 break;
 
@@ -588,7 +587,6 @@ tToken give_token() {
                 }
 
             case state_com_block:
-                block_com_cnt++;
                 if (c == '*') {
                     token.state = state_com_block_2;
                     break;
@@ -631,7 +629,6 @@ tToken give_token() {
                                 "Chyba: Číslo nesmí začínat 0, pokud to není jeho hodnota.");
                     token.line = line;
                     token.val.i_val = 1;
-                    string_free(&str);
                     completed = true;
                     break;
                 } else if (c == '.') {
@@ -650,7 +647,6 @@ tToken give_token() {
                 if (c == ' ') {
                     token.type = TOK_INT;
                     token.val.i_val = (int)strtol(str.string, NULL, 10);
-                    string_free(&str);
                     completed = true;
                     break;
                 } else if (isdigit(c)) {
@@ -712,7 +708,6 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     token.line = line;
                     token.val.i_val = 1;
-                    string_free(&str);
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -741,7 +736,6 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     token.line = line;
                     token.val.i_val = 1;
-                    string_free(&str);
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -792,6 +786,7 @@ tToken give_token() {
                 token.val.d_val = strtod(str.string, NULL);
                 ungetc(c, file);
                 completed = true;
+                break;
 
             case state_dec_unders:
                 if (isdigit(c)) {
@@ -802,7 +797,6 @@ tToken give_token() {
                     token.type = TOK_ERROR;
                     token.line = line;
                     token.val.i_val = 1;
-                    string_free(&str);
                     ungetc(c, file);
                     completed = true;
                     break;
@@ -821,7 +815,7 @@ void lexer_free() {
 }
 
 void lstack_init(tLStack **stack) {
-    if (!stack || !(*stack)) {
+    if (!stack) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na zásobník.");
         return;
     }
@@ -879,7 +873,7 @@ bool lstack_empty(tLStack *stack) {
 }
 
 void fifo_init(tFIFO **queue) {
-    if (!queue || !(*queue)) {
+    if (!queue) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         return;
     }
@@ -896,6 +890,12 @@ void fifo_add(tToken *token, tFIFO_Elem **first) {
         (*first) = (tFIFO_Elem *)malloc(sizeof(tFIFO_Elem));
         if ((*first) == NULL) {
             print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+            return;
+        }
+        (*first)->token = (tToken *)malloc(sizeof(tToken));
+        if ((*first)->next == NULL) {
+            print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
+            free(*first);
             return;
         }
         (*first)->token->line = token->line;
@@ -920,6 +920,7 @@ tToken fifo_get(tFIFO *queue) {
     tFIFO_Elem *temp = queue->first;
     out = *queue->first->token;
     queue->first = temp->next;
+    free(temp->token);
     free(temp);
     return out;
 }
@@ -929,6 +930,7 @@ void clean_elem(tFIFO_Elem *elem) {
         return;
     }
     clean_elem(elem->next);
+    free(elem->token);
     free(elem);
 }
 
