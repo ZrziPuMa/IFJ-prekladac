@@ -22,15 +22,89 @@ void create_prolog(const ASTNode *main_def) {
     printf("\n");
 }
 
-void create_func_def(const ASTNode *func, GenState *stt) {
-    printf("LABEL $func_%s\n", func->data.func_def.name);
+// AI help
+/* Napis mi pomocnou funkci create_ext_func_label, ktera vypise Label prave pro metody z
+ *extension. nedelej to static, protoze to budu mit v hlavickovem souboru. a nad funkci napis
+ *komentar trto formy: // AI help <prompt co jsem ti napsal>
+ */
+void create_ext_func_label(const TypeInfo *receiver_type, const char *method_name) {
+    printf("$ext_");
+
+    const TypeInfo *t = receiver_type;
+    while (t != NULL && t->type_class == TYPE_LIST) {
+        printf("List_");
+        t = t->data.list_element_type;
+    }
+
+    if (t == NULL) {
+        printf("Unknown");
+    } else {
+        switch (t->type_class) {
+            case TYPE_INT:
+                printf("Int");
+                break;
+            case TYPE_DOUBLE:
+                printf("Double");
+                break;
+            case TYPE_STRING:
+                printf("String");
+                break;
+            case TYPE_BOOLEAN:
+                printf("Bool");
+                break;
+            case TYPE_UNIT:
+                printf("Unit");
+                break;
+            case TYPE_ANY:
+                printf("Any");
+                break;
+            case TYPE_NOTHING:
+                printf("Nothing");
+                break;
+            case TYPE_CUSTOM:
+                printf("%s", t->data.custom_name ? t->data.custom_name : "Custom");
+                break;
+            case TYPE_LIST:
+                printf("List");
+                break;
+            case TYPE_UNION:
+                printf("Union");
+                break;
+            case TYPE_FUNCTION:
+                printf("Fn");
+                break;
+        }
+    }
+
+    printf("_%s", method_name);
+}
+
+void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt) {
+    if (receiver != NULL) {
+        printf("LABEL ");
+        create_ext_func_label(receiver->expr_type, func->data.func_def.name);
+        printf("\n");
+
+    } else {
+        printf("LABEL $func_%s\n", func->data.func_def.name);
+    }
+
     printf("CREATEFRAME\n");
     printf("PUSHFRAME\n");
+
+    // Pokud se jedná o methodu z extension, musíme deklarovat i receiver
+    if (receiver != NULL) {
+        printf("DEFVAR LF@%s$%d\n", receiver->data.var_def.identifier,
+               receiver->data.var_def.var_id);
+    }
 
     define_param_groups(func->data.func_def.param_groups);
 
     declare_local_vars(func->data.func_def.body);
 
+    if (receiver != NULL) {
+        printf("POPS LF@%s$%d\n", receiver->data.var_def.identifier, receiver->data.var_def.var_id);
+    }
     // AI help
     /*
      * Spolupráce s AI při návrhu předávání návratové hodnoty z těla funkce:
@@ -394,6 +468,13 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             }
             break;
         case AST_FUNC_CALL: {
+            // Rozšíření EXTKW: pokud se jedná o metodu z extension, musíme na zásobník nejdříve
+            // pushnout hodnotu příjemce (Hodnota nalevo od tečky)
+            const ASTNode *target = expr->data.func_call.target;
+
+            if (target != NULL && expr->data.func_call.call_kind == CALL_EXTENSION) {
+                gen_expr(target->data.member_access.object, stt);
+            }
             const ASTNode *curr_arg_group = expr->data.func_call.arg_groups;
 
             while (curr_arg_group != NULL) {
@@ -415,7 +496,6 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
              * s prefixem $builtin_ podle jména identifikátoru, protože existenci i validitu
              * vestavěné funkce už ověřila sémantická analýza.
              */
-            const ASTNode *target = expr->data.func_call.target;
 
             switch (expr->data.func_call.call_kind) {
                 case CALL_USER_FUNC:
@@ -427,6 +507,15 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                 case CALL_BUILTIN:
                     if (target != NULL && target->type == AST_IDENTIFIER) {
                         printf("CALL $builtin_%s\n", target->data.identifier.name);
+                    }
+                    break;
+
+                case CALL_EXTENSION:
+                    if (target != NULL && target->type == AST_MEMBER_ACCESS) {
+                        printf("CALL ");
+                        create_ext_func_label(target->data.member_access.object->expr_type,
+                                              target->data.member_access.member_name);
+                        printf("\n");
                     }
                     break;
 
@@ -871,10 +960,18 @@ ErrorCode generate_code(const ASTNode *root) {
         switch (curr_def->type) {
 
             case AST_FUNC_DEF:
-                create_func_def(curr_def, &stt);
+                create_func_def(curr_def, NULL, &stt);
                 break;
 
-            // TODO: Dodělat zbylé definice
+                // TODO: Dodělat zbylé definice
+            case AST_EXTENSION_DEF: {
+                ASTNode *curr_method = curr_def->data.extension_def.methods;
+                while (curr_method != NULL) {
+                    create_func_def(curr_method, curr_def->data.extension_def.receiver, &stt);
+                    curr_method = curr_method->next;
+                }
+                break;
+            }
             default:
                 break;
         }

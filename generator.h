@@ -57,7 +57,7 @@ void create_prolog(const ASTNode *main_def);
  * @param func
  * @param stt
  */
-void create_func_def(const ASTNode *func, GenState *stt);
+void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt);
 
 /**
  * @brief Funkce pro prochazání všech param_groups a zavolání define_params() nad nimi
@@ -107,5 +107,13 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result);
  *
  */
 void create_builtin_functions();
+
+/**
+ * @brief Vytvoří návěští pro metodu z extension (EXTKW)
+ *
+ * @param receiver_type
+ * @param method_name
+ */
+void create_ext_func_label(const TypeInfo *receiver_type, const char *method_name);
 
 #endif
