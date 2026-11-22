@@ -194,4 +194,4 @@ const char *token_type_name(tTokenType type);
  */
 void token_dump(const tToken *t, FILE *out);
 
-#endif // TOKEN_H
+#endif /*TOKEN_H*/

@@ -321,7 +321,9 @@ tToken give_token(void) {
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
-                    ungetc(c, file);
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
                     completed = true;
                     break;
                 }
@@ -333,7 +335,9 @@ tToken give_token(void) {
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
-                    ungetc(c, file);
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
                     completed = true;
                     break;
                 }
@@ -345,7 +349,9 @@ tToken give_token(void) {
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
-                    ungetc(c, file);
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
                     completed = true;
                     break;
                 }
@@ -922,11 +928,11 @@ tToken give_token(void) {
             default:
                 break;
         }
-        if (token.type != TOK_NEWLINE && token.type != TOK_INDENT && token.type != TOK_DEDENT &&
-            token.type != TOK_EOF && token.type != TOK_ERROR) {
-            token.newline_before = seen_newline;
-            seen_newline = false;
-        }
+    }
+    if (token.type != TOK_NEWLINE && token.type != TOK_INDENT && token.type != TOK_DEDENT &&
+        token.type != TOK_EOF && token.type != TOK_ERROR) {
+        token.newline_before = seen_newline;
+        seen_newline = false;
     }
     string_free(&str);
     return token;
