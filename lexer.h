@@ -8,8 +8,6 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-// #include "ierror.h"
-
 #include "token.h"
 
 #include <ctype.h>
