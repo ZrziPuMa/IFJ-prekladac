@@ -33,6 +33,16 @@ static bool line_has_tokens;
  */
 static tToken make_lex_error(int err_line, const char *msg);
 
+/**
+ * @brief Vyhodnocení úrovně odsazení na začátku neprázdného řádku
+ * @param token Token, kterému se předá informace (případně error)
+ * @param pushback_char První znak tokenu po odsazení
+ * @param prev_line Číslo předcházejícího řádku (pro TOK_NEWLINE)
+ * @param had_tab Kontrola, zda byl použit tabulátor na začátku řádku
+ * @return true, pokud byl vytvořen token k okamžitému vrácení, jinak false
+ */
+static bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab);
+
 void lexer_init(FILE *f) {
     file = f;
     lstack_init(&indent_stack);
@@ -65,16 +75,35 @@ tToken give_token(void) {
     token.state = state_start;
     token.newline_before = false;
 
+    bool had_tab = false;
+    bool check_indent = false;
+    int nl_line = line;
+    indent_cnt = 0;
+
+    if (starts_at_line) {
+        token.state = state_eol;
+        starts_at_line = false;
+    }
+
     bool completed = false;
 
     while (!completed) {
         c = getc(file);
         switch (token.state) {
             case state_start:
+                if (check_indent && parent_cnt == 0 && c != ' ' && c != '\t' && c != '\r' &&
+                    c != '\n' && c != EOF && c != '/') {
+                    check_indent = false;
+                    if (check_line_indent(&token, c, nl_line, had_tab)) {
+                        completed = true;
+                        break;
+                    }
+                }
                 switch (c) {
-                    case EOF:
+                    case EOF: {
+                        check_indent = false;
                         bool has_open_blocks =
-                            (!lstack_empty(indent_stack) && lstack_top(indent_stack) > 0);
+                            (bool)(!lstack_empty(indent_stack) && lstack_top(indent_stack) > 0);
 
                         if (!line_has_tokens && !has_open_blocks) {
                             token.type = TOK_EOF;
@@ -119,12 +148,69 @@ tToken give_token(void) {
 
                         completed = true;
                         break;
+                    }
 
                     case '\n':
-                        token.type = TOK_NEWLINE;
-                        token.line = line;
-                        token.state = state_eol;
-                        break;
+                        seen_newline = true;
+                        if (parent_cnt > 0) {
+                            line++;
+                            while (true) {
+                                int p_spaces = 0;
+                                bool p_tab = false;
+                                int pch = getc(file);
+                                while (pch == ' ' || pch == '\t' || pch == '\r') {
+                                    if (pch == ' ') {
+                                        p_spaces++;
+                                    } else if (pch == '\t') {
+                                        p_tab = true;
+                                    }
+                                    pch = getc(file);
+                                }
+                                if (pch == '\n') {
+                                    line++;
+                                    continue;
+                                }
+                                if (pch == EOF) {
+                                    break;
+                                }
+                                if (pch == '/') {
+                                    int pnext = getc(file);
+                                    if (pnext == '/') {
+                                        while (pch != '\n' && pch != EOF) {
+                                            pch = getc(file);
+                                        }
+                                        if (pch == '\n') {
+                                            line++;
+                                            continue;
+                                        }
+                                        break;
+                                    }
+                                    if (pnext != EOF) {
+                                        ungetc(pnext, file);
+                                    }
+                                }
+                                int base_indent = lstack_top(indent_stack);
+                                if (p_tab || p_spaces < base_indent ||
+                                    (pch != ')' && pch != ']' && p_spaces <= base_indent)) {
+                                    token =
+                                        make_lex_error(line, "Chyba: Neplatné odsazení "
+                                                             "pokračujícího řádku v závorkách.");
+                                    completed = true;
+                                    break;
+                                }
+                                ungetc(pch, file);
+                                break;
+                            }
+                            break;
+                        } else {
+                            nl_line = line;
+                            line++;
+                            indent_cnt = 0;
+                            had_tab = false;
+                            check_indent = false;
+                            token.state = state_eol;
+                            break;
+                        }
 
                     case '@':
                         token.state = state_at;
@@ -446,68 +532,46 @@ tToken give_token(void) {
                     token.state = state_com_line;
                     break;
                 } else {
-                    token.type = TOK_DIV;
-                    token.line = line;
                     if (c != EOF) {
                         ungetc(c, file);
                     }
+                    if (check_indent && parent_cnt == 0) {
+                        check_indent = false;
+                        if (check_line_indent(&token, EOF, nl_line, had_tab)) {
+                            if (token.type == TOK_NEWLINE) {
+                                tToken div_tok = {0};
+                                div_tok.type = TOK_DIV;
+                                div_tok.line = line;
+                                fifo_add(&div_tok, &queue->first);
+                            }
+                            completed = true;
+                            break;
+                        }
+                    }
+                    token.type = TOK_DIV;
+                    token.line = line;
                     completed = true;
                     break;
                 }
 
             case state_eol:
-                seen_newline = true;
-                line++;
-                if (parent_cnt) {
-                    token.state = state_start;
-                } else if (c == '\t') {
-                    token.type = TOK_ERROR;
-                    print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
-                    token.line = line;
-                    token.val.i_val = 1;
-                    completed = true;
-                } else if (c == ' ') {
+                if (c == ' ') {
                     indent_cnt++;
+                } else if (c == '\t') {
+                    had_tab = true;
+                } else if (c == '\r') {
+                } else if (c == '\n') {
+                    seen_newline = true;
+                    nl_line = line;
+                    line++;
+                    indent_cnt = 0;
+                    had_tab = false;
                 } else {
-                    ungetc(c, file);
-                    int last_indent = lstack_top(indent_stack);
-
-                    if (last_indent == indent_cnt) {
-                        token.type = TOK_NEWLINE;
-                        token.line = line;
-                        completed = true;
-                        break;
-                    } else if (last_indent < indent_cnt) {
-                        lstack_push(indent_cnt, indent_stack);
-                        token.type = TOK_NEWLINE;
-                        token.line = line;
-                        tToken indent_tok = {0};
-                        indent_tok.type = TOK_INDENT;
-                        indent_tok.line = line;
-                        fifo_add(&indent_tok, &queue->first);
-                        completed = true;
-                        break;
-                    } else {
-                        lstack_pop(indent_stack);
-                        token.type = TOK_NEWLINE;
-                        token.line = line;
-                        tToken dedent_tok = {0};
-                        dedent_tok.type = TOK_DEDENT;
-                        dedent_tok.line = line;
-                        fifo_add(&dedent_tok, &queue->first);
-                        while (indent_cnt < last_indent) {
-                            fifo_add(&token, &queue->first);
-                            fifo_add(&dedent_tok, &queue->first);
-                            lstack_pop(indent_stack);
-                        }
-                        if (last_indent < indent_cnt) {
-                            print_error(ERR_LEX, line, "Chyba: Neočekávaný znak");
-                            token.type = TOK_ERROR;
-                            token.val.i_val = 1;
-                        }
-                        completed = true;
-                        break;
+                    if (c != EOF) {
+                        ungetc(c, file);
                     }
+                    check_indent = true;
+                    token.state = state_start;
                 }
                 break;
 
@@ -874,7 +938,9 @@ tToken give_token(void) {
                     token.type = TOK_INT;
                     token.line = line;
                     token.val.i_val = strtoll(str.string, NULL, 10);
-                    ungetc(c, file);
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
                     completed = true;
                     break;
                 }
@@ -1146,4 +1212,67 @@ void fifo_clean(tFIFO *queue) {
     }
     clean_elem(queue->first);
     free(queue);
+}
+
+static bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab) {
+    if (had_tab) {
+        *token = make_lex_error(line, "Chyba: Tabulátor na začátku neprázdného řádku.");
+        return true;
+    }
+
+    int last_indent = lstack_top(indent_stack);
+
+    if (indent_cnt == last_indent) {
+        if (line_has_tokens) {
+            if (pushback_char != EOF) {
+                ungetc(pushback_char, file);
+            }
+            token->type = TOK_NEWLINE;
+            token->line = prev_line;
+            return true;
+        }
+        return false;
+    } else if (indent_cnt > last_indent) {
+        if (!line_has_tokens) {
+            *token = make_lex_error(line, "Chyba: Neplatné odsazení na začátku souboru.");
+            return true;
+        }
+        if (pushback_char != EOF) {
+            ungetc(pushback_char, file);
+        }
+        lstack_push(indent_cnt, indent_stack);
+        token->type = TOK_NEWLINE;
+        token->line = prev_line;
+
+        tToken indent_tok = {0};
+        indent_tok.type = TOK_INDENT;
+        indent_tok.val.i_val = indent_cnt;
+        indent_tok.line = line;
+        fifo_add(&indent_tok, &queue->first);
+        return true;
+    } else {
+        if (pushback_char != EOF) {
+            ungetc(pushback_char, file);
+        }
+        while (!lstack_empty(indent_stack) && indent_cnt < lstack_top(indent_stack)) {
+            lstack_pop(indent_stack);
+
+            tToken ded_tok = {0};
+            ded_tok.type = TOK_DEDENT;
+            ded_tok.line = line;
+            fifo_add(&ded_tok, &queue->first);
+
+            tToken nl_tok = {0};
+            nl_tok.type = TOK_NEWLINE;
+            nl_tok.line = line;
+            fifo_add(&nl_tok, &queue->first);
+        }
+        if (lstack_empty(indent_stack) || lstack_top(indent_stack) != indent_cnt) {
+            *token = make_lex_error(line, "Chyba: Neplatná úroveň odsazení.");
+            return true;
+        }
+        token->type = TOK_NEWLINE;
+        token->line = prev_line;
+        return true;
+    }
 }
