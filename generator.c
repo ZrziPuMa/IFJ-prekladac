@@ -526,12 +526,45 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             break;
         }
 
-        // TODO: dopsat rozsireni.
         // 2. Rozšíření (konstrukce vystupující jako výrazy)
-        case AST_IF_EXPR:
+        // AI help
+        /*
+         * Spolupráce s AI při implementaci AST_IF_EXPR a AST_BLOCK v gen_expr():
+         * Prompt (kontext): "pro dokonceni control mi pak uz jen bude stacit podporovat if ve
+         * vyrazu, ale to uz bude rychlovka ne? Jen doplnim par radku v gen_expr u ast_if_expr" Na
+         * základě konzultace s AI byla větev rozšířena o ošetření implicitní konverze to_double na
+         * uzlech then_block a else_block a o vyhodnocení AST_BLOCK na místě výrazu.
+         */
+        case AST_IF_EXPR: {
+            int id = stt->l_cnt++;
+            const ASTNode *then_blk = expr->data.if_expr.then_block;
+            const ASTNode *else_blk = expr->data.if_expr.else_block;
+
+            gen_expr(expr->data.if_expr.condition, stt);
+            printf("PUSHS bool@false\n");
+            printf("JUMPIFEQS $if_else_%d\n", id);
+
+            gen_block(then_blk->data.block.statements, stt, true);
+            if (then_blk->to_double) {
+                printf("INT2FLOATS\n");
+            }
+            printf("JUMP $if_end_%d\n", id);
+
+            printf("LABEL $if_else_%d\n", id);
+            if (else_blk != NULL) {
+                gen_block(else_blk->data.block.statements, stt, true);
+                if (else_blk->to_double) {
+                    printf("INT2FLOATS\n");
+                }
+            }
+            printf("LABEL $if_end_%d\n", id);
             break;
+        }
+
         case AST_BLOCK:
+            gen_block(expr->data.block.statements, stt, true);
             break;
+
         case AST_MATCH_EXPR:
             break;
         case AST_LAMBDA:
@@ -584,6 +617,15 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         }
 
         case AST_RANGE:
+            // Dostaneme hodnoty start, end a step na zásobník:
+            gen_expr(expr->data.range.start, stt);
+            gen_expr(expr->data.range.end, stt);
+
+            if (expr->data.range.step != NULL) {
+                gen_expr(expr->data.range.step, stt);
+            } else {
+                printf("PUSHS int@1\n");
+            }
             break;
 
         default:
@@ -659,24 +701,39 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                 printf("JUMP $func_%s$end\n", stt->func_name);
 
                 break;
-
+            // AI help
+            /*
+             * Úprava větve AST_IF_EXPR v gen_block() na základě code review s AI:
+             * AI upozornila na případ, kdy funkce končí if-výrazem s větví else (keep_result ==
+             * true), kde původní kód vždy vracel nil@nil místo výsledku větve. Podle návrhu AI byla
+             * přidána propagace příznaku keep_branch_val a kontrola to_double na obou větvích.
+             */
             case AST_IF_EXPR: {
                 int id = stt->l_cnt++;
+                const ASTNode *then_blk = statement->data.if_expr.then_block;
+                const ASTNode *else_blk = statement->data.if_expr.else_block;
+                bool keep_branch_val = val_on_stack && (else_blk != NULL);
+
                 gen_expr(statement->data.if_expr.condition, stt);
                 printf("PUSHS bool@false\n");
                 printf("JUMPIFEQS $if_else_%d\n", id);
 
-                gen_block(statement->data.if_expr.then_block->data.block.statements, stt, false);
+                gen_block(then_blk->data.block.statements, stt, keep_branch_val);
+                if (keep_branch_val && then_blk->to_double) {
+                    printf("INT2FLOATS\n");
+                }
                 printf("JUMP $if_end_%d\n", id);
 
                 printf("LABEL $if_else_%d\n", id);
-                if (statement->data.if_expr.else_block != NULL) {
-                    gen_block(statement->data.if_expr.else_block->data.block.statements, stt,
-                              false);
+                if (else_blk != NULL) {
+                    gen_block(else_blk->data.block.statements, stt, keep_branch_val);
+                    if (keep_branch_val && else_blk->to_double) {
+                        printf("INT2FLOATS\n");
+                    }
                 }
                 printf("LABEL $if_end_%d\n", id);
 
-                if (val_on_stack) {
+                if (val_on_stack && else_blk == NULL) {
                     printf("PUSHS nil@nil\n");
                 }
                 break;
@@ -702,10 +759,104 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                 break;
 
             // 2. Rozšíření (CONTROL)
-            case AST_FOR:
-                // TODO: dopsat rozsireni CONTROL
-                break;
+            case AST_FOR: {
+                ASTNode *source = statement->data.for_loop.source;
+                if (source != NULL && source->type == AST_RANGE) {
+                    int id = stt->l_cnt++;
+                    ASTNode *iter_var = statement->data.for_loop.iter_var;
 
+                    gen_expr(source, stt);
+                    printf("POPS GF@%%tmp3\n");
+
+                    // Kontrola nuloveho step
+                    printf("JUMPIFNEQ $for_step_ok_%d GF@%%tmp3 int@0\n", id);
+                    printf("EXIT int@40\n");
+                    printf("LABEL $for_step_ok_%d\n", id);
+
+                    printf("POPS GF@%%tmp2\n");
+                    printf("POPS LF@%s$%d\n", iter_var->data.var_def.identifier,
+                           iter_var->data.var_def.var_id);
+                    printf("PUSHS GF@%%tmp2\n");
+                    printf("PUSHS GF@%%tmp3\n");
+
+                    printf("LABEL $for_start_%d\n", id);
+
+                    // Nahrán end a step do pomocných proměnných
+                    printf("POPS GF@%%tmp3\n");
+                    printf("POPS GF@%%tmp2\n");
+                    printf("PUSHS GF@%%tmp2\n");
+                    printf("PUSHS GF@%%tmp3\n");
+                    printf("LT GF@%%tmp1 GF@%%tmp3 int@0\n");
+                    printf("JUMPIFEQ $for_neg_%d GF@%%tmp1 bool@true\n", id);
+
+                    // Zjištění, jestli se jedná o <= nebo <
+                    if (!source->data.range.is_until) {
+                        printf("GT GF@%%tmp1 LF@%s$%d GF@%%tmp2\n",
+                               iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+                        printf("JUMPIFEQ $for_end_%d GF@%%tmp1 bool@true\n", id);
+                    } else {
+                        printf("LT GF@%%tmp1 LF@%s$%d GF@%%tmp2\n",
+                               iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+                        printf("JUMPIFEQ $for_end_%d GF@%%tmp1 bool@false\n", id);
+                    }
+
+                    // Přeskočení větve pro záporný krok:
+                    printf("JUMP $for_body_%d\n", id);
+
+                    printf("LABEL $for_neg_%d\n", id);
+
+                    // Zjištění, jestli se jedná o <= nebo <
+                    if (!source->data.range.is_until) {
+                        printf("LT GF@%%tmp1 LF@%s$%d GF@%%tmp2\n",
+                               iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+                        printf("JUMPIFEQ $for_end_%d GF@%%tmp1 bool@true\n", id);
+                    } else {
+                        printf("GT GF@%%tmp1 LF@%s$%d GF@%%tmp2\n",
+                               iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+                        printf("JUMPIFEQ $for_end_%d GF@%%tmp1 bool@false\n", id);
+                    }
+
+                    printf("LABEL $for_body_%d\n", id);
+
+                    // Kontrola stráží (Guards):
+                    const ASTNode *curr_guard = statement->data.for_loop.guards;
+                    while (curr_guard != NULL) {
+                        gen_expr(curr_guard, stt);
+                        printf("PUSHS bool@false\n");
+                        printf("JUMPIFEQS $for_next_%d\n", id);
+                        curr_guard = curr_guard->next;
+                    }
+
+                    gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
+
+                    // AI help
+                    /*
+                     * Prompt: Napis mi blok vypisu instrukci pro IFJCODE26, ktere inkrementuje
+                     * řídící proměnnou a skočí na začátek cyklu (navesti for_next_id) a pod to
+                     * navesti for_end_id, ktere ukidi zasobnik.
+                     */
+                    printf("LABEL $for_next_%d\n", id);
+                    printf("POPS GF@%%tmp3\n");
+                    printf("PUSHS GF@%%tmp3\n");
+                    printf("ADD LF@%s$%d LF@%s$%d GF@%%tmp3\n", iter_var->data.var_def.identifier,
+                           iter_var->data.var_def.var_id, iter_var->data.var_def.identifier,
+                           iter_var->data.var_def.var_id);
+                    printf("JUMP $for_start_%d\n", id);
+
+                    printf("LABEL $for_end_%d\n", id);
+                    printf("POPS GF@%%tmp1\n");
+                    printf("POPS GF@%%tmp1\n");
+
+                } else {
+                    // TODO: LISTS
+                }
+
+                if (val_on_stack) {
+                    printf("PUSHS nil@nil\n");
+                }
+
+                break;
+            }
             // 3. Samostatně stojící výrazy a volání funkcí (vč. výrazů z rozšíření)
             default:
                 gen_expr(statement, stt);
