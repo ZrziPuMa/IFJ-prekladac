@@ -1,4 +1,5 @@
 /**
+ * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file semantics.h
  * @brief Interní rozhraní sémantické analýzy překladače IFJ26
  * @author Natalie Morávková (<xmoravn00>)
@@ -62,6 +63,17 @@ typedef struct {
 } BuiltinDef;
 
 /**
+ * @brief struktura pro vytvoření grafu volání funkcí pro odhalování rekurzí
+ *
+ */
+typedef struct CallEdge {
+    const ASTNode *calling_func; // uzel funkce, ze které se volá called_func
+    const ASTNode *called_func;
+    struct CallEdge *next; // další hrana grafu
+    bool visited;          // zda byla hrana už navštívená
+} CallEdge;
+
+/**
  * @brief Sdílený kontext jednoho běhu sémantické analýzy
  *
  * Uchovává stav potřebný při rekurzivním průchodu AST. Při dočasném
@@ -75,7 +87,9 @@ typedef struct SemanticContext {
     ASTNode *current_function; // Aktuálně analyzovaná funkce (AST_FUNC_DEF); mimo funkci NULL
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
-    int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantikz
+    int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantiky
+    ErrorCode expected_type_error; // kvůli rozlišení typových a argumentových chyb
+    CallEdge *call_edges;          // struktura pro odhalování rekurzí
 } SemanticContext;
 
 /* ==================================================
@@ -439,9 +453,9 @@ ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx
                                       TypeInfo **result);
 
 /**
- * @brief Vyhledá, jestli parametru "un" obsahuje typ y parametru "type"
+ * @brief Vyhledá, jestli parametru "un" typu union obsahuje typ z parametru "type"
  *
- * @param un Typeinfo ve kterém se hledá typ
+ * @param un Typeinfo typu union, ve kterém se hledá typ
  * @param type Typeinfo, který se hledá v parametru "un"
  * @return true pokud je typ z parametru "type" obsažen v parametru "un", jinak false
  */
@@ -709,11 +723,37 @@ SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, SemanticContext
 bool alias_in_path(const AliasPath *path, const char *name);
 
 /**
- * @brief ostraní duplikátní typy z union (v levostranném tvaru), pokud po odstranění zbývá pouze
- * jeden typ, union se zruší a je to normální typ
+ * @brief odstraní duplikátní typy z union (v levostranném tvaru). Pokud po odstranění duplikátních
+ * typů zbývá pouze jeden typ, union se zruší a typ se nastaví na ten jeden
  *
  * @param slot typ který upravujeme
  */
 void remove_union_duplicates(TypeInfo **slot);
 
+/**
+ * @brief funkce pro zapsání volání funkce called_func z aktuální funkce do grafu volání funkcí
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param called_func funkce, která se volá
+ * @return ErrorCode chybový kód
+ */
+ErrorCode semantic_add_call_edge(SemanticContext *ctx, const ASTNode *called_func);
+
+/**
+ * @brief funkce pro kontrolu rekurze
+ *
+ * @param ctx kontext sémantické analýzy
+ * @return ErrorCode
+ */
+ErrorCode semantic_check_recursion(SemanticContext *ctx);
+
+/**
+ * @brief funkce pro vyhledávání, zda existuje přes nějakou funkci rekurze
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param current aktuální uzel funkce
+ * @param target uzel cílového volání
+ * @return true pokud existuje rekurze, jinak false
+ */
+bool semantic_reaches_function(SemanticContext *ctx, const ASTNode *current, const ASTNode *target);
 #endif // SEMANTICS_H
