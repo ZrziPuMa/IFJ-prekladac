@@ -1,4 +1,5 @@
 /**
+ * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file semantics.h
  * @brief Interní rozhraní sémantické analýzy překladače IFJ26
  * @author Natalie Morávková (<xmoravn00>)
@@ -75,7 +76,7 @@ typedef struct SemanticContext {
     ASTNode *current_function; // Aktuálně analyzovaná funkce (AST_FUNC_DEF); mimo funkci NULL
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
-    int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantikz
+    int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantiky
 } SemanticContext;
 
 /* ==================================================
@@ -439,9 +440,9 @@ ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx
                                       TypeInfo **result);
 
 /**
- * @brief Vyhledá, jestli parametru "un" obsahuje typ y parametru "type"
+ * @brief Vyhledá, jestli parametru "un" typu union obsahuje typ z parametru "type"
  *
- * @param un Typeinfo ve kterém se hledá typ
+ * @param un Typeinfo typu union, ve kterém se hledá typ
  * @param type Typeinfo, který se hledá v parametru "un"
  * @return true pokud je typ z parametru "type" obsažen v parametru "un", jinak false
  */
@@ -709,8 +710,8 @@ SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, SemanticContext
 bool alias_in_path(const AliasPath *path, const char *name);
 
 /**
- * @brief ostraní duplikátní typy z union (v levostranném tvaru), pokud po odstranění zbývá pouze
- * jeden typ, union se zruší a je to normální typ
+ * @brief odstraní duplikátní typy z union (v levostranném tvaru). Pokud po odstranění duplikátních
+ * typů zbývá pouze jeden typ, union se zruší a typ se nastaví na ten jeden
  *
  * @param slot typ který upravujeme
  */

@@ -1,4 +1,5 @@
 /**
+ * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file semantics.C
  * @brief Implementace sémantické analýzy překladače z hlavičkových souborů isemantics.h a
  * semantics.h
