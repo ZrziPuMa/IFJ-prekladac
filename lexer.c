@@ -721,6 +721,9 @@ tToken give_token(void) {
             case state_string_end:
                 token.type = TOK_STRING;
                 token.val.str = str.string;
+                if (c != EOF) {
+                    ungetc(c, file);
+                }
                 str.string = NULL;
                 completed = true;
                 break;
