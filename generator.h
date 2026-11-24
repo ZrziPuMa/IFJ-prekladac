@@ -44,6 +44,7 @@ typedef struct {
     bool is_unit;
     int stack_on_extra;     // Počet prvků na zásobníku, které se mají uklidit // AI help
     const ASTNode *program; // ALGEBDT: kořen programu, v něm se hledají definice tříd // AI help
+
     // AI help
     /*
      * Prompt: AI HELP: udelej mi dynamicke pole ukazatelu na uzly AST_LAMBDA
@@ -181,5 +182,13 @@ void free_lambdas(GenState *stt);
  * @param stt
  */
 void create_lambda_def(const ASTNode *lambda, GenState *stt);
+
+/**
+ * @brief Create a all lambdas object
+ *
+ * @param node
+ * @param stt
+ */
+void create_all_lambdas(const ASTNode *node, GenState *stt);
 
 #endif

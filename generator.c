@@ -987,6 +987,117 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
     printf("RETURN\n\n");
 }
 
+// AI help
+/*
+ * Prompt: Vytvoř mi pomocnou funkci create_all_lambdas ktera dostane ukazatel na prvni definici
+ * nejvyssi urovne. Pomoci cyklu while() projde vsechny definice a rekurzivne projde vsechny uzly
+ * ktere mohou obsahovat vyrazy. pokud narazi na AST_LAMBDA, přidělí jí unikátní id pomocí
+ * register_lambda(). Pro přiípad, že by v těle lambdy byla dalsi lambda funkce projde rekurzivne i
+ * jeji telo. Nakonec vygeneruje jeji definici pomoci create_lambda_def()
+ */
+void create_all_lambdas(const ASTNode *node, GenState *stt) {
+    if (stt == NULL) {
+        return;
+    }
+
+    while (node != NULL) {
+        switch (node->type) {
+            case AST_FUNC_DEF:
+                create_all_lambdas(node->data.func_def.body, stt);
+                break;
+
+            case AST_EXTENSION_DEF:
+                create_all_lambdas(node->data.extension_def.methods, stt);
+                break;
+
+            case AST_BLOCK:
+                create_all_lambdas(node->data.block.statements, stt);
+                break;
+
+            case AST_VAR_DEF:
+                create_all_lambdas(node->data.var_def.initializer, stt);
+                break;
+
+            case AST_ASSIGNMENT:
+                create_all_lambdas(node->data.assignment.value, stt);
+                break;
+
+            case AST_RETURN:
+                create_all_lambdas(node->data.return_stmt.value, stt);
+                break;
+
+            case AST_IF_EXPR:
+                create_all_lambdas(node->data.if_expr.condition, stt);
+                create_all_lambdas(node->data.if_expr.then_block, stt);
+                create_all_lambdas(node->data.if_expr.else_block, stt);
+                break;
+
+            case AST_WHILE:
+                create_all_lambdas(node->data.while_loop.condition, stt);
+                create_all_lambdas(node->data.while_loop.body, stt);
+                break;
+
+            case AST_FOR:
+                create_all_lambdas(node->data.for_loop.source, stt);
+                create_all_lambdas(node->data.for_loop.guards, stt);
+                create_all_lambdas(node->data.for_loop.body, stt);
+                break;
+
+            case AST_MATCH_EXPR:
+                create_all_lambdas(node->data.match_expr.matched_expr, stt);
+                create_all_lambdas(node->data.match_expr.cases, stt);
+                break;
+
+            case AST_CASE_BRANCH:
+                create_all_lambdas(node->data.case_branch.guard, stt);
+                create_all_lambdas(node->data.case_branch.body, stt);
+                break;
+
+            case AST_BINARY_OP:
+                create_all_lambdas(node->data.bin_op.left, stt);
+                create_all_lambdas(node->data.bin_op.right, stt);
+                break;
+
+            case AST_UNARY_OP:
+                create_all_lambdas(node->data.unary_op.operand, stt);
+                break;
+
+            case AST_FUNC_CALL:
+                create_all_lambdas(node->data.func_call.target, stt);
+                create_all_lambdas(node->data.func_call.arg_groups, stt);
+                break;
+
+            case AST_ARG_LIST:
+            case AST_LIST_LITERAL:
+                create_all_lambdas(node->data.list.items, stt);
+                break;
+
+            case AST_MEMBER_ACCESS:
+                create_all_lambdas(node->data.member_access.object, stt);
+                break;
+
+            case AST_RANGE:
+                create_all_lambdas(node->data.range.start, stt);
+                create_all_lambdas(node->data.range.end, stt);
+                create_all_lambdas(node->data.range.step, stt);
+                break;
+
+            case AST_LAMBDA: {
+                int id = register_lambda(stt, node);
+                create_all_lambdas(node->data.lambda.body, stt);
+                if (id >= 0) {
+                    create_lambda_def(node, stt);
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+        node = node->next;
+    }
+}
+
 void create_builtin_functions() {
     // toInt():
     printf("LABEL $builtin_toInt\n");
@@ -1235,6 +1346,9 @@ ErrorCode generate_code(const ASTNode *root) {
     // Vrácení ukazatele na aktuální definici zpět na začátek
     curr_def = root->data.program.definitions;
 
+    // Registrace a vygenerování lambd před funkcemi, aby znaly jejich ID návěští
+    create_all_lambdas(curr_def, &stt);
+
     // Procházení všech definic nejvyšší úrovně
     while (curr_def != NULL) {
 
@@ -1261,6 +1375,9 @@ ErrorCode generate_code(const ASTNode *root) {
 
     // Vytvoření těl všech vestavěných funkcí
     create_builtin_functions();
+
+    // Úklid dynamického pole s ukazateli na lambda funkce
+    free_lambdas(&stt);
 
     return ERR_OK;
 }
