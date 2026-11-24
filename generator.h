@@ -174,4 +174,12 @@ int get_lambda_id(const GenState *stt, const ASTNode *lambda);
  */
 void free_lambdas(GenState *stt);
 
+/**
+ * @brief Create a lambda def object
+ *
+ * @param lambda
+ * @param stt
+ */
+void create_lambda_def(const ASTNode *lambda, GenState *stt);
+
 #endif

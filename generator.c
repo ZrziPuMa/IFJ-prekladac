@@ -938,6 +938,55 @@ void free_lambdas(GenState *stt) {
     stt->lambda_cap = 0;
 }
 
+// AI help
+/*
+ * Prompt: Vytvoř mi tedy funkci pro vytvoření definice lambda funkce, kde se nejdrive vypise
+ * navesti se spravnym id, ktere zjistime zavolanim get_lambda_id() a vytvori se lokalni ramec.
+ * nasledne vyzvedne parametry pomoci define_params a nadeklaruje lokalni promenne pomoci
+ * declare_local_vars. pote zavola gen_block() nad telem lambdy a osetri pripadny navratovy typ unit
+ * nakonec provede uklid lokalniho ramce
+ */
+void create_lambda_def(const ASTNode *lambda, GenState *stt) {
+    if (lambda == NULL || stt == NULL) {
+        return;
+    }
+
+    int id = get_lambda_id(stt, lambda);
+    if (id < 0) {
+        return;
+    }
+
+    printf("LABEL $lambda_%d\n", id);
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    if (lambda->data.lambda.param_list != NULL) {
+        define_params(lambda->data.lambda.param_list->data.list.items);
+    }
+
+    declare_local_vars(lambda->data.lambda.body);
+
+    const TypeInfo *fn_type = lambda->expr_type;
+    bool prev_is_unit = stt->is_unit;
+    stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
+                    fn_type->data.func_type.return_type != NULL &&
+                    fn_type->data.func_type.return_type->type_class == TYPE_UNIT);
+
+    if (lambda->data.lambda.body != NULL) {
+        gen_block(lambda->data.lambda.body->data.block.statements, stt, !stt->is_unit);
+    }
+
+    if (stt->is_unit) {
+        printf("PUSHS nil@nil\n");
+    } else if (lambda->data.lambda.body != NULL && lambda->data.lambda.body->to_double) {
+        printf("INT2FLOATS\n");
+    }
+
+    stt->is_unit = prev_is_unit;
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+}
+
 void create_builtin_functions() {
     // toInt():
     printf("LABEL $builtin_toInt\n");
