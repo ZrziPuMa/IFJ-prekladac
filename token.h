@@ -134,6 +134,7 @@ typedef enum {
     state_int_unders,
     state_dec_unders,
     state_exp_unders,
+    state_exp_sign,
     state_exp_end,
     state_exclam,
 

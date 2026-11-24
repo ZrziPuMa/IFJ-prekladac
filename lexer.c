@@ -25,24 +25,6 @@ static bool starts_at_line;
 static bool seen_newline;
 static bool line_has_tokens;
 
-/**
- * @brief Vypsání lexikální chyby
- * @param err_line Řádek, kde chyba nastala
- * @param msg Zpráva, která se vypíše
- * @return Chybový token TOK_ERROR
- */
-static tToken make_lex_error(int err_line, const char *msg);
-
-/**
- * @brief Vyhodnocení úrovně odsazení na začátku neprázdného řádku
- * @param token Token, kterému se předá informace (případně error)
- * @param pushback_char První znak tokenu po odsazení
- * @param prev_line Číslo předcházejícího řádku (pro TOK_NEWLINE)
- * @param had_tab Kontrola, zda byl použit tabulátor na začátku řádku
- * @return true, pokud byl vytvořen token k okamžitému vrácení, jinak false
- */
-static bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab);
-
 void lexer_init(FILE *f) {
     file = f;
     lstack_init(&indent_stack);
@@ -58,6 +40,9 @@ void lexer_init(FILE *f) {
 }
 
 tToken give_token(void) {
+    if (!queue || !indent_stack) {
+        return make_internal_error(-1, "Chyba: Neinicializovaný lexikální analyzátor.");
+    }
     if (queue->first) {
         return fifo_get(queue);
     }
@@ -65,7 +50,7 @@ tToken give_token(void) {
     sStr str;
     bool com_nl = false;
     if (string_init(&str)) {
-        print_error(ERR_INTERNAL, -1, "Chyba: Chyba inicializace stringu.");
+        return make_internal_error(-1, "Chyba: Chyba inicializace stringu.");
     }
 
     tToken token = {0};
@@ -77,6 +62,7 @@ tToken give_token(void) {
 
     bool had_tab = false;
     bool check_indent = false;
+    bool leading_zero = false;
     int nl_line = line;
     indent_cnt = 0;
 
@@ -316,12 +302,12 @@ tToken give_token(void) {
 
                     case '.':
                         token.state = state_dot;
-                        string_add(&str, (char)c);
+                        append_char(&str, &token, &completed, (char)c);
                         break;
 
                     case '0':
                         token.state = state_zero;
-                        string_add(&str, (char)c);
+                        append_char(&str, &token, &completed, (char)c);
                         break;
 
                     case ' ':
@@ -337,11 +323,11 @@ tToken give_token(void) {
                         if (isalpha(c)) {
                             token.state = state_ID;
                             token.type = TOK_ID;
-                            string_add(&str, (char)c);
+                            append_char(&str, &token, &completed, (char)c);
                         } else if (isdigit(c)) {
                             token.state = state_int;
                             token.type = TOK_INT;
-                            string_add(&str, (char)c);
+                            append_char(&str, &token, &completed, (char)c);
                         } else {
                             token = make_lex_error(line, "Chyba: Neočekávaný znak.");
                             completed = true;
@@ -590,7 +576,7 @@ tToken give_token(void) {
                     break;
                 } else {
                     token.state = state_string;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 }
 
@@ -608,7 +594,7 @@ tToken give_token(void) {
                     completed = true;
                     break;
                 } else {
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 }
 
@@ -631,23 +617,23 @@ tToken give_token(void) {
             case state_string_esc:
                 switch (c) {
                     case '\\':
-                        string_add(&str, '\\');
+                        append_char(&str, &token, &completed, '\\');
                         token.state = state_string;
                         break;
                     case '"':
-                        string_add(&str, '"');
+                        append_char(&str, &token, &completed, '"');
                         token.state = state_string;
                         break;
                     case 'n':
-                        string_add(&str, '\n');
+                        append_char(&str, &token, &completed, '\n');
                         token.state = state_string;
                         break;
                     case 'r':
-                        string_add(&str, '\r');
+                        append_char(&str, &token, &completed, '\r');
                         token.state = state_string;
                         break;
                     case 't':
-                        string_add(&str, '\t');
+                        append_char(&str, &token, &completed, '\t');
                         token.state = state_string;
                         break;
                     default:
@@ -669,7 +655,7 @@ tToken give_token(void) {
                     if (c == '\n') {
                         line++;
                     }
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 }
 
@@ -682,11 +668,11 @@ tToken give_token(void) {
                     completed = true;
                     break;
                 } else {
-                    string_add(&str, '"');
+                    append_char(&str, &token, &completed, '"');
                     if (c == '\n') {
                         line++;
                     }
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     token.state = state_chain_lit;
                     break;
                 }
@@ -695,7 +681,7 @@ tToken give_token(void) {
                 if (c == '"') {
                     int next = getc(file);
                     if (next == '"') { // Pro případ 4. uvozovky
-                        string_add(&str, '"');
+                        append_char(&str, &token, &completed, '"');
                     } else {
                         if (next != EOF) {
                             ungetc(next, file);
@@ -708,12 +694,12 @@ tToken give_token(void) {
                     completed = true;
                     break;
                 } else {
-                    string_add(&str, '"');
-                    string_add(&str, '"');
+                    append_char(&str, &token, &completed, '"');
+                    append_char(&str, &token, &completed, '"');
                     if (c == '\n') {
                         line++;
                     }
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     token.state = state_chain_lit;
                     break;
                 }
@@ -730,8 +716,8 @@ tToken give_token(void) {
 
             case state_underscore:
                 if (isalnum(c) || c == '_') {
-                    string_add(&str, '_');
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, '_');
+                    append_char(&str, &token, &completed, (char)c);
                     token.state = state_ID;
                     break;
                 } else {
@@ -746,7 +732,7 @@ tToken give_token(void) {
 
             case state_ID:
                 if (isalnum(c) || c == '_') {
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token.type = TOK_ID;
@@ -867,17 +853,21 @@ tToken give_token(void) {
 
             case state_zero:
                 if (isdigit(c)) {
-                    token = make_lex_error(
-                        line, "Chyba: Číslo nesmí začínat 0, pokud to není jeho hodnota.");
-                    completed = true;
+                    leading_zero = true;
+                    token.state = state_int;
+                    append_char(&str, &token, &completed, (char)c);
+                    break;
+                } else if (c == '_') {
+                    leading_zero = true;
+                    token.state = state_int_unders;
                     break;
                 } else if (c == '.') {
                     token.state = state_dot;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == 'e' || c == 'E') {
                     token.state = state_exponent;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token.type = TOK_INT;
@@ -894,7 +884,7 @@ tToken give_token(void) {
                 if (isdigit(c)) {
                     token.state = state_decimal;
                     token.type = TOK_DOUBLE;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (str.length == 1) { // Samostatná tečka (např. a.b nebo import ifj26.*)
                     token.type = TOK_DOT;
@@ -905,7 +895,16 @@ tToken give_token(void) {
                     completed = true;
                     break;
                 } else {
-                    str.string[--str.length] = '\0'; // Odstraníme tečku ze stringu čísla
+                    if (leading_zero) {
+                        token =
+                            make_lex_error(line, "Chyba: Číslo nesmí začínat nevýznamnou nulou.");
+                        if (c != EOF) {
+                            ungetc(c, file);
+                        }
+                        completed = true;
+                        break;
+                    }
+                    str.string[--str.length] = '\0'; // Odstraní tečku ze stringu čísla
                     token.type = TOK_INT;
                     token.line = line;
                     token.val.i_val = strtoll(str.string, NULL, 10);
@@ -927,17 +926,27 @@ tToken give_token(void) {
                     token.state = state_int_unders;
                     break;
                 } else if (isdigit(c)) {
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == 'e' || c == 'E') {
                     token.state = state_exponent;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == '.') {
                     token.state = state_dot;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
+                    if (leading_zero) {
+                        token =
+                            make_lex_error(line, "Chyba: Číslo nesmí začínat nevýznamnou nulou.");
+                        if (c != EOF) {
+                            ungetc(c, file);
+                        }
+                        completed = true;
+                        break;
+                    }
+
                     token.type = TOK_INT;
                     token.line = line;
                     token.val.i_val = strtoll(str.string, NULL, 10);
@@ -951,7 +960,7 @@ tToken give_token(void) {
             case state_int_unders:
                 if (isdigit(c)) {
                     token.state = state_int;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
@@ -961,13 +970,33 @@ tToken give_token(void) {
                 }
 
             case state_exponent:
-                if (c == '+' || c == '-' || isdigit(c)) {
+                if (c == '+' || c == '-') {
+                    token.state = state_exp_sign;
+                    append_char(&str, &token, &completed, (char)c);
+                    break;
+                } else if (isdigit(c)) {
                     token.state = state_exp_end;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
-                    ungetc(c, file);
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
+                    completed = true;
+                    break;
+                }
+
+            case state_exp_sign:
+                if (isdigit(c)) {
+                    token.state = state_exp_end;
+                    append_char(&str, &token, &completed, (char)c);
+                    break;
+                } else {
+                    token = make_lex_error(line, "Chyba: Neočekávaný znak.");
+                    if (c != EOF) {
+                        ungetc(c, file);
+                    }
                     completed = true;
                     break;
                 }
@@ -975,7 +1004,7 @@ tToken give_token(void) {
             case state_exp_unders:
                 if (isdigit(c)) {
                     token.state = state_exp_end;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
@@ -989,11 +1018,11 @@ tToken give_token(void) {
                     token.state = state_dec_unders;
                     break;
                 } else if (isdigit(c)) {
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == 'e' || c == 'E') {
                     token.state = state_exponent;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == 'd' || c == 'D') {
                     token.state = state_exp_d;
@@ -1012,7 +1041,7 @@ tToken give_token(void) {
                     token.state = state_exp_unders;
                     break;
                 } else if (isdigit(c)) {
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else if (c == 'd' || c == 'D') {
                     token.state = state_exp_d;
@@ -1046,7 +1075,7 @@ tToken give_token(void) {
             case state_dec_unders:
                 if (isdigit(c)) {
                     token.state = state_decimal;
-                    string_add(&str, (char)c);
+                    append_char(&str, &token, &completed, (char)c);
                     break;
                 } else {
                     token = make_lex_error(line, "Chyba: Neočekávaný znak.");
@@ -1059,6 +1088,7 @@ tToken give_token(void) {
                 break;
         }
     }
+
     if (token.type != TOK_NEWLINE && token.type != TOK_INDENT && token.type != TOK_DEDENT &&
         token.type != TOK_EOF && token.type != TOK_ERROR) {
         token.newline_before = seen_newline;
@@ -1081,7 +1111,7 @@ void lexer_free() {
     indent_stack = NULL;
 }
 
-static tToken make_lex_error(int err_line, const char *msg) {
+tToken make_lex_error(int err_line, const char *msg) {
     print_error(ERR_LEX, err_line, msg);
     tToken err = {0};
     err.state = state_start;
@@ -1089,6 +1119,23 @@ static tToken make_lex_error(int err_line, const char *msg) {
     err.val.i_val = 1;
     err.line = err_line;
     return err;
+}
+
+tToken make_internal_error(int err_line, const char *msg) {
+    print_error(ERR_INTERNAL, err_line, msg);
+    tToken err = {0};
+    err.state = state_start;
+    err.type = TOK_ERROR;
+    err.val.i_val = 99;
+    err.line = err_line;
+    return err;
+}
+
+void append_char(sStr *str, tToken *token, bool *completed, char ch) {
+    if (!(*completed) && string_add(str, ch)) {
+        *token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+        *completed = true;
+    }
 }
 
 void lstack_init(tLStack **stack) {
@@ -1217,7 +1264,7 @@ void fifo_clean(tFIFO *queue) {
     free(queue);
 }
 
-static bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab) {
+bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab) {
     if (had_tab) {
         *token = make_lex_error(line, "Chyba: Tabulátor na začátku neprázdného řádku.");
         return true;
@@ -1237,8 +1284,7 @@ static bool check_line_indent(tToken *token, int pushback_char, int prev_line, b
         return false;
     } else if (indent_cnt > last_indent) {
         if (!line_has_tokens) {
-            *token = make_lex_error(line, "Chyba: Neplatné odsazení na začátku souboru.");
-            return true;
+            return false;
         }
         if (pushback_char != EOF) {
             ungetc(pushback_char, file);

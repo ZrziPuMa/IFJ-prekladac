@@ -8,6 +8,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "idynamic_string.h"
 #include "token.h"
 
 #include <ctype.h>
@@ -45,6 +46,41 @@ typedef struct FIFO_Elem {
 typedef struct FIFO {
     tFIFO_Elem *first;
 } tFIFO;
+
+/**
+ * @brief Vypsání lexikální chyby
+ * @param err_line Řádek, kde chyba nastala
+ * @param msg Zpráva, která se vypíše
+ * @return Chybový token TOK_ERROR
+ */
+tToken make_lex_error(int err_line, const char *msg);
+
+/**
+ * @brief Vypsání interní chyby překladače a ukončení překladu
+ * @param err_line Řádek, kde chyba nastala
+ * @param msg Zpráva, která se vypíše
+ * @return Chybový token TOK_ERROR
+ */
+tToken make_internal_error(int err_line, const char *msg);
+
+/**
+ * @brief Vyhodnocení úrovně odsazení na začátku neprázdného řádku
+ * @param token Token, kterému se předá informace (případně error)
+ * @param pushback_char První znak tokenu po odsazení
+ * @param prev_line Číslo předcházejícího řádku (pro TOK_NEWLINE)
+ * @param had_tab Kontrola, zda byl použit tabulátor na začátku řádku
+ * @return true, pokud byl vytvořen token k okamžitému vrácení, jinak false
+ */
+bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab);
+
+/**
+ * @brief Přidání znaku do dynamického řetězce s kontrolou alokace
+ * @param str Ukazatel na dynamický řetězec
+ * @param ch Přidávaný znak
+ * @param token Ukazatel na aktuální token (při chybě TOK_ERROR)
+ * @param completed Ukazatel na příznak dokončení tokenu
+ */
+void append_char(sStr *str, tToken *token, bool *completed, char ch);
 
 /**
  * @brief Inicializace zásobníku
