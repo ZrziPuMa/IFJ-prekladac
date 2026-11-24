@@ -5,6 +5,21 @@
  * @author Martin Chlubna (<xchlubm00>), pomocný autor pro ALGEBDT Frantisek Bilavčík (<xbilavf00>),
  * který používal Github Copilot Inline suggestion a Claude Opus 5.5 pro pomoc opravením.
  *
+ *
+ * Využití AI (Martin Chlubna):
+ * - Byly použity modely Google Gemini (Flash, Hydrogen, Argon) v rámci webového chatovacího
+ *   prostředí.
+ *
+ * - Chatbot byl použit jako konzultační nástroj pro návrh architektury, zodpovídání dotazů a
+ *   ladění, a také ke generování kratších bloků kódu (cykly, switch, if podmínky, bloky printfů) až
+ *   po pomocné funkce.
+ *
+ * - Bloky kódu vygenerované s pomocí AI jsou v souboru označeny komentářem "// AI help".
+ *
+ * - Někde je u těchto bloků uveden konkrétní prompt a jinde ne, protože část úprav vznikala
+ * postupným vývojem a diskusí, kde nelze uvést jeden určitý prompt.
+ *
+ * - Veškerý kód je autorem zrevidován.
  */
 
 #include "generator.h"

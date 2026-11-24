@@ -1,9 +1,11 @@
 /**
  * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file generator.h
- * @brief
+ * @brief Interní hlavičkový soubor pro generátor kódu
  * @author Martin Chlubna (<xchlubm00>)
  *
+ *
+ * Využití AI: viz generator.c
  */
 
 #ifndef GENERATOR_H
@@ -55,17 +57,18 @@ typedef struct {
 } GenState;
 
 /**
- * @brief Create a prolog object
+ * @brief Vypíše úvodní prolog + deklarace pom. proměnných, vstup do @main
  *
- * @param main_def
+ * @param main_def Ukazatel na uzel s funkcí main
  */
 void create_prolog(const ASTNode *main_def);
 
 /**
- * @brief Create a func def object
+ * @brief Vypíše definici předané funkce
  *
- * @param func
- * @param stt
+ * @param func Ukazatel na uzel AST_FUNC_DEF
+ * @param receiver
+ * @param stt Struktura pro aktualní stav generátoru
  */
 void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt);
 
