@@ -101,7 +101,7 @@ tToken give_token(void) {
 
                         if (line_has_tokens) {
                             token.type = TOK_NEWLINE;
-                            token.line = line;
+                            token.line = nl_line;
                             line_has_tokens = false;
                         } else {
                             lstack_pop(indent_stack);
@@ -623,7 +623,6 @@ tToken give_token(void) {
                 } else if (c == '\r') {
                 } else if (c == '\n') {
                     seen_newline = true;
-                    nl_line = line;
                     line++;
                     indent_cnt = 0;
                     had_tab = false;
