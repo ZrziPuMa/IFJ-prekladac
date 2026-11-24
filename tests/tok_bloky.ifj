@@ -1,0 +1,17 @@
+// tok: while, if/else o dve urovne, prazdny a komentarovy radek v bloku
+import ifj26.*
+
+@main def main(): Unit =
+  var i = 0
+  while i < 3 do
+    // komentar v bloku
+
+    if i == 0 then
+      print("a")
+    else
+      if i == 1 then
+        print("b")
+      else
+        print("c")
+    i = i + 1
+  print("\n")

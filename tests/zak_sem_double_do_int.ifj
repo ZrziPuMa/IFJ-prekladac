@@ -1,0 +1,8 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// Double se implicitne neprevadi na Int (spec 1.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val i: Int = 2.5
+  print(i)

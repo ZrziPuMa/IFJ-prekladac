@@ -1,0 +1,9 @@
+// expect: run 58
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// chr mimo interval 0 az 127 je behova chyba podle INT2CHAR, tj. 58 (spec kap. 4 a 7)
+import ifj26.*
+
+@main def main(): Unit =
+  val code = 200
+  val c = chr(code)
+  print(c)

@@ -1,0 +1,38 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// retezce: escape sekvence, konkatenace, strLength, subStr, ord, chr, toStr, viceradkovy literal (spec 1.1, kap. 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val s = "Hello"
+  val w = "IFJ"
+  val sp = " "
+  val joined = s + sp + w
+  val len = strLength(joined)
+  val zero = 0
+  val one = 1
+  val three = 3
+  val five = 5
+  val nine = 9
+  val part = subStr(joined, one, five)
+  val tail = subStr(joined, three, nine)
+  val whole = subStr(joined, zero, nine)
+  val emptyPart = subStr(joined, one, one)
+  val o1 = ord(joined, zero)
+  val o2 = ord(joined, nine)
+  val minusOne = -1
+  val o3 = ord(joined, minusOne)
+  val empty = ""
+  val o4 = ord(empty, zero)
+  val code = 65
+  val letter = chr(code)
+  val n = toStr(len)
+  print(joined); print("|"); print(n); print("|"); print(part); print("|")
+  print(tail); print("|"); print(whole); print("|"); print(emptyPart); print("|")
+  print(o1); print(" "); print(o2); print(" "); print(o3); print(" "); print(o4); print("|")
+  print(letter)
+  print("\n")
+  print("tab:\tquote:\"backslash:\\end\n")
+  val multi = """radek 1
+  radek 2 \n zustava"""
+  print(multi)
+  print("\n")

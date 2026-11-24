@@ -1,0 +1,11 @@
+// expect: run 40
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// subStr se start > end konci behovou chybou 40 (spec kap. 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val s = "abcdef"
+  val two = 2
+  val one = 1
+  val t = subStr(s, two, one)
+  print(t)

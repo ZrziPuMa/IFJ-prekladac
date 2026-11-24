@@ -5,24 +5,30 @@
 #   tests/run_e2e.sh          všechny testy
 #   tests/run_e2e.sh sem_     jen testy, jejichž jméno obsahuje "sem_"
 # Proměnné prostředí:
-#   COMPILER=./prekladac  IC26INT=ic26int  TIMEOUT=5  VALGRIND=1  E2E_OUT=/tmp/ifj26_e2e
+#   COMPILER=./prekladac  IC26INT=ic26int  TOKDUMP=./tokdump  TIMEOUT=5  VALGRIND=1
+#   E2E_OUT=/tmp/ifj26_e2e
 #
 # Test = soubor tests/<jméno>.ifj, bez podsložek. Očekávání určuje první řádek:
 #   // expect: N        překladač skončí kódem N (1-7, 10, 99), nic se nespouští
 #   // expect: run N    překlad projde (0), interpret skončí kódem N (40, 5x)
+#   // expect: tokens   jen test lexeru: porovná se výpis tokenů, překladač se nespouští
 #   bez hlavičky        překlad i interpretace skončí kódem 0
 # Volitelné soubory vedle testu:
-#   tests/<jméno>.in    standardní vstup programu (jinak prázdný)
-#   tests/<jméno>.out   očekávaný standardní výstup (porovnává se přesně)
-# Výstupy posledního běhu se ukládají mimo repozitář: $E2E_OUT/<jméno>.{code,stdout,stderr}
+#   tests/<jméno>.in      standardní vstup programu (jinak prázdný)
+#   tests/<jméno>.out     očekávaný standardní výstup (porovnává se přesně)
+#   tests/<jméno>.tokens  očekávaný výpis ./tokdump (token_dump z token.c), porovnává se přesně
+# Výstupy posledního běhu se ukládají mimo repozitář: $E2E_OUT/<jméno>.{tokens,tokerr,code,stdout,stderr}
 #
-# [AI] Claude (Opus 5.5), prompt: "Vytvoř mi shell skript, který spustí e2e testy pro překladač IFJ26"
+# [AI] Claude (Opus 5.5), prompty: „Tyto testy chci dělat postupně ve složce tests a to mohou
+# být soubory pouze v tests, žádná další podsložka.“ a „chci napsat nové testy, které pokryjí
+# e2e testy i tok_dump by používaly pro výpis, máme li implementaci v token.c“
 
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
 COMPILER=${COMPILER:-./prekladac}
 IC26INT=${IC26INT:-ic26int}
+TOKDUMP=${TOKDUMP:-./tokdump}
 TIMEOUT=${TIMEOUT:-5}
 OUT=${E2E_OUT:-/tmp/ifj26_e2e}
 FILTER=${1:-}
@@ -58,27 +64,64 @@ for src in "$CASES"/*.ifj; do
 
     want_comp=0
     want_run=0
+    tokens_only=0
     header=$(head -n 1 "$src")
-    if [[ $header =~ ^//\ *expect:\ *run\ +([0-9]+) ]]; then
+    if [[ $header =~ ^//\ *expect:\ *tokens ]]; then
+        tokens_only=1
+    elif [[ $header =~ ^//\ *expect:\ *run\ +([0-9]+) ]]; then
         want_run=${BASH_REMATCH[1]}
     elif [[ $header =~ ^//\ *expect:\ *([0-9]+) ]]; then
         want_comp=${BASH_REMATCH[1]}
     fi
 
+    msg=""
+    : >"$res.stderr"
+    : >"$res.tokerr"
+    : >"$res.stdout"
+    : >"$res.code"
+
+    # 0. Lexer: výpis tokenů porovnat s <jméno>.tokens (je-li)
+    if [[ $tokens_only -eq 1 && ! -f $base.tokens ]]; then
+        msg="chybí $base.tokens (hlavička expect: tokens)"
+    elif [[ -f $base.tokens ]]; then
+        if [[ ! -x $TOKDUMP ]]; then
+            msg="chybí $TOKDUMP (spusťte make tokdump)"
+        else
+            if [[ ${VALGRIND:-0} == 1 ]]; then
+                (timeout $((TIMEOUT * 20)) valgrind -q --leak-check=full \
+                    --errors-for-leak-kinds=definite,indirect --error-exitcode=125 \
+                    "$TOKDUMP" <"$src" >"$res.tokens" 2>"$res.tokerr"; exit $?) 2>/dev/null
+            else
+                (timeout "$TIMEOUT" "$TOKDUMP" <"$src" >"$res.tokens" 2>"$res.tokerr"; exit $?) 2>/dev/null
+            fi
+            trc=$?
+            # 0, 1 a 99 jsou běžné konce (EOF, lexikální chyba, interní chyba); jiný kód = pád
+            if [[ $trc -ne 0 && $trc -ne 1 && $trc -ne 99 ]]; then
+                msg="tokdump vrátil $(describe_rc "$trc")"
+            elif ! cmp -s "$base.tokens" "$res.tokens"; then
+                msg="tokeny se liší od $base.tokens"
+            fi
+        fi
+    fi
+
     # 1. Překlad
     # Subshell s "exit $?" a 2>/dev/null skryje hlášky bashe typu "Aborted (core dumped)".
-    if [[ ${VALGRIND:-0} == 1 ]]; then
-        (timeout $((TIMEOUT * 20)) valgrind -q --leak-check=full \
-            --errors-for-leak-kinds=definite,indirect --error-exitcode=125 \
-            "$COMPILER" <"$src" >"$res.code" 2>"$res.stderr"; exit $?) 2>/dev/null
+    if [[ -z $msg && $tokens_only -eq 0 ]]; then
+        if [[ ${VALGRIND:-0} == 1 ]]; then
+            (timeout $((TIMEOUT * 20)) valgrind -q --leak-check=full \
+                --errors-for-leak-kinds=definite,indirect --error-exitcode=125 \
+                "$COMPILER" <"$src" >"$res.code" 2>"$res.stderr"; exit $?) 2>/dev/null
+        else
+            (timeout "$TIMEOUT" "$COMPILER" <"$src" >"$res.code" 2>"$res.stderr"; exit $?) 2>/dev/null
+        fi
+        rc=$?
     else
-        (timeout "$TIMEOUT" "$COMPILER" <"$src" >"$res.code" 2>"$res.stderr"; exit $?) 2>/dev/null
+        rc=$want_comp
     fi
-    rc=$?
-    : >"$res.stdout"
 
-    msg=""
-    if [[ $rc -ne $want_comp ]]; then
+    if [[ -n $msg || $tokens_only -eq 1 ]]; then
+        :
+    elif [[ $rc -ne $want_comp ]]; then
         msg="překladač vrátil $(describe_rc "$rc"), čekáno $want_comp"
     elif [[ $want_comp -eq 0 ]]; then
         # 2. Interpretace vygenerovaného kódu
@@ -101,6 +144,10 @@ for src in "$CASES"/*.ifj; do
         echo "FAIL  $name: $msg"
         if [[ $msg == výstup* ]]; then
             diff "$base.out" "$res.stdout" | head -n 8 | sed 's/^/        /'
+        elif [[ $msg == tokeny* ]]; then
+            diff "$base.tokens" "$res.tokens" | head -n 8 | sed 's/^/        /'
+        elif [[ $msg == tokdump* ]]; then
+            head -n 3 "$res.tokerr" | sed 's/^/        /'
         else
             head -n 3 "$res.stderr" | sed 's/^/        /'
         fi
@@ -113,5 +160,5 @@ if [[ $((pass + fail)) -eq 0 ]]; then
     exit 1
 fi
 echo "Prošlo $pass, neprošlo $fail."
-[[ $fail -eq 0 ]] || echo "Výstupy posledního běhu: $OUT/<jméno>.{code,stdout,stderr}"
+[[ $fail -eq 0 ]] || echo "Výstupy posledního běhu: $OUT/<jméno>.{tokens,tokerr,code,stdout,stderr}"
 [[ $fail -eq 0 ]]

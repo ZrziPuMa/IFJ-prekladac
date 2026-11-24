@@ -1,0 +1,13 @@
+// expect: 3
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// promenna z vetve if neni za ni viditelna (spec 2.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = 1
+  if a == 1 then
+    val inner = 2
+    print(inner)
+  else
+    print(a)
+  print(inner)

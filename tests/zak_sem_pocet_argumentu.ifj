@@ -1,0 +1,11 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// spatny pocet argumentu uzivatelske funkce (spec kap. 4)
+import ifj26.*
+
+def add(a: Int, b: Int): Int = a + b
+
+@main def main(): Unit =
+  val one = 1
+  val x = add(one)
+  print(x)
