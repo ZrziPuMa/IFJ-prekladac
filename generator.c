@@ -19,7 +19,7 @@ void create_prolog(const ASTNode *main_def) {
     printf("DEFVAR GF@%%tmp1\n");
     printf("DEFVAR GF@%%tmp2\n");
     printf("DEFVAR GF@%%tmp3\n");
-    printf("DEFVAR GF@%fstack\n");
+    printf("DEFVAR GF@%%fstack\n");
     printf("MOVE GF@%%fstack nil@nil\n");
     printf("CALL $func_%s\n", main_def->data.func_def.name);
     printf("EXIT int@0\n");
@@ -491,59 +491,87 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             // pushnout hodnotu příjemce (Hodnota nalevo od tečky)
             const ASTNode *target = expr->data.func_call.target;
 
-            if (target != NULL && expr->data.func_call.call_kind == CALL_EXTENSION) {
-                gen_expr(target->data.member_access.object, stt);
-            }
             const ASTNode *curr_arg_group = expr->data.func_call.arg_groups;
 
-            while (curr_arg_group != NULL) {
-                const ASTNode *curr_item = curr_arg_group->data.list.items;
+            // AI help
+            if (expr->data.func_call.own_groups == 0) {
+                gen_expr(target, stt);
+            } else {
 
+                if (target != NULL && expr->data.func_call.call_kind == CALL_EXTENSION) {
+                    gen_expr(target->data.member_access.object, stt);
+                }
+
+                for (int i = 0; i < expr->data.func_call.own_groups && curr_arg_group != NULL;
+                     i++) {
+                    const ASTNode *curr_item = curr_arg_group->data.list.items;
+
+                    while (curr_item != NULL) {
+                        gen_expr(curr_item, stt);
+                        curr_item = curr_item->next;
+                    }
+                    curr_arg_group = curr_arg_group->next;
+                }
+
+                // AI help
+                /*
+                 * Spolupráce s AI při návrhu větvení volání funkcí v AST_FUNC_CALL:
+                 * Na základě struktury AST (ast.h) jsme nejprve rozdělili volání uživatelských
+                 * a vestavěných funkcí podle položky call_kind. Původní větvení podle konkrétních
+                 * názvů vestavěných funkcí jsme následně zjednodušili na přímý výpis instrukce CALL
+                 * s prefixem $builtin_ podle jména identifikátoru, protože existenci i validitu
+                 * vestavěné funkce už ověřila sémantická analýza.
+                 */
+
+                switch (expr->data.func_call.call_kind) {
+                    case CALL_USER_FUNC:
+                        if (target != NULL && target->type == AST_IDENTIFIER) {
+                            printf("CALL $func_%s\n", target->data.identifier.name);
+                        }
+                        break;
+
+                    case CALL_BUILTIN:
+                        if (target != NULL && target->type == AST_IDENTIFIER) {
+                            printf("CALL $builtin_%s\n", target->data.identifier.name);
+                        }
+                        break;
+
+                    case CALL_EXTENSION:
+                        if (target != NULL && target->type == AST_MEMBER_ACCESS) {
+                            printf("CALL ");
+                            create_ext_func_label(target->data.member_access.object->expr_type,
+                                                  target->data.member_access.member_name);
+                            printf("\n");
+                        }
+                        break;
+
+                    case CALL_CONSTRUCTOR: // F.B. ALGEBDT: Point(10, 20)
+                        gen_constructor(expr, stt);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            // AI help
+            while (curr_arg_group != NULL) {
+                printf("POPS GF@%%tmp1\n");
+                printf("NEWARRAY GF@%%tmp2 int@2\n");
+                printf("ARRAYSET GF@%%tmp2 int@0 GF@%%fstack\n");
+                printf("ARRAYSET GF@%%tmp2 int@1 GF@%%tmp1\n");
+                printf("MOVE GF@%%fstack GF@%%tmp2\n");
+
+                const ASTNode *curr_item = curr_arg_group->data.list.items;
                 while (curr_item != NULL) {
                     gen_expr(curr_item, stt);
                     curr_item = curr_item->next;
                 }
+
+                printf("ARRAYGET GF@%%tmp1 GF@%%fstack int@1\n");
+                printf("ARRAYGET GF@%%fstack GF@%%fstack int@0\n");
+                printf("CALL GF@%%tmp1\n");
+
                 curr_arg_group = curr_arg_group->next;
-            }
-
-            // AI help
-            /*
-             * Spolupráce s AI při návrhu větvení volání funkcí v AST_FUNC_CALL:
-             * Na základě struktury AST (ast.h) jsme nejprve rozdělili volání uživatelských
-             * a vestavěných funkcí podle položky call_kind. Původní větvení podle konkrétních
-             * názvů vestavěných funkcí jsme následně zjednodušili na přímý výpis instrukce CALL
-             * s prefixem $builtin_ podle jména identifikátoru, protože existenci i validitu
-             * vestavěné funkce už ověřila sémantická analýza.
-             */
-
-            switch (expr->data.func_call.call_kind) {
-                case CALL_USER_FUNC:
-                    if (target != NULL && target->type == AST_IDENTIFIER) {
-                        printf("CALL $func_%s\n", target->data.identifier.name);
-                    }
-                    break;
-
-                case CALL_BUILTIN:
-                    if (target != NULL && target->type == AST_IDENTIFIER) {
-                        printf("CALL $builtin_%s\n", target->data.identifier.name);
-                    }
-                    break;
-
-                case CALL_EXTENSION:
-                    if (target != NULL && target->type == AST_MEMBER_ACCESS) {
-                        printf("CALL ");
-                        create_ext_func_label(target->data.member_access.object->expr_type,
-                                              target->data.member_access.member_name);
-                        printf("\n");
-                    }
-                    break;
-
-                case CALL_CONSTRUCTOR: // F.B. ALGEBDT: Point(10, 20)
-                    gen_constructor(expr, stt);
-                    break;
-
-                default:
-                    break;
             }
 
             break;
@@ -554,9 +582,10 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         /*
          * Spolupráce s AI při implementaci AST_IF_EXPR a AST_BLOCK v gen_expr():
          * Prompt (kontext): "pro dokonceni control mi pak uz jen bude stacit podporovat if ve
-         * vyrazu, ale to uz bude rychlovka ne? Jen doplnim par radku v gen_expr u ast_if_expr" Na
-         * základě konzultace s AI byla větev rozšířena o ošetření implicitní konverze to_double na
-         * uzlech then_block a else_block a o vyhodnocení AST_BLOCK na místě výrazu.
+         * vyrazu, ale to uz bude rychlovka ne? Jen doplnim par radku v gen_expr u ast_if_expr"
+         * Na základě konzultace s AI byla větev rozšířena o ošetření implicitní konverze
+         * to_double na uzlech then_block a else_block a o vyhodnocení AST_BLOCK na místě
+         * výrazu.
          */
         case AST_IF_EXPR: {
             int id = stt->l_cnt++;
@@ -596,8 +625,8 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
             // AI help
             /*
-             * Prompt: vytvoř mi blok kodu do AST_LAMBDA v gen_expr, ktery vytiskne instrukci pro
-             * pushnuti nazvu lambdy ve stringu na zasobnik id zjisti pomoci  get_lambda_id
+             * Prompt: vytvoř mi blok kodu do AST_LAMBDA v gen_expr, ktery vytiskne instrukci
+             * pro pushnuti nazvu lambdy ve stringu na zasobnik id zjisti pomoci  get_lambda_id
              */
             int id = get_lambda_id(stt, expr);
             if (id >= 0) {
@@ -612,8 +641,8 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         // AI help
         /*
          * Prompty:
-         * 1. Napis mi tedy switch pro case AST_MEMBER_ACCESS, ktery bude rozhodovat podle member
-         * kind a bude obsahovat vsechny case z enumu member kind
+         * 1. Napis mi tedy switch pro case AST_MEMBER_ACCESS, ktery bude rozhodovat podle
+         * member kind a bude obsahovat vsechny case z enumu member kind
          *
          * 2. napis mi blok kodu, ktery bude vybirat, ktereou builtin funkci zavola podle
          * member_name
@@ -699,8 +728,9 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
         // AI help
         /*
          * Prompt: Uz jsem si napsal while cyklus co projde vsechny prikazy v bloku az po NULL.
-         * napis mi nyni kostru prikazu switch, ktery bude rozhodovat podle statement->type, jaky
-         * vybere case: AST_VAR_DEF, AST_ASSIGNMENT a zbytek jako je if a while vcetne rozsireni
+         * napis mi nyni kostru prikazu switch, ktery bude rozhodovat podle statement->type,
+         * jaky vybere case: AST_VAR_DEF, AST_ASSIGNMENT a zbytek jako je if a while vcetne
+         * rozsireni
          */
         bool val_on_stack = keep_result && (statement->next == NULL);
 
@@ -751,8 +781,9 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
             /*
              * Úprava větve AST_IF_EXPR v gen_block() na základě code review s AI:
              * AI upozornila na případ, kdy funkce končí if-výrazem s větví else (keep_result ==
-             * true), kde původní kód vždy vracel nil@nil místo výsledku větve. Podle návrhu AI byla
-             * přidána propagace příznaku keep_branch_val a kontrola to_double na obou větvích.
+             * true), kde původní kód vždy vracel nil@nil místo výsledku větve. Podle návrhu AI
+             * byla přidána propagace příznaku keep_branch_val a kontrola to_double na obou
+             * větvích.
              */
             case AST_IF_EXPR: {
                 int id = stt->l_cnt++;
@@ -917,10 +948,10 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
 
 // AI help
 /*
- * Prompt: Vytvoř mi funkce pro správu id ukazatelů na lambdy, které budou využívat proměnných ze
- * struktury stt. ukazatele se budou uchovavat v const ASTNode **lambdas v stt. jedna funkce vytvori
- * novy zaznam v dynamickem poli a pripadne pole nafoukne. dalsi bude pro ziskani hodnoty id za
- * ucelem vypsani navesti a posledni na uvolneni dynamickeho pole
+ * Prompt: Vytvoř mi funkce pro správu id ukazatelů na lambdy, které budou využívat proměnných
+ * ze struktury stt. ukazatele se budou uchovavat v const ASTNode **lambdas v stt. jedna funkce
+ * vytvori novy zaznam v dynamickem poli a pripadne pole nafoukne. dalsi bude pro ziskani
+ * hodnoty id za ucelem vypsani navesti a posledni na uvolneni dynamickeho pole
  */
 
 int register_lambda(GenState *stt, const ASTNode *lambda) {
@@ -972,8 +1003,8 @@ void free_lambdas(GenState *stt) {
  * Prompt: Vytvoř mi tedy funkci pro vytvoření definice lambda funkce, kde se nejdrive vypise
  * navesti se spravnym id, ktere zjistime zavolanim get_lambda_id() a vytvori se lokalni ramec.
  * nasledne vyzvedne parametry pomoci define_params a nadeklaruje lokalni promenne pomoci
- * declare_local_vars. pote zavola gen_block() nad telem lambdy a osetri pripadny navratovy typ unit
- * nakonec provede uklid lokalniho ramce
+ * declare_local_vars. pote zavola gen_block() nad telem lambdy a osetri pripadny navratovy typ
+ * unit nakonec provede uklid lokalniho ramce
  */
 void create_lambda_def(const ASTNode *lambda, GenState *stt) {
     if (lambda == NULL || stt == NULL) {
@@ -1001,6 +1032,12 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
                     fn_type->data.func_type.return_type != NULL &&
                     fn_type->data.func_type.return_type->type_class == TYPE_UNIT);
 
+    // AI help
+    char lambda_name[32];
+    snprintf(lambda_name, sizeof(lambda_name), "lambda_%d", id);
+    const char *prev_func_name = stt->func_name;
+    stt->func_name = lambda_name;
+
     if (lambda->data.lambda.body != NULL) {
         gen_block(lambda->data.lambda.body->data.block.statements, stt, !stt->is_unit);
     }
@@ -1011,6 +1048,10 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
         printf("INT2FLOATS\n");
     }
 
+    // AI help
+    printf("LABEL $func_%s$end\n", lambda_name);
+    stt->func_name = prev_func_name;
+
     stt->is_unit = prev_is_unit;
     printf("POPFRAME\n");
     printf("RETURN\n\n");
@@ -1019,10 +1060,10 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
 // AI help
 /*
  * Prompt: Vytvoř mi pomocnou funkci create_all_lambdas ktera dostane ukazatel na prvni definici
- * nejvyssi urovne. Pomoci cyklu while() projde vsechny definice a rekurzivne projde vsechny uzly
- * ktere mohou obsahovat vyrazy. pokud narazi na AST_LAMBDA, přidělí jí unikátní id pomocí
- * register_lambda(). Pro přiípad, že by v těle lambdy byla dalsi lambda funkce projde rekurzivne i
- * jeji telo. Nakonec vygeneruje jeji definici pomoci create_lambda_def()
+ * nejvyssi urovne. Pomoci cyklu while() projde vsechny definice a rekurzivne projde vsechny
+ * uzly ktere mohou obsahovat vyrazy. pokud narazi na AST_LAMBDA, přidělí jí unikátní id pomocí
+ * register_lambda(). Pro přiípad, že by v těle lambdy byla dalsi lambda funkce projde
+ * rekurzivne i jeji telo. Nakonec vygeneruje jeji definici pomoci create_lambda_def()
  */
 void create_all_lambdas(const ASTNode *node, GenState *stt) {
     if (stt == NULL) {
@@ -1412,10 +1453,10 @@ ErrorCode generate_code(const ASTNode *root) {
 }
 
 // ==== Rozsireni ALGEBDT ==== //
-// Claude (Opus 5.5), prompt: „Navrhni potřebné pomocné funkce pro implementaci ALGEBDT, používám 3
-// funkce: gen_match, gen_field_access a gen_constructor navržené v generator.h. Jaké funkce budu
-// potřebovat a co bude jejich cílem?“ AI help, použit AI při navrhování pomocných funkcí pro
-// rozšíření a opravování chyb ve psaní kodu
+// Claude (Opus 5.5), prompt: „Navrhni potřebné pomocné funkce pro implementaci ALGEBDT,
+// používám 3 funkce: gen_match, gen_field_access a gen_constructor navržené v generator.h. Jaké
+// funkce budu potřebovat a co bude jejich cílem?“ AI help, použit AI při navrhování pomocných
+// funkcí pro rozšíření a opravování chyb ve psaní kodu
 
 /**
  * @brief Pomocná funkce pro vyhledání definice třídy podle jména v rámci programu.
@@ -1510,7 +1551,8 @@ void gen_constructor(const ASTNode *expr, GenState *stt) {
     printf("NEWARRAY GF@%%tmp1 int@%d\n", n + 1);
     printf("ARRAYSET GF@%%tmp1 int@0 string@%s\n", name);
 
-    // Uložení hodnot atributů do pole v opačném pořadí, protože jsou na zásobníku v opačném pořadí
+    // Uložení hodnot atributů do pole v opačném pořadí, protože jsou na zásobníku v opačném
+    // pořadí
     for (int i = n; i >= 1; i--) {
         printf("POPS GF@%%tmp2\n");
         printf("ARRAYSET GF@%%tmp1 int@%d GF@%%tmp2\n", i);
