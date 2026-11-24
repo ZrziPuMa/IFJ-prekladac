@@ -664,7 +664,7 @@ ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *e
             break;
 
         case AST_BLOCK:
-            res = semantic_check_block(*node, ctx, expected_type, true);
+            res = semantic_check_block(*node, ctx, expected_type, true, true);
             break;
 
         case AST_EXTENSION_DEF:
@@ -740,7 +740,7 @@ ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *e
 }
 
 ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
-                               bool used_as_value) {
+                               bool used_as_value, bool create_scope) {
     // úvodní kontroly
     if (block == NULL || ctx == NULL || block->type != AST_BLOCK || ctx->scope_stack == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, block);
@@ -750,15 +750,21 @@ ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeI
         return semantic_error(ctx, ERR_INTERNAL, block);
     }
 
-    // vytvoření nového scope
-    tBtNode *new_scope = NULL;
-    ErrorCode res = symtable_init(&new_scope);
-    if (res != ERR_OK) {
-        return semantic_error(ctx, res, block);
-    }
-    res = symtable_push_scope(&new_scope, ctx->scope_stack);
-    if (res != ERR_OK) {
-        return semantic_error(ctx, res, block);
+    ErrorCode res = ERR_OK;
+
+    // vytvoření nového scope pokud se má tvořit
+    if (create_scope) {
+        tBtNode *new_scope = NULL;
+
+        res = symtable_init(&new_scope);
+        if (res != ERR_OK) {
+            return semantic_error(ctx, res, block);
+        }
+
+        res = symtable_push_scope(&new_scope, ctx->scope_stack);
+        if (res != ERR_OK) {
+            return semantic_error(ctx, res, block);
+        }
     }
 
     // projde seznam příkazů v bloku, každý příkaz zpracuje
@@ -767,12 +773,14 @@ ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeI
         if ((*act_statement)->type == AST_IF_EXPR) {
             res = semantic_if_expr(*act_statement, ctx, NULL, false);
         } else if ((*act_statement)->type == AST_BLOCK) {
-            res = semantic_check_block(*act_statement, ctx, NULL, false);
+            res = semantic_check_block(*act_statement, ctx, NULL, false, true);
         } else {
             res = semantic_visit(act_statement, ctx, NULL);
         }
         if (res != ERR_OK) {
-            symtable_pop_scope(ctx->scope_stack);
+            if (create_scope) {
+                symtable_pop_scope(ctx->scope_stack);
+            }
             return semantic_error(ctx, res, block);
         }
         act_statement = &(*act_statement)->next;
@@ -784,13 +792,15 @@ ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeI
     if ((*act_statement)->type == AST_IF_EXPR) {
         res = semantic_if_expr(*act_statement, ctx, last_expected, used_as_value);
     } else if ((*act_statement)->type == AST_BLOCK) {
-        res = semantic_check_block(*act_statement, ctx, last_expected, used_as_value);
+        res = semantic_check_block(*act_statement, ctx, last_expected, used_as_value, true);
     } else {
         res = semantic_visit(act_statement, ctx, last_expected);
     }
 
     if (res != ERR_OK) {
-        symtable_pop_scope(ctx->scope_stack);
+        if (create_scope) {
+            symtable_pop_scope(ctx->scope_stack);
+        }
         return semantic_error(ctx, res, block);
     }
 
@@ -814,15 +824,21 @@ ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeI
         }
     }
     if (block_type == NULL) {
-        symtable_pop_scope(ctx->scope_stack);
+        if (create_scope) {
+            symtable_pop_scope(ctx->scope_stack);
+        }
         return semantic_error(ctx, ERR_INTERNAL, block);
     }
 
     // doplní expr_type
     ast_set_type(block, block_type);
 
-    // uvolní scope co si na začátku vytvořil
-    return semantic_error(ctx, symtable_pop_scope(ctx->scope_stack), block);
+    // uvolní scope co si na začátku vytvořil (pokud ho vytvořit)
+    if (create_scope) {
+        res = symtable_pop_scope(ctx->scope_stack);
+    }
+
+    return semantic_error(ctx, res, block);
 }
 
 /* ==================================================
@@ -1070,8 +1086,8 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
             goto cleanup;
         }
     }
-    res =
-        semantic_check_block(function->data.func_def.body, ctx, expected_body, body_used_as_value);
+    res = semantic_check_block(function->data.func_def.body, ctx, expected_body, body_used_as_value,
+                               false);
 
     if (res != ERR_OK) {
         goto cleanup;
@@ -2789,7 +2805,7 @@ ErrorCode semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
         }
     }
     return_value =
-        semantic_check_block(node->data.lambda.body, ctx, body_expected, body_used_as_value);
+        semantic_check_block(node->data.lambda.body, ctx, body_expected, body_used_as_value, false);
 
     if (return_value != ERR_OK) {
         goto cleanup;
@@ -2964,7 +2980,7 @@ ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *
 
     // zpracuje blok po if
     res = semantic_check_block(node->data.if_expr.then_block, ctx,
-                               used_as_value ? expected_type : NULL, used_as_value);
+                               used_as_value ? expected_type : NULL, used_as_value, true);
     if (res != ERR_OK) {
         return semantic_error(ctx, res, node);
     }
@@ -2973,7 +2989,7 @@ ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *
 
         // zpracuje else větev pokud ji if má
         res = semantic_check_block(node->data.if_expr.else_block, ctx,
-                                   used_as_value ? expected_type : NULL, used_as_value);
+                                   used_as_value ? expected_type : NULL, used_as_value, true);
         if (res != ERR_OK) {
             return semantic_error(ctx, res, node);
         }
@@ -3044,7 +3060,7 @@ ErrorCode semantic_while(ASTNode *node, SemanticContext *ctx) {
     }
 
     // zpracuje tělo cyklu
-    res = semantic_check_block(node->data.while_loop.body, ctx, NULL, false);
+    res = semantic_check_block(node->data.while_loop.body, ctx, NULL, false, true);
     if (res != ERR_OK) {
         return semantic_error(ctx, res, node);
     }
@@ -3138,7 +3154,7 @@ ErrorCode semantic_for(ASTNode *node, SemanticContext *ctx) {
     }
 
     // zpracování těla
-    res = semantic_check_block(node->data.for_loop.body, ctx, NULL, false);
+    res = semantic_check_block(node->data.for_loop.body, ctx, NULL, false, true);
     if (res != ERR_OK) {
         symtable_pop_scope(ctx->scope_stack);
         return semantic_error(ctx, res, node);
@@ -3461,7 +3477,7 @@ ErrorCode semantic_case_branch(ASTNode *node, SemanticContext *ctx, const TypeIn
     }
 
     // zpracuje tělo case větve
-    res = semantic_check_block(node->data.case_branch.body, ctx, expected_type, true);
+    res = semantic_check_block(node->data.case_branch.body, ctx, expected_type, true, true);
     if (res != ERR_OK) {
         symtable_pop_scope(ctx->scope_stack);
         return semantic_error(ctx, res, node);
