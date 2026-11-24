@@ -118,4 +118,28 @@ void create_builtin_functions();
  */
 void create_ext_func_label(const TypeInfo *receiver_type, const char *method_name);
 
+/**
+ * @brief Vytvoří instanci datové třídy, např. Point(10, 20) (ALGEBDT)
+ *
+ * @param expr Uzel AST_FUNC_CALL s call_kind == CALL_CONSTRUCTOR
+ * @param stt Stav generátoru
+ */
+void gen_constructor(const ASTNode *expr, GenState *stt);
+
+/**
+ * @brief Přečte atribut datové třídy, např. p.x (ALGEBDT)
+ *
+ * @param expr Uzel AST_MEMBER_ACCESS s member_kind == MEMBER_FIELD
+ * @param stt Stav generátoru
+ */
+void gen_field_access(const ASTNode *expr, GenState *stt);
+
+/**
+ * @brief Vygeneruje výraz match; výsledek nechá na vrcholu zásobníku (ALGEBDT)
+ *
+ * @param expr Uzel AST_MATCH_EXPR
+ * @param stt Stav generátoru
+ */
+void gen_match(const ASTNode *expr, GenState *stt);
+
 #endif
