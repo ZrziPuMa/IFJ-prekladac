@@ -83,6 +83,14 @@ bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had
 void append_char(sStr *str, tToken *token, bool *completed, char ch);
 
 /**
+ * @brief Převede řetězec na double s kontrolou rozsahu IEEE 754 binary64
+ * @param token Ukazatel na dokončovaný token
+ * @param str Ukazatel na dynamický řetězec s textem čísla
+ * @param pushback_char Znak přečtený navíc za číslem (vrátí se přes ungetc)
+ */
+void finish_double(tToken *token, sStr *str, int pushback_char);
+
+/**
  * @brief Inicializace zásobníku
  * @param stack Ukazatel na zásobník, který se má inicializovat
  */

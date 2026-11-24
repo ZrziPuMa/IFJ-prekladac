@@ -12,6 +12,7 @@
 #include "ilexer.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdlib.h>
 
 static FILE *file;
@@ -827,6 +828,10 @@ tToken give_token(void) {
                                     while (after != '\n' && after != EOF) {
                                         after = getc(file);
                                     }
+                                } else if (after2 == '*') {
+                                    block_com_cnt = 1;
+                                    token.state = state_com_block;
+                                    break;
                                 } else {
                                     token =
                                         make_lex_error(line, "Chyba: Za víceřádkovým komentářem "
@@ -1045,10 +1050,7 @@ tToken give_token(void) {
                     token.state = state_exp_d;
                     break;
                 } else {
-                    token.type = TOK_DOUBLE;
-                    token.line = line;
-                    token.val.d_val = strtod(str.string, NULL);
-                    ungetc(c, file);
+                    finish_double(&token, &str, c);
                     completed = true;
                     break;
                 }
@@ -1064,12 +1066,7 @@ tToken give_token(void) {
                     token.state = state_exp_d;
                     break;
                 } else {
-                    token.type = TOK_DOUBLE;
-                    token.line = line;
-                    token.val.d_val = strtod(str.string, NULL);
-                    if (c != EOF) {
-                        ungetc(c, file);
-                    }
+                    finish_double(&token, &str, c);
                     completed = true;
                     break;
                 }
@@ -1080,12 +1077,7 @@ tToken give_token(void) {
                     completed = true;
                     break;
                 }
-                token.type = TOK_DOUBLE;
-                token.line = line;
-                token.val.d_val = strtod(str.string, NULL);
-                if (c != EOF) {
-                    ungetc(c, file);
-                }
+                finish_double(&token, &str, c);
                 completed = true;
                 break;
 
@@ -1153,6 +1145,21 @@ void append_char(sStr *str, tToken *token, bool *completed, char ch) {
         *token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
         *completed = true;
     }
+}
+
+void finish_double(tToken *token, sStr *str, int pushback_char) {
+    if (pushback_char != EOF) {
+        ungetc(pushback_char, file);
+    }
+    errno = 0;
+    double val = strtod(str->string, NULL);
+    if (errno == ERANGE && (val == HUGE_VAL || val == -HUGE_VAL || val == 0.0)) {
+        *token = make_lex_error(line, "Chyba: Desetinný literál je mimo rozsah IEEE 754 binary64.");
+        return;
+    }
+    token->type = TOK_DOUBLE;
+    token->line = line;
+    token->val.d_val = val;
 }
 
 void lstack_init(tLStack **stack) {
