@@ -1628,33 +1628,37 @@ ErrorCode call_constructor_type(ASTNode *class_def, TypeInfo **res_type) {
     return ERR_OK;
 }
 
-bool semantic_reaches_function(const SemanticContext *ctx, const ASTNode *current,
-                               const ASTNode *target, const FunctionPath *path) {
+bool semantic_reaches_function(SemanticContext *ctx, const ASTNode *current,
+                               const ASTNode *target) {
 
-    // zabrání zacyklení při procházení grafu
-    for (const FunctionPath *p = path; p != NULL; p = p->previous) {
+    // Najde první hranu vycházející z aktuální funkce.
+    CallEdge *first = ctx->call_edges;
 
-        if (p->function == current) {
-            return false;
-        }
+    while (first != NULL && first->calling_func != current) {
+        first = first->next;
     }
 
-    // vytvoří novou část cesty
-    FunctionPath next_path = {.function = current, .previous = path};
+    // Funkce nemá odchozí hrany nebo už byla navštívena.
+    if (first == NULL || first->visited) {
+        return false;
+    }
 
-    // projde všechny funkce volané aktuální funkcí
-    for (const CallEdge *edge = ctx->call_edges; edge != NULL; edge = edge->next) {
+    // Označí aktuální funkci jako navštívenou.
+    first->visited = true;
+
+    // Projde všechny funkce volané aktuální funkcí.
+    for (const CallEdge *edge = first; edge != NULL; edge = edge->next) {
 
         if (edge->calling_func != current) {
             continue;
         }
 
-        // našli jsme cestu zpět do hledané funkce
+        // Našli jsme cestu zpět do hledané funkce.
         if (edge->called_func == target) {
             return true;
         }
 
-        if (semantic_reaches_function(ctx, edge->called_func, target, &next_path)) {
+        if (semantic_reaches_function(ctx, edge->called_func, target)) {
             return true;
         }
     }
@@ -1673,8 +1677,13 @@ ErrorCode semantic_check_recursion(SemanticContext *ctx) {
             continue;
         }
 
+        // reset navštívených vrcholů před novým DFS
+        for (CallEdge *e = ctx->call_edges; e != NULL; e = e->next) {
+            e->visited = false;
+        }
+
         // zkontroluje, jestli existuje cesta z funkce zpět do ní samotné
-        if (semantic_reaches_function(ctx, func, func, NULL)) {
+        if (semantic_reaches_function(ctx, func, func)) {
 
             return semantic_error(ctx, ERR_SEM_TYPE, func);
         }
@@ -1705,6 +1714,7 @@ ErrorCode semantic_add_call_edge(SemanticContext *ctx, const ASTNode *called_fun
 
     edge->calling_func = ctx->current_function;
     edge->called_func = called_func;
+    edge->visited = false;
     edge->next = ctx->call_edges;
     ctx->call_edges = edge;
 

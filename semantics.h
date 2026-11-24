@@ -70,16 +70,8 @@ typedef struct CallEdge {
     const ASTNode *calling_func; // uzel funkce, ze které se volá called_func
     const ASTNode *called_func;
     struct CallEdge *next; // další hrana grafu
+    bool visited;          // zda byla hrana už navštívená
 } CallEdge;
-
-/**
- * @brief struktura s aktuální procházenou cestou volání funkcí
- *
- */
-typedef struct FunctionPath {
-    const ASTNode *function;
-    const struct FunctionPath *previous;
-} FunctionPath;
 
 /**
  * @brief Sdílený kontext jednoho běhu sémantické analýzy
@@ -761,9 +753,7 @@ ErrorCode semantic_check_recursion(SemanticContext *ctx);
  * @param ctx kontext sémantické analýzy
  * @param current aktuální uzel funkce
  * @param target uzel cílového volání
- * @param path aktuálí cesta mezi funkcemi
  * @return true pokud existuje rekurze, jinak false
  */
-bool semantic_reaches_function(const SemanticContext *ctx, const ASTNode *current,
-                               const ASTNode *target, const FunctionPath *path);
+bool semantic_reaches_function(SemanticContext *ctx, const ASTNode *current, const ASTNode *target);
 #endif // SEMANTICS_H
