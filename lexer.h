@@ -8,8 +8,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-// #include "ierror.h"
-
+#include "idynamic_string.h"
 #include "token.h"
 
 #include <ctype.h>
@@ -17,71 +16,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-/**
- * @brief Výčet stavů FSM
- */
-typedef enum {
-    state_start,
-    state_plus,
-    state_concatenation,
-    state_pipe,
-    state_or,
-    state_ampersand,
-    state_and,
-    state_slash,
-    state_com_line,
-    state_com_block,
-    state_com_block_2,
-    state_com_end,
-    state_underscore,
-    state_ID,
-
-    state_string_check,
-    state_empty_str,
-
-    state_chain_lit,
-    state_cl1,
-    state_cl2,
-    state_chain_esc,
-    state_string_end,
-    state_string,
-    state_string_esc,
-
-    state_interpolateds,
-    state_interp_ID,
-
-    state_dot,
-    state_int_unders,
-    state_dec_unders,
-    state_exp_unders,
-    state_exp_end,
-    state_exclam,
-
-    state_zero,
-    state_int,
-    state_decimal,
-    state_exponent,
-    state_exp_d,
-
-    state_greater_than,
-    state_greater_equal,
-    state_lesser_than,
-    state_lesser_equal,
-    state_left_arrow,
-
-    state_at,
-    state_main1,
-    state_main2,
-    state_main3,
-
-    state_not,
-    state_not_equal,
-    state_equal,
-    state_is_equal,
-    state_right_arrow,
-
-    state_eol
-} sState;
 
 /**
  * @brief Datový typ pro prvek zásobníku
@@ -114,6 +48,49 @@ typedef struct FIFO {
 } tFIFO;
 
 /**
+ * @brief Vypsání lexikální chyby
+ * @param err_line Řádek, kde chyba nastala
+ * @param msg Zpráva, která se vypíše
+ * @return Chybový token TOK_ERROR
+ */
+tToken make_lex_error(int err_line, const char *msg);
+
+/**
+ * @brief Vypsání interní chyby překladače a ukončení překladu
+ * @param err_line Řádek, kde chyba nastala
+ * @param msg Zpráva, která se vypíše
+ * @return Chybový token TOK_ERROR
+ */
+tToken make_internal_error(int err_line, const char *msg);
+
+/**
+ * @brief Vyhodnocení úrovně odsazení na začátku neprázdného řádku
+ * @param token Token, kterému se předá informace (případně error)
+ * @param pushback_char První znak tokenu po odsazení
+ * @param prev_line Číslo předcházejícího řádku (pro TOK_NEWLINE)
+ * @param had_tab Kontrola, zda byl použit tabulátor na začátku řádku
+ * @return true, pokud byl vytvořen token k okamžitému vrácení, jinak false
+ */
+bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had_tab);
+
+/**
+ * @brief Přidání znaku do dynamického řetězce s kontrolou alokace
+ * @param str Ukazatel na dynamický řetězec
+ * @param ch Přidávaný znak
+ * @param token Ukazatel na aktuální token (při chybě TOK_ERROR)
+ * @param completed Ukazatel na příznak dokončení tokenu
+ */
+void append_char(sStr *str, tToken *token, bool *completed, char ch);
+
+/**
+ * @brief Převede řetězec na double s kontrolou rozsahu IEEE 754 binary64
+ * @param token Ukazatel na dokončovaný token
+ * @param str Ukazatel na dynamický řetězec s textem čísla
+ * @param pushback_char Znak přečtený navíc za číslem (vrátí se přes ungetc)
+ */
+void finish_double(tToken *token, sStr *str, int pushback_char);
+
+/**
  * @brief Inicializace zásobníku
  * @param stack Ukazatel na zásobník, který se má inicializovat
  */
@@ -123,8 +100,9 @@ void lstack_init(tLStack **stack);
  * @brief Vložení nového odsazení nebo zanoření závorek
  * @param count Aktuální počet odsazení
  * @param stack Ukazatel na zásobník, kam se vloží
+ * @return true, pokud proběhlo úspěšně, false u selhání alokace
  */
-void lstack_push(int count, tLStack *stack);
+bool lstack_push(int count, tLStack *stack);
 
 /**
  * @brief Odebrání posledního  odsazení nebo zanoření
@@ -149,7 +127,7 @@ bool lstack_empty(tLStack *stack);
 /**
  * @brief Inicializace fronty tokenů
  * @param queue Ukazatel na inicializovanou frontu
- * @return true, pokud je zásobník prázdný, jinak false
+ * @return true, pokud proběhlo úspěšně, false u selhání alokace
  */
 void fifo_init(tFIFO **queue);
 
@@ -157,8 +135,9 @@ void fifo_init(tFIFO **queue);
  * @brief Vložení prvku na konec fronty
  * @param token Token vkládaný na konec
  * @param first Prvek, za který se má vkládat
+ * @return true, pokud je zásobník prázdný, jinak false
  */
-void fifo_add(tToken *token, tFIFO_Elem **first);
+bool fifo_add(tToken *token, tFIFO_Elem **first);
 
 /**
  * @brief Získání prvního prvku ze fronty

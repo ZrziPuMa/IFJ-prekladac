@@ -46,42 +46,37 @@ void check_keyword(tToken *token, sStr *str) {
         token->type = TOK_MATCH;
     } else if (strcmp(str->string, "type") == 0) {
         token->type = TOK_TYPE_LIT;
+    } else if (strcmp(str->string, "to") == 0) {
+        token->type = TOK_TO;
+    } else if (strcmp(str->string, "until") == 0) {
+        token->type = TOK_UNTIL;
+    } else if (strcmp(str->string, "by") == 0) {
+        token->type = TOK_BY;
+    } else if (strcmp(str->string, "true") == 0) {
+        token->type = TOK_BOOL;
+        token->val.i_val = 1;
+    } else if (strcmp(str->string, "false") == 0) {
+        token->type = TOK_BOOL;
+        token->val.i_val = 0;
+    } else if (strcmp(str->string, "List") == 0) {
+        token->type = TOK_LIST;
     }
 }
 
 int check_var_type(tToken *token, sStr *str) {
-    if (strcmp(str->string, "Int") == 0) {
+    if (strcmp(str->string, "Int") == 0 || strcmp(str->string, "Double") == 0 ||
+        strcmp(str->string, "String") == 0 || strcmp(str->string, "Unit") == 0 ||
+        strcmp(str->string, "Boolean") == 0) {
         token->type = TOK_TYPE;
-        token->val.str = "Int";
         return 1;
-    } else if (strcmp(str->string, "Double") == 0) {
-        token->type = TOK_TYPE;
-        token->val.str = "Double";
-        return 1;
-    } else if (strcmp(str->string, "String") == 0) {
-        token->type = TOK_TYPE;
-        token->val.str = "String";
-        return 1;
-    } else if (strcmp(str->string, "Unit") == 0) {
-        token->type = TOK_TYPE;
-        token->val.str = "Unit";
-        return 1;
-    } else if (strcmp(str->string, "Boolean") == 0) {
-        token->type = TOK_TYPE;
-        token->val.str = "Boolean";
-        return 1;
-    } else if (strcmp(str->string, "List") == 0) {
-        token->type = TOK_TYPE;
-        token->val.str = "List";
-        return 1;
-    } else
-        return 0;
+    }
+    return 0;
 }
 
 int string_init(sStr *str) {
     str->string = (char *)malloc(MAX_LENGTH);
     if (str->string == NULL) {
-        print_error(ERR_LEX, -1, "Chyba: Selhání alokace.");
+        print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
         return 1;
     } else {
         str->length = 0;
@@ -92,17 +87,20 @@ int string_init(sStr *str) {
 }
 
 void string_free(sStr *str) {
-    if (str->string == NULL) {
+    if (str == NULL || str->string == NULL) {
         return;
     }
     free(str->string);
+    str->string = NULL;
+    str->length = 0;
+    str->max_length = 0;
 }
 
 int string_add(sStr *str, char c) {
     if ((str->length + 1) >= str->max_length) {
         char *temp = realloc(str->string, str->max_length + MAX_LENGTH);
         if (temp == NULL) {
-            print_error(ERR_LEX, -1, "Chyba: Selhání realokace.");
+            print_error(ERR_INTERNAL, -1, "Chyba: Selhání realokace.");
             return 1;
         } else {
             str->string = temp;

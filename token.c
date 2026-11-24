@@ -12,10 +12,20 @@
 #include <stdlib.h>
 
 void token_free(tToken *t) {
-    if (t->val.str != NULL) {
-        free(t->val.str);
+    if (!t) {
+        return;
     }
-    free(t);
+    switch (t->type) {
+        case TOK_ID:
+        case TOK_STRING:
+        case TOK_TYPE:
+        case TOK_INTERP_STRING_PART:
+            free(t->val.str);
+            break;
+        default:
+            break;
+    }
+    *t = (tToken){0};
 }
 
 const char *token_type_name(tTokenType type) {
@@ -173,8 +183,6 @@ void token_dump(const tToken *t, FILE *out) {
             fprintf(out, "%s", t->val.i_val ? "true" : "false");
             break;
         case TOK_ID:
-            fprintf(out, "%s", t->val.str);
-            break;
         case TOK_TYPE:
             fprintf(out, "%s", t->val.str);
             break;
