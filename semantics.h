@@ -63,6 +63,25 @@ typedef struct {
 } BuiltinDef;
 
 /**
+ * @brief struktura pro vytvoření grafu volání funkcí pro odhalování rekurzí
+ *
+ */
+typedef struct CallEdge {
+    const ASTNode *calling_func; // uzel funkce, ze které se volá called_func
+    const ASTNode *called_func;
+    struct CallEdge *next; // další hrana grafu
+} CallEdge;
+
+/**
+ * @brief struktura s aktuální procházenou cestou volání funkcí
+ *
+ */
+typedef struct FunctionPath {
+    const ASTNode *function;
+    const struct FunctionPath *previous;
+} FunctionPath;
+
+/**
  * @brief Sdílený kontext jednoho běhu sémantické analýzy
  *
  * Uchovává stav potřebný při rekurzivním průchodu AST. Při dočasném
@@ -78,6 +97,7 @@ typedef struct SemanticContext {
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
     int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantiky
     ErrorCode expected_type_error; // kvůli rozlišení typových a argumentových chyb
+    CallEdge *call_edges;          // struktura pro odhalování rekurzí
 } SemanticContext;
 
 /* ==================================================
@@ -718,4 +738,32 @@ bool alias_in_path(const AliasPath *path, const char *name);
  */
 void remove_union_duplicates(TypeInfo **slot);
 
+/**
+ * @brief funkce pro zapsání volání funkce called_func z aktuální funkce do grafu volání funkcí
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param called_func funkce, která se volá
+ * @return ErrorCode chybový kód
+ */
+ErrorCode semantic_add_call_edge(SemanticContext *ctx, const ASTNode *called_func);
+
+/**
+ * @brief funkce pro kontrolu rekurze
+ *
+ * @param ctx kontext sémantické analýzy
+ * @return ErrorCode
+ */
+ErrorCode semantic_check_recursion(SemanticContext *ctx);
+
+/**
+ * @brief funkce pro vyhledávání, zda existuje přes nějakou funkci rekurze
+ *
+ * @param ctx kontext sémantické analýzy
+ * @param current aktuální uzel funkce
+ * @param target uzel cílového volání
+ * @param path aktuálí cesta mezi funkcemi
+ * @return true pokud existuje rekurze, jinak false
+ */
+bool semantic_reaches_function(const SemanticContext *ctx, const ASTNode *current,
+                               const ASTNode *target, const FunctionPath *path);
 #endif // SEMANTICS_H

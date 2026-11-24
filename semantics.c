@@ -106,8 +106,21 @@ ErrorCode check_semantics(ASTNode *root) {
 
     // analýza funkcí a extension metod
     res = semantic_check_program(root, &ctx);
+    if (res != ERR_OK) {
+        goto cleanup;
+    }
+
+    // zkontroluje, jestli nenastala rekurze, kdy alespoň jedna funkce neměla deklarovaný typ
+    res = semantic_check_recursion(&ctx);
 
 cleanup:
+    // uvolnění cest po kontrole rekurzí
+    while (ctx.call_edges != NULL) {
+        CallEdge *next = ctx.call_edges->next;
+        free(ctx.call_edges);
+        ctx.call_edges = next;
+    }
+
     // potřeba uvolnit zvlášť SemanticFunctionSymbol struktury
     semantic_free_func_sym(ctx.ext_symbols);
     semantic_free_func_sym(ctx.symbols);
@@ -944,11 +957,13 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
     tStack *saved_stack = ctx->scope_stack;
     ASTNode *saved_function = ctx->current_function;
     bool saved_lambda = ctx->inside_lambda;
+    ErrorCode saved_type_error = ctx->expected_type_error;
 
     tStack function_stack = {0};
     ctx->scope_stack = &function_stack;
     ctx->current_function = function;
     ctx->inside_lambda = false;
+    ctx->expected_type_error = ERR_SEM_TYPE;
 
     func_sym->state = FUNC_RESOLVING;
 
@@ -1145,6 +1160,7 @@ cleanup:
     ctx->scope_stack = saved_stack;
     ctx->current_function = saved_function;
     ctx->inside_lambda = saved_lambda;
+    ctx->expected_type_error = saved_type_error;
 
     return semantic_error(ctx, res, func_sym != NULL ? func_sym->function : NULL);
 }
@@ -1612,6 +1628,89 @@ ErrorCode call_constructor_type(ASTNode *class_def, TypeInfo **res_type) {
     return ERR_OK;
 }
 
+bool semantic_reaches_function(const SemanticContext *ctx, const ASTNode *current,
+                               const ASTNode *target, const FunctionPath *path) {
+
+    // zabrání zacyklení při procházení grafu
+    for (const FunctionPath *p = path; p != NULL; p = p->previous) {
+
+        if (p->function == current) {
+            return false;
+        }
+    }
+
+    // vytvoří novou část cesty
+    FunctionPath next_path = {.function = current, .previous = path};
+
+    // projde všechny funkce volané aktuální funkcí
+    for (const CallEdge *edge = ctx->call_edges; edge != NULL; edge = edge->next) {
+
+        if (edge->calling_func != current) {
+            continue;
+        }
+
+        // našli jsme cestu zpět do hledané funkce
+        if (edge->called_func == target) {
+            return true;
+        }
+
+        if (semantic_reaches_function(ctx, edge->called_func, target, &next_path)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+ErrorCode semantic_check_recursion(SemanticContext *ctx) {
+
+    for (CallEdge *edge = ctx->call_edges; edge != NULL; edge = edge->next) {
+
+        const ASTNode *func = edge->calling_func;
+
+        // funkce s explicitním typem může být rekurzivní
+        if (func->data.func_def.return_type != NULL) {
+            continue;
+        }
+
+        // zkontroluje, jestli existuje cesta z funkce zpět do ní samotné
+        if (semantic_reaches_function(ctx, func, func, NULL)) {
+
+            return semantic_error(ctx, ERR_SEM_TYPE, func);
+        }
+    }
+
+    return ERR_OK;
+}
+
+ErrorCode semantic_add_call_edge(SemanticContext *ctx, const ASTNode *called_func) {
+
+    if (ctx->current_function == NULL || called_func == NULL) {
+        return ERR_OK;
+    }
+
+    // Kontrola, zda už hrana existuje.
+    for (CallEdge *edge = ctx->call_edges; edge != NULL; edge = edge->next) {
+
+        if (edge->calling_func == ctx->current_function && edge->called_func == called_func) {
+            return ERR_OK;
+        }
+    }
+
+    // vytvoří novou hranu a nastaví
+    CallEdge *edge = malloc(sizeof *edge);
+    if (edge == NULL) {
+        return ERR_INTERNAL;
+    }
+
+    edge->calling_func = ctx->current_function;
+    edge->called_func = called_func;
+    edge->next = ctx->call_edges;
+    ctx->call_edges = edge;
+
+    return ERR_OK;
+}
+
 ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kind,
                               int *own_groups) {
     if (call == NULL || ctx == NULL || kind == NULL || own_groups == NULL ||
@@ -1667,6 +1766,12 @@ ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kin
             } else {
                 if (!func->function || func->function->type != AST_FUNC_DEF) {
                     return semantic_error(ctx, ERR_INTERNAL, call);
+                }
+
+                // přidá novou hranu
+                err = semantic_add_call_edge(ctx, func->function);
+                if (err != ERR_OK) {
+                    return semantic_error(ctx, err, call);
                 }
 
                 // zjistí se typ
@@ -1766,6 +1871,12 @@ ErrorCode call_prepare_target(ASTNode *call, SemanticContext *ctx, CallKind *kin
                 if (!method || !method->function || method->function->type != AST_FUNC_DEF) {
                     type_info_free(owned);
                     return semantic_error(ctx, ERR_INTERNAL, call);
+                }
+
+                err = semantic_add_call_edge(ctx, method->function);
+                if (err != ERR_OK) {
+                    type_info_free(owned);
+                    return semantic_error(ctx, err, call);
                 }
 
                 *own_groups = call_param_group_count(method->function->data.func_def.param_groups);
@@ -2224,6 +2335,13 @@ ErrorCode semantic_member_access(ASTNode **node, SemanticContext *ctx) {
         return semantic_error(ctx, ERR_SEM_ARGS, node != NULL ? *node : NULL);
     }
 
+    // vytvoří hrau volání funkce
+    error = semantic_add_call_edge(ctx, method->function);
+    if (error != ERR_OK) {
+        type_info_free(result);
+        return semantic_error(ctx, error, member);
+    }
+
     // vytvoří klon typu result, typ result bude potřeba pro 2 různé uzly
     TypeInfo *call_type = type_info_clone(result);
 
@@ -2398,7 +2516,13 @@ ErrorCode semantic_assignment(ASTNode *node, SemanticContext *ctx) {
     }
 
     // vyřeší pravou stranu přiazení
+    ErrorCode saved_error = ctx->expected_type_error;
+    ctx->expected_type_error = ERR_SEM_TYPE;
+
     ErrorCode res = semantic_visit(&node->data.assignment.value, ctx, tar_var->expr_type);
+
+    ctx->expected_type_error = saved_error;
+
     if (res != ERR_OK) {
         return semantic_error(ctx, res, node);
     }
@@ -2465,8 +2589,13 @@ ErrorCode semantic_var_def(tStack *scope, ASTNode *node, SemanticContext *ctx, b
         if (is_param) {
             ast_set_type(node, exp_type);
         } else {
-            // zpracuje inicializér proměnné
+            // zpracuje inicializér proměnné (předtím uloží a pak obnoví typ)
+            ErrorCode saved_error = ctx->expected_type_error;
+            ctx->expected_type_error = ERR_SEM_TYPE;
+
             ErrorCode result = semantic_visit(&node->data.var_def.initializer, ctx, exp_type);
+
+            ctx->expected_type_error = saved_error;
 
             if (result != ERR_OK) {
                 if (exp_type != NULL) {
@@ -3727,8 +3856,7 @@ ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx) {
         if (node->data.range.step->expr_type->type_class != TYPE_INT) {
             return semantic_error(ctx, ERR_SEM_TYPE, node);
         }
-        if (node->data.range.step->type == AST_LITERAL &&
-            semantic_is_literal_zero(node->data.range.step)) {
+        if (semantic_is_literal_zero(node->data.range.step)) {
             return semantic_error(ctx, ERR_SEM_OTHER, node);
         }
     }
