@@ -1,0 +1,25 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: vetev match vola funkci s dalsim match (vnoreni za behu) (spec 5.5)
+import ifj26.*
+
+def inner(n: Int): String =
+  n match
+    case 1 => "jedna"
+    case _ => "cislo"
+
+def outer(v: Int | String): String =
+  v match
+    case n: Int => inner(n)
+    case s: String => "txt"
+    case _ => "?"
+
+@main def main(): Unit =
+  val a = outer(1)
+  val b = outer(9)
+  val c = outer("x")
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print("\n")

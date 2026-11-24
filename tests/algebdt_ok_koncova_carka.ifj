@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: koncova carka za poslednim atributem a argumentem pred LF a ) (spec 1.2)
+import ifj26.*
+
+case class P3(
+  x: Int,
+  y: Int,
+  z: Int,
+  )
+
+@main def main(): Unit =
+  val p = P3(1, 2, 3)
+  val s = p.x + p.y + p.z
+  val q = P3(
+    4,
+    5,
+    6,
+    )
+  val t = q.z
+  print(s)
+  print(" ")
+  print(t)
+  print("\n")

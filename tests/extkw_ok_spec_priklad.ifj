@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// EXTKW: priklad ze specifikace 5.9 (bezparametricka metoda, prazdny seznam, jeden parametr) doplneny o vypis
+import ifj26.*
+
+extension (value: Int)
+  // bezparametricka metoda
+  def twice: Int = value * 2
+  // metoda s prazdnym seznamem parametru
+  def foo(): String = "foo" + value.toString
+  // metoda s jednim parametrem
+  def plus(other: Int): Int = value + other
+
+def someFn() =
+  val x: Int = 6
+  val y = x.twice
+  val z = x.foo()
+  val w = x.plus(12)
+  print(y)
+  print(" ")
+  print(z)
+  print(" ")
+  print(w)
+  print("\n")
+
+@main def main(): Unit =
+  someFn()

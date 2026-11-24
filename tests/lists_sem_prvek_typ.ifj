@@ -1,0 +1,8 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: Double prvek v List[Int] (implicitni konverze jen Int na Double) (spec 5.8 a 1.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val l: List[Int] = List(1.5)
+  print(l)

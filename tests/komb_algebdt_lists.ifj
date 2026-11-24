@@ -1,0 +1,14 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT + LISTS: seznam datovych trid, for a pristup k atributum (spec 5.5 a 5.8)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+
+@main def main(): Unit =
+  val pts = List(Point(1, 2), Point(3, 4))
+  for p <- pts do print(p.x + p.y)
+  print("\n")
+  val q = pts(1)
+  val qy = q.y
+  print(qy)
+  print("\n")

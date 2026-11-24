@@ -1,0 +1,21 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: ridici promenna je nova promenna tela (zastineni), vnorene for, val v tele (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val i = 100
+  for i <- 1 to 2 do
+    print(i)
+  print(" ")
+  print(i)
+  print("\n")
+  for j <- 1 to 2 do
+    for k <- 1 to 2 do
+      print(j)
+      print(k)
+      print(" ")
+  print("\n")
+  for j <- 1 to 3 do
+    val sq = j * j
+    print(sq)
+  print("\n")

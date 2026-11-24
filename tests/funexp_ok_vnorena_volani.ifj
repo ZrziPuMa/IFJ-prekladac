@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: vnorena volani, volani v podmince if a while (spec 5.1)
+import ifj26.*
+
+def add(a: Int, b: Int): Int = a + b
+
+def sq(x: Int): Int = x * x
+
+@main def main(): Unit =
+  print(add(add(1, 2), add(3, 4)))
+  print("\n")
+  print(sq(add(1, sq(2))))
+  print("\n")
+  val v = sq(sq(sq(2)))
+  print(v)
+  print("\n")
+  if add(2, 3) == 5 then
+    print("ok")
+  else
+    print("ne")
+  print("\n")
+  var i = 0
+  while sq(i) < 20 do
+    i = add(i, 1)
+  print(i)
+  print("\n")

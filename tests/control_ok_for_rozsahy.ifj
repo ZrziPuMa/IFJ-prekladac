@@ -1,0 +1,21 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: for pres to a until, jednoprvkovy, prazdny a zaporny rozsah (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  for i <- 1 to 5 do print(i)
+  print("\n")
+  for i <- 1 until 5 do print(i)
+  print("\n")
+  for i <- 3 to 3 do print(i)
+  print("|")
+  for i <- 3 until 3 do print(i)
+  print("|")
+  for i <- 5 to 1 do print(i)
+  print("\n")
+  for i <- 1 to 3 do
+    print(i)
+    print(",")
+  print("\n")
+  for i <- -2 to 2 do print(i)
+  print("\n")

@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN + FUNEXP: zkratove vyhodnoceni nevola pravy operand (spec 5.2)
+import ifj26.*
+
+def t(s: String): Boolean =
+  print(s)
+  true
+
+def f(s: String): Boolean =
+  print(s)
+  false
+
+@main def main(): Unit =
+  val a = t("a") || t("b")
+  val b = f("c") && t("d")
+  val c = f("e") || t("f")
+  val d = t("g") && f("h")
+  print(" ")
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print(" ")
+  print(d)
+  print("\n")

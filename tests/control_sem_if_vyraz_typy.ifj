@@ -1,0 +1,9 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: vetve if-vyrazu musi mit kompatibilni typ (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val f = true
+  val x: Int = if f then 1 else "a"
+  print(x)

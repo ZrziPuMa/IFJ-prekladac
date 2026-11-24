@@ -1,0 +1,39 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: readIntMaybe a readDoubleMaybe, 0 je platna hodnota, mezera a text a EOF vraci () (spec 5.5 a 7.4.4)
+import ifj26.*
+
+def popis(v: Int | Unit): String =
+  v match
+    case n: Int => toStr(n)
+    case _ => "()"
+
+def popisD(v: Double | Unit): String =
+  v match
+    case d: Double => toStr(d)
+    case _ => "()"
+
+@main def main(): Unit =
+  val a = readIntMaybe()
+  val b = readIntMaybe()
+  val c = readIntMaybe()
+  val d = readIntMaybe()
+  val e = readDoubleMaybe()
+  val f = readDoubleMaybe()
+  val sa = popis(a)
+  val sb = popis(b)
+  val sc = popis(c)
+  val sd = popis(d)
+  val se = popisD(e)
+  val sf = popisD(f)
+  print(sa)
+  print(" ")
+  print(sb)
+  print(" ")
+  print(sc)
+  print(" ")
+  print(sd)
+  print(" ")
+  print(se)
+  print(" ")
+  print(sf)
+  print("\n")

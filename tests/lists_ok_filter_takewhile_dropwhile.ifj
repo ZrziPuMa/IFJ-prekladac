@@ -1,0 +1,25 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: filter, takeWhile, dropWhile s lambdou, priklad ze specifikace (spec 5.8, LAMBDAS, BOOLTHEN)
+import ifj26.*
+
+@main def main(): Unit =
+  val foo = List(1, 2, 6, 89, 20, 1)
+  val goo = foo.takeWhile((x: Int) => x < 10)
+  print(goo)
+  print("\n")
+  val d = foo.dropWhile((x: Int) => x < 10)
+  print(d)
+  print("\n")
+  val f = foo.filter((x: Int) => x < 10)
+  print(f)
+  print("\n")
+  val none = foo.filter((x: Int) => x > 100)
+  print(none)
+  print("\n")
+  val all = foo.takeWhile((x: Int) => x > 0)
+  print(all)
+  print("\n")
+  val e: List[Int] = List()
+  val e2 = e.dropWhile((x: Int) => x < 10)
+  print(e2)
+  print("\n")

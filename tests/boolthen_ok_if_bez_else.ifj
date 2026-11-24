@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: if bez else a retez else if bez posledniho else (spec 5.2)
+import ifj26.*
+
+def classify(x: Int): Unit =
+  if x < 0 then
+    print("negative")
+  else if x == 0 then
+    print("zero")
+  else if x < 10 then
+    print("small")
+  print("|")
+
+@main def main(): Unit =
+  val a = -5
+  val b = 0
+  val c = 7
+  val d = 100
+  classify(a)
+  classify(b)
+  classify(c)
+  classify(d)
+  print("\n")
+  if a < b then
+    print("jen then")
+  print("\n")

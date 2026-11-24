@@ -1,0 +1,10 @@
+// expect: 3
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: konstruktor nedefinovane tridy (spec 6, kod 3)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+
+@main def main(): Unit =
+  val p = Pt(1, 2)
+  print("x")

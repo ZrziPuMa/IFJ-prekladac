@@ -1,0 +1,12 @@
+// expect: 3
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// EXTKW: rozsirujici metoda se vola vyhradne clenskym zapisem, twice(x) je nedefinovana funkce (spec 5.9)
+import ifj26.*
+
+extension (v: Int)
+  def twice: Int = v * 2
+
+@main def main(): Unit =
+  val x = 6
+  val y = twice(x)
+  print(y)

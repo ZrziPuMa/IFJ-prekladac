@@ -1,0 +1,10 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: argument-vyraz typu Double pro parametr Int je chyba 5 (spec 4)
+import ifj26.*
+
+def f(x: Int): Int = x + 1
+
+@main def main(): Unit =
+  val y = f(1.5 + 1)
+  print(y)

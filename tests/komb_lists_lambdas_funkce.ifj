@@ -1,0 +1,15 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS + LAMBDAS: filter s pojmenovanou funkci a s promennou funkcniho typu (spec 5.7 a 5.8)
+import ifj26.*
+
+def small(x: Int): Boolean = x < 10
+
+@main def main(): Unit =
+  val foo = List(1, 2, 6, 89, 20, 1)
+  val r = foo.filter(small)
+  print(r)
+  print("\n")
+  val p: (Int) => Boolean = (x: Int) => x > 5
+  val r2 = foo.filter(p)
+  print(r2)
+  print("\n")

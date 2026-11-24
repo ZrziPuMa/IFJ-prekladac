@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: seznam jako parametr a navratova hodnota funkce (spec 5.8)
+import ifj26.*
+
+def sum(l: List[Int]): Int =
+  var s = 0
+  for x <- l do s = s + x
+  s
+
+def build(n: Int): List[Int] = List.range(0, n)
+
+@main def main(): Unit =
+  val a = List(1, 2, 3)
+  val r1 = sum(a)
+  val four = 4
+  val b = build(four)
+  val r2 = sum(b)
+  print(r1)
+  print(" ")
+  print(r2)
+  print("\n")
+  print(b)
+  print("\n")

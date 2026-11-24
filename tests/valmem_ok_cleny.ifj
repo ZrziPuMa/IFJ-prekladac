@@ -1,0 +1,42 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// VALMEM: cleny toString, toInt, floor, length, retezeni, zaporna cisla, () a vyraz jako prijemce (spec 5.4)
+import ifj26.*
+
+@main def main(): Unit =
+  val n = 42
+  val s = n.toString
+  print(s)
+  print("\n")
+  val len = "ahoj".length
+  print(len)
+  print("\n")
+  val d = 3.7
+  val t = d.toInt
+  print(t)
+  print("\n")
+  val fl = d.floor
+  val fls = toStr(fl)
+  print(fls)
+  print("\n")
+  val number = -2.5
+  val r = number.floor.toInt
+  print(r)
+  print("\n")
+  val pi = (1.2345).toString
+  print(pi)
+  print("\n")
+  val u = ().toString
+  print(u)
+  print("\n")
+  val e = (2 + 3).toString
+  print(e)
+  print("\n")
+  val ch = "abc".length.toString.length
+  print(ch)
+  print("\n")
+  val neg = (-7.5).toInt
+  print(neg)
+  print("\n")
+  val whole = (4.0).floor.toString
+  print(whole)
+  print("\n")

@@ -1,0 +1,18 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: for s krokem by, zaporny krok, krok jako promenna, prazdne rozsahy (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  for i <- 1 to 10 by 2 do print(i)
+  print("\n")
+  for i <- 5 to 1 by -2 do print(i)
+  print("\n")
+  for i <- 10 to 1 by 3 do print(i)
+  print("|")
+  for i <- 1 to 10 by -1 do print(i)
+  print("|")
+  val s = 3
+  for i <- 0 to 9 by s do print(i)
+  print("\n")
+  for i <- 10 to 0 by -5 do print(i)
+  print("\n")

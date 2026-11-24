@@ -1,0 +1,9 @@
+// expect: run 40
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: List.range s nulovym krokem za behu konci chybou 40 (spec 5.8)
+import ifj26.*
+
+@main def main(): Unit =
+  val s = readInt()
+  val r = List.range(1, 5, s)
+  print(r)

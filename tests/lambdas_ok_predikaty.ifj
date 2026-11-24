@@ -1,0 +1,19 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: predikat (Int) => Boolean jako parametr volany v podmince (spec 5.7, BOOLTHEN)
+import ifj26.*
+
+def countIf(p: (Int) => Boolean, limit: Int): Int =
+  var c = 0
+  var i = 0
+  while i < limit do
+    if p(i) then
+      c = c + 1
+    i = i + 1
+  c
+
+@main def main(): Unit =
+  val even = (n: Int) => n / 2 * 2 == n
+  print(countIf(even, 10))
+  print(" ")
+  print(countIf((n: Int) => n > 6, 10))
+  print("\n")

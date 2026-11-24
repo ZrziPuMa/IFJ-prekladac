@@ -1,0 +1,24 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: podminkou if a while muze byt libovolny vyraz typu Boolean (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  var running = true
+  var i = 0
+  while running do
+    i = i + 1
+    if i >= 3 then
+      running = false
+  print(i)
+  print("\n")
+  val flag = i == 3
+  if flag then
+    print("ano")
+  else
+    print("ne")
+  print("\n")
+  if !flag then
+    print("x")
+  else
+    print("y")
+  print("\n")

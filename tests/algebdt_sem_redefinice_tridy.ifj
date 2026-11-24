@@ -1,0 +1,10 @@
+// expect: 4
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: dve tridy stejneho jmena (spec 6, kod 4)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+case class Point(a: Int)
+
+@main def main(): Unit =
+  print("x")

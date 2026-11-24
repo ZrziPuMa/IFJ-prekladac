@@ -1,0 +1,16 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: vestavena funkce readBoolean (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = readBoolean()
+  val b = readBoolean()
+  print(a)
+  print(" ")
+  print(b)
+  print("\n")
+  if a && !b then
+    print("ok")
+  else
+    print("ne")
+  print("\n")

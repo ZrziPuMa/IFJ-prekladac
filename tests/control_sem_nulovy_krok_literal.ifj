@@ -1,0 +1,7 @@
+// expect: 10
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: nulovy krok zadany literalem kontroluje prekladac, chyba 10 (spec 5.3 a 6)
+import ifj26.*
+
+@main def main(): Unit =
+  for i <- 1 to 5 by 0 do print(i)

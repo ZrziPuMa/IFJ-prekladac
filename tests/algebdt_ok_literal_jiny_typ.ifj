@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: literal jineho typu nez hodnota ve sjednoceni nesmi zpusobit chybu, jen nesedi (spec 5.5)
+import ifj26.*
+
+def test(v: Int | String): String =
+  v match
+    case 0 => "int nula"
+    case "0" => "string nula"
+    case _ => "jine"
+
+@main def main(): Unit =
+  val r1 = test(0)
+  val r2 = test("0")
+  val r3 = test("a")
+  val r4 = test(1)
+  print(r1)
+  print("|")
+  print(r2)
+  print("|")
+  print(r3)
+  print("|")
+  print(r4)
+  print("\n")

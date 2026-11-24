@@ -1,0 +1,15 @@
+// expect: 4
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// EXTKW: jmeno metody nesmi byt pro tentyz typ definovano vicekrat (spec 5.9)
+import ifj26.*
+
+extension (v: Int)
+  def twice: Int = v * 2
+
+extension (w: Int)
+  def twice: Int = w + w
+
+@main def main(): Unit =
+  val x = 1
+  val y = x.twice
+  print(y)

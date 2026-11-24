@@ -1,0 +1,14 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: readLine vraci radek vc. LF, posledni radek bez LF, po EOF prazdny retezec (spec 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = strLength(readLine())
+  val b = strLength(readLine())
+  val c = strLength(readLine())
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print("\n")

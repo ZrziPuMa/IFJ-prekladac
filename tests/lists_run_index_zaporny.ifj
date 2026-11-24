@@ -1,0 +1,10 @@
+// expect: run 40
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: zaporny index je behova chyba 40 (spec 5.8)
+import ifj26.*
+
+@main def main(): Unit =
+  val l = List(1, 2, 3)
+  val i = -1
+  val x = l(i)
+  print(x)

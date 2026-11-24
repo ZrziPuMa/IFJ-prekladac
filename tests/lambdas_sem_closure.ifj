@@ -1,0 +1,9 @@
+// expect: 3
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: uzavery nejsou podporovany, lambda nesmi pouzit lokalni promennou funkce (spec 5.7)
+import ifj26.*
+
+@main def main(): Unit =
+  val k = 5
+  val f = (x: Int) => x + k
+  print(f(1))

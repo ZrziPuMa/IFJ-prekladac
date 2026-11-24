@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: ! nad nasobenim, && pod relacnimi, || nejnize (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = 1 < 2 || 2 < 1 && 1 > 2
+  val b = !true || true
+  val c = true || false && false
+  val d = !(1 < 2) && true
+  val e = false && false || true
+  val g = !false == true
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print(" ")
+  print(d)
+  print(" ")
+  print(e)
+  print(" ")
+  print(g)
+  print("\n")
