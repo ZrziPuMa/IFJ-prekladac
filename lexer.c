@@ -156,6 +156,8 @@ tToken give_token(void) {
                             while (true) {
                                 int p_spaces = 0;
                                 bool p_tab = false;
+                                bool has_nl_com = false;
+                                bool started_slash = false;
                                 int pch = getc(file);
                                 while (pch == ' ' || pch == '\t' || pch == '\r') {
                                     if (pch == ' ') {
@@ -165,6 +167,68 @@ tToken give_token(void) {
                                     }
                                     pch = getc(file);
                                 }
+
+                                while (pch == '/') {
+                                    int pnext = getc(file);
+                                    if (pnext == '/') {
+                                        while (pch != '\n' && pch != EOF) {
+                                            pch = getc(file);
+                                            if (pch != '\n' && pch != EOF &&
+                                                (pch < 0 || pch > 127)) {
+                                                token = make_lex_error(
+                                                    line, "Chyba: Nepovolený znak v komentáři.");
+                                                completed = true;
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                    } else if (pnext == '*') {
+                                        int depth = 1;
+                                        while (depth > 0 && !completed) {
+                                            int bc = getc(file);
+                                            if (bc == EOF || bc < 0 || bc > 127) {
+                                                token = make_lex_error(
+                                                    line, "Chyba: Neukončený nebo neplatný "
+                                                          "blokový komentář.");
+                                                completed = true;
+                                            } else if (bc == '\n') {
+                                                line++;
+                                                has_nl_com = true;
+                                            } else if (bc == '/') {
+                                                int bc2 = getc(file);
+                                                if (bc2 == '*') {
+                                                    depth++;
+                                                } else if (bc2 != EOF) {
+                                                    ungetc(bc2, file);
+                                                }
+                                            } else if (bc == '*') {
+                                                int bc2 = getc(file);
+                                                if (bc2 == '/') {
+                                                    depth--;
+                                                } else if (bc2 != EOF) {
+                                                    ungetc(bc2, file);
+                                                }
+                                            }
+                                        }
+                                        if (completed) {
+                                            break;
+                                        }
+                                        pch = getc(file);
+                                        while (pch == ' ' || pch == '\t' || pch == '\r') {
+                                            pch = getc(file);
+                                        }
+                                    } else {
+                                        if (pnext != EOF) {
+                                            ungetc(pnext, file);
+                                        }
+                                        started_slash = true;
+                                        break;
+                                    }
+                                }
+
+                                if (completed) {
+                                    break;
+                                }
                                 if (pch == '\n') {
                                     line++;
                                     continue;
@@ -172,22 +236,14 @@ tToken give_token(void) {
                                 if (pch == EOF) {
                                     break;
                                 }
-                                if (pch == '/') {
-                                    int pnext = getc(file);
-                                    if (pnext == '/') {
-                                        while (pch != '\n' && pch != EOF) {
-                                            pch = getc(file);
-                                        }
-                                        if (pch == '\n') {
-                                            line++;
-                                            continue;
-                                        }
-                                        break;
-                                    }
-                                    if (pnext != EOF) {
-                                        ungetc(pnext, file);
-                                    }
+                                if (has_nl_com) {
+                                    token =
+                                        make_lex_error(line, "Chyba: Za víceřádkovým komentářem "
+                                                             "nesmí následovat token.");
+                                    completed = true;
+                                    break;
                                 }
+
                                 int base_indent = lstack_top(indent_stack);
                                 if (p_tab || p_spaces <= base_indent) {
                                     token =
@@ -196,7 +252,11 @@ tToken give_token(void) {
                                     completed = true;
                                     break;
                                 }
-                                ungetc(pch, file);
+                                if (started_slash) {
+                                    token.state = state_slash;
+                                } else {
+                                    ungetc(pch, file);
+                                }
                                 break;
                             }
                             break;
@@ -584,9 +644,8 @@ tToken give_token(void) {
                     token.state = state_string_esc;
                     break;
                 } else if (c == '\n' || c == EOF || c < 0 || c > 127) {
-                    token = make_lex_error(
-                        line,
-                        "Chyba: Řetězcový literál je neukončený nebo obsahuje nepovolený znak.");
+                    token = make_lex_error(line, "Chyba: Řetězcový literál je neukončený "
+                                                 "nebo obsahuje nepovolený znak.");
                     completed = true;
                     break;
                 } else {
@@ -603,9 +662,8 @@ tToken give_token(void) {
                     token.state = state_string_esc;
                     break;
                 } else if (c == '\n' || c == EOF || c < 0 || c > 127) {
-                    token = make_lex_error(
-                        line,
-                        "Chyba: Řetězcový literál je neukončený nebo obsahuje nepovolený znak.");
+                    token = make_lex_error(line, "Chyba: Řetězcový literál je neukončený "
+                                                 "nebo obsahuje nepovolený znak.");
                     completed = true;
                     break;
                 } else {
@@ -841,9 +899,8 @@ tToken give_token(void) {
                                 }
                             }
                             if (after != '\n' && after != EOF) {
-                                token = make_lex_error(
-                                    line,
-                                    "Chyba: Za víceřádkovým komentářem nesmí následovat token.");
+                                token = make_lex_error(line, "Chyba: Za víceřádkovým komentářem "
+                                                             "nesmí následovat token.");
                                 completed = true;
                                 break;
                             }
