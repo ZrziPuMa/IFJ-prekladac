@@ -1465,7 +1465,7 @@ ErrorCode generate_code(const ASTNode *root) {
  * @param name Jméno třídy, kterou hledáme.
  * @return Ukazatel na uzel AST reprezentující definici třídy, pokud byla nalezena, jinak NULL.
  */
-static const ASTNode *adt_find_class(const GenState *stt, const char *name) {
+static const ASTNode *algebdt_find_class(const GenState *stt, const char *name) {
     if (stt->program == NULL || name == NULL) {
         return NULL;
     }
@@ -1479,12 +1479,12 @@ static const ASTNode *adt_find_class(const GenState *stt, const char *name) {
 }
 
 /**
- * @brief Pomocná funkce pro získání počtu polí v třídě.
+ * @brief Pomocná funkce pro získání počtu atributů třídy.
  *
  * @param class_def Ukazatel na uzel AST reprezentující definici třídy.
- * @return Počet polí v třídě.
+ * @return Počet atributů třídy.
  */
-static int adt_field_count(const ASTNode *class_def) {
+static int algebdt_field_count(const ASTNode *class_def) {
     int count = 0;
     for (const ASTNode *f = class_def->data.class_def.fields; f != NULL; f = f->next) {
         count++;
@@ -1493,13 +1493,13 @@ static int adt_field_count(const ASTNode *class_def) {
 }
 
 /**
- * @brief Pomocná funkce pro získání indexu pole v třídě podle jeho jména.
+ * @brief Pomocná funkce pro získání indexu atributu v třídě podle jeho jména.
  *
  * @param class_def Ukazatel na uzel AST reprezentující definici třídy.
- * @param field_name Jméno pole, jehož index hledáme.
- * @return Index pole v třídě, pokud bylo nalezeno, jinak -1.
+ * @param field_name Jméno atributu, jehož pozici hledáme.
+ * @return Index 1..N (index 0 je značka třídy), jinak -1.
  */
-static int adt_field_index(const ASTNode *class_def, const char *field_name) {
+static int algebdt_field_index(const ASTNode *class_def, const char *field_name) {
     int index = 1;
     for (const ASTNode *f = class_def->data.class_def.fields; f != NULL; f = f->next) {
         if (f->data.var_def.identifier != NULL &&
@@ -1517,7 +1517,7 @@ static int adt_field_index(const ASTNode *class_def, const char *field_name) {
  * @param type Ukazatel na strukturu TypeInfo reprezentující typ výrazu.
  * @return Jméno třídy, pokud typ odpovídá vlastnímu typu (TYPE_CUSTOM), jinak NULL.
  */
-static const char *adt_class_name(const TypeInfo *type) {
+static const char *algebdt_class_name(const TypeInfo *type) {
     if (type != NULL && type->type_class == TYPE_CUSTOM) {
         return type->data.custom_name;
     }
@@ -1525,27 +1525,27 @@ static const char *adt_class_name(const TypeInfo *type) {
 }
 
 void gen_constructor(const ASTNode *expr, GenState *stt) {
-    const char *name =
-        adt_class_name(expr->expr_type); // F.B. ALGEBDT: získání jména třídy z typu výrazu
-    const ASTNode *target =
-        expr->data.func_call
-            .target; // F.B. ALGEBDT: získání cílového uzlu volání funkce (konstruktoru)
+    // F.B. ALGEBDT: získání jména třídy z typu výrazu
+    const char *name = algebdt_class_name(expr->expr_type);
+    // F.B. ALGEBDT: získání cílového uzlu volání funkce (konstruktoru)
+    const ASTNode *target = expr->data.func_call.target;
 
     // Pokud jméno třídy není přímo dostupné, zkusíme ho získat z cílového uzlu volání funkce
     if (name == NULL && target != NULL && target->type == AST_IDENTIFIER) {
         name = target->data.identifier.name;
     }
 
-    // Pokud jméno třídy stále není dostupné, nelze pokračovat
-    const ASTNode *class_def = adt_find_class(stt, name);
+    //  Najdeme definici třídy v programu (potřebujeme počet atributů)
+    const ASTNode *class_def = algebdt_find_class(stt, name);
 
     // Pokud definice třídy nebyla nalezena, nelze pokračovat
     if (class_def == NULL) {
         return;
     }
 
-    // Argumenty jsou na zásobníku v pořadí atributů, nahoře je poslední
-    const int n = adt_field_count(class_def);
+    // Argumenty jsou na zásobníku v pořadí atributů, nahoře je poslední atribut, dole první.
+    // Získáme počet atributů třídy.
+    const int n = algebdt_field_count(class_def);
 
     // Vytvoření pole pro uložení hodnot atributů a inicializace prvního prvku na jméno třídy
     printf("NEWARRAY GF@%%tmp1 int@%d\n", n + 1);
@@ -1558,22 +1558,22 @@ void gen_constructor(const ASTNode *expr, GenState *stt) {
         printf("ARRAYSET GF@%%tmp1 int@%d GF@%%tmp2\n", i);
     }
 
-    // Uložení pole do GF@%tmp1, které bude reprezentovat instanci třídy
+    // Hotovou instanci (pole) dáme na zásobník jako výsledek výrazu
     printf("PUSHS GF@%%tmp1\n");
 }
 
 void gen_field_access(const ASTNode *expr, GenState *stt) {
     const ASTNode *object = expr->data.member_access.object;
-    const ASTNode *class_def = adt_find_class(stt, adt_class_name(object->expr_type));
+    const ASTNode *class_def = algebdt_find_class(stt, algebdt_class_name(object->expr_type));
 
     // Pokud definice třídy nebyla nalezena, nelze pokračovat
     if (class_def == NULL) {
         return;
     }
-    // Získání indexu pole podle jména člena
-    const int index = adt_field_index(class_def, expr->data.member_access.member_name);
+    // Získání indexu atributu podle jména člena
+    const int index = algebdt_field_index(class_def, expr->data.member_access.member_name);
 
-    // Generování kódu pro vyhodnocení objektu (instance třídy) a uložení do GF@%tmp1
+    // Instance (objekt před tečkou) na zásobník
     gen_expr(object, stt);
     // Uložení objektu (pole) do GF@%tmp1
     printf("POPS GF@%%tmp1\n");
@@ -1581,8 +1581,253 @@ void gen_field_access(const ASTNode *expr, GenState *stt) {
     printf("PUSHS GF@%%tmp2\n");
 }
 
+/**
+ * @brief Pomocná funkce pro získání názvu typu literálu.
+ *
+ * @param literal Uzel reprezentující literál.
+ * @return Název typu literálu.
+ */
+static const char *algebdt_literal_type_name(const ASTNode *literal) {
+    if (literal->to_double) {
+        return "float";
+    }
+    switch (literal->data.literal.kind) {
+        case LIT_INT:
+            return "int";
+        case LIT_DOUBLE:
+            return "float";
+        case LIT_STRING:
+            return "string";
+        case LIT_BOOL:
+            return "bool";
+        case LIT_UNIT:
+        default:
+            return "nil";
+    }
+}
+
+/**
+ * @brief Vygeneruje test, zda hodnota v GF@%tmp2 je rovna literálu, jinak skočí na fail. Používá
+ * GF@%tmp3.
+ *
+ * @param literal Uzel reprezentující literál.
+ * @param stt Stav generátoru.
+ * @param fail Návěští, kam skočit, když hodnota není rovna literálu.
+ */
+static void algebdt_test_literal(const ASTNode *literal, GenState *stt, const char *fail) {
+    printf("TYPE GF@%%tmp3 GF@%%tmp2\n");
+    printf("JUMPIFNEQ %s GF@%%tmp3 string@%s\n", fail, algebdt_literal_type_name(literal));
+    printf("PUSHS GF@%%tmp2\n");
+    gen_expr(literal, stt); // literál jen PUSHS, GF@%tmp se nemění
+    printf("JUMPIFNEQS %s\n", fail);
+}
+
+/**
+ * @brief Skočí na ok_label, pokud hodnota v GF@%tmp1 je za běhu typu type, jinak pokračuje dál.
+ * Používá GF@%tmp2.
+ *
+ * @param type Typ ze vzoru (např. Int | Double).
+ * @param stt Stav generátoru.
+ * @param ok_label návěští, na který se má provést skok, pokud typ odpovídá.
+ */
+static void algebdt_jump_if_type(const TypeInfo *type, GenState *stt, const char *ok_label) {
+    if (type == NULL) {
+        return;
+    }
+    switch (type->type_class) {
+        case TYPE_UNION:
+            // Rekurzivní volání pro levý a pravý typ unie
+            algebdt_jump_if_type(type->data.union_type.left, stt, ok_label);
+            algebdt_jump_if_type(type->data.union_type.right, stt, ok_label);
+            break;
+        case TYPE_INT:
+        case TYPE_DOUBLE:
+        case TYPE_STRING:
+        case TYPE_BOOLEAN:
+        case TYPE_UNIT: {
+            // Získání názvu typu jako řetězce pro porovnání
+            const char *name;
+            if (type->type_class == TYPE_INT) {
+                name = "int";
+            } else if (type->type_class == TYPE_DOUBLE) {
+                name = "float";
+            } else if (type->type_class == TYPE_STRING) {
+                name = "string";
+            } else if (type->type_class == TYPE_BOOLEAN) {
+                name = "bool";
+            } else { // TYPE_UNIT
+                name = "nil";
+            }
+            printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+            printf("JUMPIFEQ %s GF@%%tmp2 string@%s\n", ok_label, name);
+            break;
+        }
+        case TYPE_CUSTOM: {
+            // instance třídy
+            const int id = stt->l_cnt++;
+            printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+            printf("JUMPIFNEQ $algebdt_skip_%d GF@%%tmp2 string@array\n", id);
+            printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@0\n");
+            printf("JUMPIFEQ %s GF@%%tmp2 string@%s\n", ok_label, type->data.custom_name);
+            printf("LABEL $algebdt_skip_%d\n", id);
+            break;
+        }
+        case TYPE_ANY:
+            printf("JUMP %s\n", ok_label);
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * @brief Pomocná funkce pro generování kódu, který provede testování patternu a v případě selhání
+ * provede skok na zadaný štít.
+ *
+ * @param pattern Ukazatel na uzel AST reprezentující pattern.
+ * @param stt Stav generátoru.
+ * @param fail Návěští, kam skočit, když pattern nesedí
+ */
+static void algebdt_test_pattern(const ASTNode *pattern, GenState *stt, const char *fail) {
+    switch (pattern->data.pattern.pat_type) {
+        case PATTERN_WILDCARD:
+            break;
+
+            // F.B. ALGEBDT: generování kódu pro testování literálu, pokud je v patternu
+        case PATTERN_LITERAL:
+            printf("MOVE GF@%%tmp2 GF@%%tmp1\n");
+            algebdt_test_literal(pattern->data.pattern.detail.literal_val, stt, fail);
+            break;
+
+            // F.B. ALGEBDT: generování kódu pro testování typu, pokud je v patternu
+        case PATTERN_TYPE_BINDING: {
+            const int id = stt->l_cnt++;
+            char ok_label[48];
+            snprintf(ok_label, sizeof ok_label, "$algebdt_type_ok_%d", id);
+            algebdt_jump_if_type(pattern->expr_type, stt, ok_label);
+            printf("JUMP %s\n", fail);
+            printf("LABEL %s\n", ok_label);
+            break;
+        }
+
+        // F.B. ALGEBDT: generování kódu pro testování konstruktoru, pokud je v patternu
+        case PATTERN_CONSTRUCTOR: {
+            const char *name =
+                pattern->data.pattern.detail.constructor.class_type->data.custom_name;
+            printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+            printf("JUMPIFNEQ %s GF@%%tmp2 string@array\n", fail);
+            printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@0\n");
+            printf("JUMPIFNEQ %s GF@%%tmp2 string@%s\n", fail, name);
+
+            int index = 1; // pozice atributu v poli instance
+            const ASTNode *arg =
+                pattern->data.pattern.detail.constructor.args; // první argument vzoru
+
+            while (arg != NULL) {
+                // Literál ve vzoru (Point(_, 0)) musí sedět s atributem na stejné pozici
+                if (arg->type == AST_PATTERN && arg->data.pattern.pat_type == PATTERN_LITERAL) {
+                    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@%d\n", index);
+                    algebdt_test_literal(arg->data.pattern.detail.literal_val, stt, fail);
+                }
+                // Posun na další argument a další pozici
+                arg = arg->next;
+                index++;
+            }
+            break;
+        }
+    }
+}
+
+/**
+ * @brief Pomocná funkce pro generování kódu, který provede přiřazení hodnoty z patternu do
+ * lokálních proměnných.
+ *
+ * @param pattern Ukazatel na uzel AST reprezentující pattern.
+ */
+static void algebdt_bind_pattern(const ASTNode *pattern) {
+
+    // pokud je pattern typu PATTERN_TYPE_BINDING, přiřadí hodnotu z GF@%tmp1 do lokální proměnné
+    if (pattern->data.pattern.pat_type == PATTERN_TYPE_BINDING) {
+
+        if (pattern->data.pattern.var_id > 0) {
+            printf("MOVE LF@%s$%d GF@%%tmp1\n", pattern->data.pattern.bound_identifier,
+                   pattern->data.pattern.var_id);
+        }
+
+        // jinak, pokud je pattern typu PATTERN_CONSTRUCTOR, projde všechny argumenty konstruktoru a
+        // přiřadí hodnoty z GF@%tmp1 do lokálních proměnných podle jejich indexu
+    } else if (pattern->data.pattern.pat_type == PATTERN_CONSTRUCTOR) {
+        int index = 1;
+        // for cyklus procházející argumenty konstruktoru a generující kód pro přiřazení hodnot do
+        // lokálních proměnných
+        for (const ASTNode *arg = pattern->data.pattern.detail.constructor.args; arg != NULL;
+             arg = arg->next, index++) {
+            // _ ve vzoru je buď PATTERN_WILDCARD, nebo VAR_DEF bez jména (var_id -1): přeskočit
+            if (arg->type == AST_VAR_DEF && arg->data.var_def.identifier != NULL &&
+                arg->data.var_def.var_id > 0) {
+                printf("ARRAYGET LF@%s$%d GF@%%tmp1 int@%d\n", arg->data.var_def.identifier,
+                       arg->data.var_def.var_id, index);
+            }
+        }
+    }
+}
+
+// (AI) prompt: Napiš mi funkci gen_match, která bude generovat kód pro výraz match. Funkce dostane
+// ukazatel na uzel AST typu AST_MATCH_EXPR a ukazatel na stav generátoru. Funkce bude generovat kód
+// pro vyhodnocení výrazu match, včetně vyhodnocení subjektu, testování patternů a přiřazení hodnot
+// do lokálních proměnných. V případě, že žádný pattern nevyhoví, bude generovat kód pro ukončení
+// programu. Využij k tomu funkce algebdt_test_pattern a algebdt_bind_pattern.
+// AI navíc doplnila nepovinnou stráž (if) a započítání subjektu do stt->stack_on_extra,
+// aby ho return uvnitř větve uklidil.
 void gen_match(const ASTNode *expr, GenState *stt) {
-    // TODO
-    (void)expr;
-    (void)stt;
+    const int id = stt->l_cnt++;
+    char fail[48]; // Rezerva místo pro návěští
+
+    // Subjekt na zásobník; return uvnitř větve ho musí uklidit (viz AST_RETURN v gen_block)
+    gen_expr(expr->data.match_expr.matched_expr, stt);
+    stt->stack_on_extra++;
+
+    int case_no = 0;
+    for (const ASTNode *branch = expr->data.match_expr.cases; branch != NULL;
+         branch = branch->next, case_no++) {
+        const ASTNode *pattern = branch->data.case_branch.pattern;
+        const ASTNode *body = branch->data.case_branch.body;
+
+        // Návěští této větve; když větev nesedí, skáče se na návěští další větve
+        printf("LABEL $match_%d_case_%d\n", id, case_no);
+        snprintf(fail, sizeof fail, "$match_%d_case_%d", id, case_no + 1);
+
+        // Nakouknutí na subjekt: kopie do GF@%tmp1, na zásobníku zůstává
+        printf("POPS GF@%%tmp1\n");
+        printf("PUSHS GF@%%tmp1\n");
+
+        // Vzor nesedí -> další větev; sedí -> naplnit proměnné vzoru (stráž je může použít)
+        algebdt_test_pattern(pattern, stt, fail);
+        algebdt_bind_pattern(pattern);
+
+        // Stráž (case n: Int if n > 0): false -> další větev
+        if (branch->data.case_branch.guard != NULL) {
+            gen_expr(branch->data.case_branch.guard, stt);
+            printf("PUSHS bool@false\n");
+            printf("JUMPIFEQS %s\n", fail);
+        }
+
+        // Hodnota těla je výsledek match (případně převedená na Double)
+        gen_block(body->data.block.statements, stt, true);
+        if (body->to_double) {
+            printf("INT2FLOATS\n");
+        }
+        printf("JUMP $match_%d_end\n", id);
+    }
+
+    // Žádná větev nesedla. Sémantika má takový match odmítnout (chyba 10), EXIT je jen pojistka.
+    printf("LABEL $match_%d_case_%d\n", id, case_no);
+    printf("EXIT int@40\n");
+
+    // Nahoře je výsledek větve, pod ním subjekt: subjekt zahodit, výsledek nechat
+    printf("LABEL $match_%d_end\n", id);
+    printf("POPS GF@%%tmp1\n");
+    printf("POPS GF@%%tmp2\n");
+    printf("PUSHS GF@%%tmp1\n");
+    stt->stack_on_extra--;
 }
