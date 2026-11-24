@@ -19,6 +19,8 @@ void create_prolog(const ASTNode *main_def) {
     printf("DEFVAR GF@%%tmp1\n");
     printf("DEFVAR GF@%%tmp2\n");
     printf("DEFVAR GF@%%tmp3\n");
+    printf("DEFVAR GF@%fstack\n");
+    printf("MOVE GF@%%fstack nil@nil\n");
     printf("CALL $func_%s\n", main_def->data.func_def.name);
     printf("EXIT int@0\n");
     printf("\n");
@@ -333,9 +335,22 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             }
             break;
 
-        case AST_IDENTIFIER:
-            printf("PUSHS LF@%s$%d\n", expr->data.identifier.name, expr->data.identifier.var_id);
+        case AST_IDENTIFIER: {
+            // AI help
+            /*
+             * Prompt: Uprav mi case AST_IDENTIFIER v gen_expr() tak, aby pokud se jedna o funkci
+             * pouzitou jako hodnota (var_id je -1), tak se na zasobnik pushne nazev navesti te
+             * funkce ve stringu aby se funkce pak mohla zavolat
+             */
+
+            if (expr->data.identifier.var_id == -1) {
+                printf("PUSHS string@$func_%s\n", expr->data.identifier.name);
+            } else {
+                printf("PUSHS LF@%s$%d\n", expr->data.identifier.name,
+                       expr->data.identifier.var_id);
+            }
             break;
+        }
 
             // AI help
             /* Prompt: switch (expr->data.unary_op.operator_token) {
@@ -576,8 +591,22 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         case AST_MATCH_EXPR: // F.B. ALGEBDT
             gen_match(expr, stt);
             break;
-        case AST_LAMBDA:
+
+        case AST_LAMBDA: {
+
+            // AI help
+            /*
+             * Prompt: vytvoř mi blok kodu do AST_LAMBDA v gen_expr, ktery vytiskne instrukci pro
+             * pushnuti nazvu lambdy ve stringu na zasobnik id zjisti pomoci  get_lambda_id
+             */
+            int id = get_lambda_id(stt, expr);
+            if (id >= 0) {
+                printf("PUSHS string@$lambda_%d\n", id);
+            }
             break;
+        }
+
+        break;
         case AST_LIST_LITERAL:
             break;
         // AI help
