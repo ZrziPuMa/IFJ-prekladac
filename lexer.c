@@ -1346,22 +1346,7 @@ bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had
                 return true;
             }
         }
-        if (pushback_char != EOF) {
-            ungetc(pushback_char, file);
-        }
-        while (!lstack_empty(indent_stack) && indent_cnt < lstack_top(indent_stack)) {
-            lstack_pop(indent_stack);
 
-            tToken ded_tok = {0};
-            ded_tok.type = TOK_DEDENT;
-            ded_tok.line = line;
-            fifo_add(&ded_tok, &queue->first);
-
-            tToken nl_tok = {0};
-            nl_tok.type = TOK_NEWLINE;
-            nl_tok.line = line;
-            fifo_add(&nl_tok, &queue->first);
-        }
         if (lstack_empty(indent_stack) || lstack_top(indent_stack) != indent_cnt) {
             *token = make_lex_error(line, "Chyba: Neplatná úroveň odsazení.");
             return true;
