@@ -18,20 +18,20 @@
  * operatoru musi byt uplne stejne jako v token.h
  */
 typedef enum {
-    OP_PLUS = 32,        // +
-    OP_MINUS = 33,       // -
-    OP_MUL = 34,         // *
-    OP_DIV = 35,         // /
-    OP_NOT = 36,         // !
-    OP_CONCAT = 37,      // ++
-    OP_LESSTHEN = 38,    // <
-    OP_LESSEQ = 39,      // <=
-    OP_GREATERTHEN = 40, // >
-    OP_GREATEREQ = 41,   // >=
-    OP_EQ = 42,          // ==
-    OP_NOTEQ = 43,       // !=
-    OP_AND = 44,         // &&
-    OP_OR = 45           // ||
+    OP_PLUS = 31,        // +
+    OP_MINUS = 32,       // -
+    OP_MUL = 33,         // *
+    OP_DIV = 34,         // /
+    OP_NOT = 35,         // !
+    OP_CONCAT = 36,      // ++
+    OP_LESSTHEN = 37,    // <
+    OP_LESSEQ = 38,      // <=
+    OP_GREATERTHEN = 39, // >
+    OP_GREATEREQ = 40,   // >=
+    OP_EQ = 41,          // ==
+    OP_NOTEQ = 42,       // !=
+    OP_AND = 43,         // &&
+    OP_OR = 44           // ||
 } OperatorToken;
 
 /**
@@ -42,6 +42,8 @@ typedef struct {
     int l_cnt;             // Čítač návěští
     const char *func_name; // Název aktuální funkce se kterou se pracuje
     bool is_unit;
+    int stack_on_extra;     // Počet prvků na zásobníku, které se mají uklidit // AI help
+    const ASTNode *program; // ALGEBDT: kořen programu, v něm se hledají definice tříd // AI help
 } GenState;
 
 /**
