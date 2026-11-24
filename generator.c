@@ -11,6 +11,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void create_prolog(const ASTNode *main_def) {
@@ -883,6 +884,58 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
         }
         statement = statement->next;
     }
+}
+
+// AI help
+/*
+ * Prompt: Vytvoř mi funkce pro správu id ukazatelů na lambdy, které budou využívat proměnných ze
+ * struktury stt. ukazatele se budou uchovavat v const ASTNode **lambdas v stt. jedna funkce vytvori
+ * novy zaznam v dynamickem poli a pripadne pole nafoukne. dalsi bude pro ziskani hodnoty id za
+ * ucelem vypsani navesti a posledni na uvolneni dynamickeho pole
+ */
+
+int register_lambda(GenState *stt, const ASTNode *lambda) {
+    if (stt == NULL || lambda == NULL) {
+        return -1;
+    }
+
+    if (stt->lambda_cnt >= stt->lambda_cap) {
+        int new_cap = (stt->lambda_cap == 0) ? 16 : stt->lambda_cap * 2;
+        const ASTNode **new_arr = realloc(stt->lambdas, (size_t)new_cap * sizeof(const ASTNode *));
+        if (new_arr == NULL) {
+            return -1;
+        }
+        stt->lambdas = new_arr;
+        stt->lambda_cap = new_cap;
+    }
+
+    int id = stt->lambda_cnt++;
+    stt->lambdas[id] = lambda;
+    return id;
+}
+
+int get_lambda_id(const GenState *stt, const ASTNode *lambda) {
+    if (stt == NULL || lambda == NULL) {
+        return -1;
+    }
+
+    for (int i = 0; i < stt->lambda_cnt; i++) {
+        if (stt->lambdas[i] == lambda) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void free_lambdas(GenState *stt) {
+    if (stt == NULL) {
+        return;
+    }
+
+    free(stt->lambdas);
+    stt->lambdas = NULL;
+    stt->lambda_cnt = 0;
+    stt->lambda_cap = 0;
 }
 
 void create_builtin_functions() {

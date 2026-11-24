@@ -44,6 +44,13 @@ typedef struct {
     bool is_unit;
     int stack_on_extra;     // Počet prvků na zásobníku, které se mají uklidit // AI help
     const ASTNode *program; // ALGEBDT: kořen programu, v něm se hledají definice tříd // AI help
+    // AI help
+    /*
+     * Prompt: AI HELP: udelej mi dynamicke pole ukazatelu na uzly AST_LAMBDA
+     */
+    const ASTNode **lambdas; // LAMBDAS: Ukazatel na AST_LAMBDA
+    int lambda_cnt;          // LAMBDAS: Počet alok. ukazatelů na lambdy
+    int lambda_cap;          // LAMBDAS: Kolik místa je vyhrazeno pro ukazatele na lambdy
 } GenState;
 
 /**
@@ -141,5 +148,30 @@ void gen_field_access(const ASTNode *expr, GenState *stt);
  * @param stt Stav generátoru
  */
 void gen_match(const ASTNode *expr, GenState *stt);
+
+/**
+ * @brief
+ *
+ * @param stt
+ * @param lambda
+ * @return int
+ */
+int register_lambda(GenState *stt, const ASTNode *lambda);
+
+/**
+ * @brief Get the lambda id object
+ *
+ * @param stt
+ * @param lambda
+ * @return int
+ */
+int get_lambda_id(const GenState *stt, const ASTNode *lambda);
+
+/**
+ * @brief
+ *
+ * @param stt
+ */
+void free_lambdas(GenState *stt);
 
 #endif
