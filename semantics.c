@@ -2897,6 +2897,7 @@ bool semantic_always_returns(const ASTNode *node) {
             return false;
     }
 }
+
 ErrorCode semantic_fill_unit_else(ASTNode *node) {
     if (node == NULL) {
         return ERR_OK;
@@ -3251,7 +3252,7 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
     // kontrola jestli je vyčerpávající - má _
     if (!has_wildcard) {
         type_info_free(ret_type);
-        return semantic_error(ctx, ERR_SEM_TYPE, node);
+        return semantic_error(ctx, ERR_SEM_OTHER, node);
     }
 
     // kontrola kompatibility s expected
@@ -3290,8 +3291,12 @@ ErrorCode semantic_return(ASTNode *node, SemanticContext *ctx) {
     }
 
     // lambda funkce nemůže mít return
+    if (ctx->inside_lambda) {
+        return semantic_error(ctx, ERR_SEM_OTHER, node);
+    }
+
     // když je kdekoli ve funkci return, musí mít funkce napsaný v definici návratový typ
-    if (ctx->inside_lambda || ctx->current_function->data.func_def.return_type == NULL) {
+    if (ctx->current_function->data.func_def.return_type == NULL) {
         return semantic_error(ctx, ERR_SEM_TYPE, node);
     }
 
@@ -3691,6 +3696,10 @@ ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx) {
         if (node->data.range.step->expr_type->type_class != TYPE_INT) {
             return semantic_error(ctx, ERR_SEM_TYPE, node);
         }
+        if (node->data.range.step->type == AST_LITERAL &&
+            node->data.range.step->data.literal.value.i_val == 0) {
+            return semantic_error(ctx, ERR_SEM_OTHER, node);
+        }
     }
     return ERR_OK;
 }
@@ -4067,7 +4076,7 @@ ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath 
             }
 
             if (symbol == NULL || symbol->data == NULL) {
-                return semantic_error(ctx, ERR_SEM_TYPE, NULL);
+                return semantic_error(ctx, ERR_SEM_UNDEF, NULL);
             }
 
             // Datová třída zůstava TYPE_CUSTOM (nerozvíjí se)
