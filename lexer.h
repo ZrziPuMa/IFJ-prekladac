@@ -92,8 +92,9 @@ void lstack_init(tLStack **stack);
  * @brief Vložení nového odsazení nebo zanoření závorek
  * @param count Aktuální počet odsazení
  * @param stack Ukazatel na zásobník, kam se vloží
+ * @return true, pokud proběhlo úspěšně, false u selhání alokace
  */
-void lstack_push(int count, tLStack *stack);
+bool lstack_push(int count, tLStack *stack);
 
 /**
  * @brief Odebrání posledního  odsazení nebo zanoření
@@ -118,7 +119,7 @@ bool lstack_empty(tLStack *stack);
 /**
  * @brief Inicializace fronty tokenů
  * @param queue Ukazatel na inicializovanou frontu
- * @return true, pokud je zásobník prázdný, jinak false
+ * @return true, pokud proběhlo úspěšně, false u selhání alokace
  */
 void fifo_init(tFIFO **queue);
 
@@ -126,8 +127,9 @@ void fifo_init(tFIFO **queue);
  * @brief Vložení prvku na konec fronty
  * @param token Token vkládaný na konec
  * @param first Prvek, za který se má vkládat
+ * @return true, pokud je zásobník prázdný, jinak false
  */
-void fifo_add(tToken *token, tFIFO_Elem **first);
+bool fifo_add(tToken *token, tFIFO_Elem **first);
 
 /**
  * @brief Získání prvního prvku ze fronty

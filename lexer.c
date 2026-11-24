@@ -40,7 +40,7 @@ void lexer_init(FILE *f) {
 }
 
 tToken give_token(void) {
-    if (!queue || !indent_stack) {
+    if (!queue || !indent_stack || lstack_empty(indent_stack)) {
         return make_internal_error(-1, "Chyba: Neinicializovaný lexikální analyzátor.");
     }
     if (queue->first) {
@@ -110,7 +110,11 @@ tToken give_token(void) {
                             tToken nl_tok = {0};
                             nl_tok.type = TOK_NEWLINE;
                             nl_tok.line = line;
-                            fifo_add(&nl_tok, &queue->first);
+                            if (!fifo_add(&nl_tok, &queue->first)) {
+                                token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                                completed = true;
+                                break;
+                            }
                         }
 
                         while (!lstack_empty(indent_stack) && lstack_top(indent_stack) > 0) {
@@ -119,20 +123,28 @@ tToken give_token(void) {
                             tToken ded_tok = {0};
                             ded_tok.type = TOK_DEDENT;
                             ded_tok.line = line;
-                            fifo_add(&ded_tok, &queue->first);
 
                             tToken nl_tok = {0};
                             nl_tok.type = TOK_NEWLINE;
                             nl_tok.line = line;
-                            fifo_add(&nl_tok, &queue->first);
+
+                            if (!fifo_add(&ded_tok, &queue->first) ||
+                                !fifo_add(&nl_tok, &queue->first)) {
+                                token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                                completed = true;
+                                break;
+                            }
                         }
 
-                        tToken eof_tok = {0};
-                        eof_tok.type = TOK_EOF;
-                        eof_tok.line = line;
-                        fifo_add(&eof_tok, &queue->first);
-
-                        completed = true;
+                        if (!completed) {
+                            tToken eof_tok = {0};
+                            eof_tok.type = TOK_EOF;
+                            eof_tok.line = line;
+                            if (!fifo_add(&eof_tok, &queue->first)) {
+                                token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                            }
+                            completed = true;
+                        }
                         break;
                     }
 
@@ -176,8 +188,7 @@ tToken give_token(void) {
                                     }
                                 }
                                 int base_indent = lstack_top(indent_stack);
-                                if (p_tab || p_spaces < base_indent ||
-                                    (pch != ')' && pch != ']' && p_spaces <= base_indent)) {
+                                if (p_tab || p_spaces <= base_indent) {
                                     token =
                                         make_lex_error(line, "Chyba: Neplatné odsazení "
                                                              "pokračujícího řádku v závorkách.");
@@ -528,7 +539,10 @@ tToken give_token(void) {
                                 tToken div_tok = {0};
                                 div_tok.type = TOK_DIV;
                                 div_tok.line = line;
-                                fifo_add(&div_tok, &queue->first);
+                                if (!fifo_add(&div_tok, &queue->first)) {
+                                    token =
+                                        make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                                }
                             }
                             completed = true;
                             break;
@@ -682,6 +696,7 @@ tToken give_token(void) {
                     int next = getc(file);
                     if (next == '"') { // Pro případ 4. uvozovky
                         append_char(&str, &token, &completed, '"');
+                        ungetc(next, file);
                     } else {
                         if (next != EOF) {
                             ungetc(next, file);
@@ -912,7 +927,9 @@ tToken give_token(void) {
                     tToken dot_tok = {0};
                     dot_tok.type = TOK_DOT;
                     dot_tok.line = line;
-                    fifo_add(&dot_tok, &queue->first);
+                    if (!fifo_add(&dot_tok, &queue->first)) {
+                        token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                    }
 
                     if (c != EOF) {
                         ungetc(c, file);
@@ -1151,21 +1168,22 @@ void lstack_init(tLStack **stack) {
     (*stack)->top = NULL;
 }
 
-void lstack_push(int count, tLStack *stack) {
+bool lstack_push(int count, tLStack *stack) {
     if (!stack) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na kořen stromu nebo zásobník.");
-        return;
+        return false;
     }
 
     tLStackElem *new_scope = (tLStackElem *)malloc(sizeof(tLStackElem));
     if (new_scope == NULL) {
         print_error(ERR_INTERNAL, -1, "Chyba alokace paměti pro nový uzel tabulky symbolů.");
-        return;
+        return false;
     }
 
     new_scope->count = count;
     new_scope->next = stack->top;
     stack->top = new_scope;
+    return true;
 }
 
 void lstack_pop(tLStack *stack) {
@@ -1209,33 +1227,37 @@ void fifo_init(tFIFO **queue) {
     (*queue)->first = NULL;
 }
 
-void fifo_add(tToken *token, tFIFO_Elem **first) {
-    if (first != NULL && (*first) == NULL) {
+bool fifo_add(tToken *token, tFIFO_Elem **first) {
+    if (first == NULL) {
+        print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na prvek fronty.");
+        return false;
+    }
+    if ((*first) == NULL) {
         (*first) = (tFIFO_Elem *)malloc(sizeof(tFIFO_Elem));
         if ((*first) == NULL) {
             print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
-            return;
+            return false;
         }
         (*first)->token = (tToken *)malloc(sizeof(tToken));
         if ((*first)->token == NULL) {
             print_error(ERR_INTERNAL, -1, "Chyba: Selhání alokace.");
             free(*first);
             *first = NULL;
-            return;
+            return false;
         }
-        *((*first)->token) = *token;
+        *(*first)->token = *token;
         (*first)->next = NULL;
-        return;
+        return true;
     }
-    fifo_add(token, &(*first)->next);
+    return fifo_add(token, &(*first)->next);
 }
 
 tToken fifo_get(tFIFO *queue) {
-    tToken out;
-    if (!queue) {
+    tToken out = {0};
+    if (!queue || !queue->first) {
         print_error(ERR_INTERNAL, -1, "Chyba: Neplatný ukazatel na frontu.");
         out.type = TOK_ERROR;
-        out.val.i_val = 99;
+        out.val.i_val = ERR_INTERNAL;
         return out;
     }
 
@@ -1289,7 +1311,10 @@ bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had
         if (pushback_char != EOF) {
             ungetc(pushback_char, file);
         }
-        lstack_push(indent_cnt, indent_stack);
+        if (!lstack_push(indent_cnt, indent_stack)) {
+            *token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+            return true;
+        }
         token->type = TOK_NEWLINE;
         token->line = prev_line;
 
@@ -1297,9 +1322,30 @@ bool check_line_indent(tToken *token, int pushback_char, int prev_line, bool had
         indent_tok.type = TOK_INDENT;
         indent_tok.val.i_val = indent_cnt;
         indent_tok.line = line;
-        fifo_add(&indent_tok, &queue->first);
+        if (!fifo_add(&indent_tok, &queue->first)) {
+            *token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+        }
         return true;
     } else {
+        if (pushback_char != EOF) {
+            ungetc(pushback_char, file);
+        }
+        while (!lstack_empty(indent_stack) && indent_cnt < lstack_top(indent_stack)) {
+            lstack_pop(indent_stack);
+
+            tToken ded_tok = {0};
+            ded_tok.type = TOK_DEDENT;
+            ded_tok.line = line;
+
+            tToken nl_tok = {0};
+            nl_tok.type = TOK_NEWLINE;
+            nl_tok.line = line;
+
+            if (!fifo_add(&ded_tok, &queue->first) || !fifo_add(&nl_tok, &queue->first)) {
+                *token = make_internal_error(line, "Chyba: Selhání alokace paměti.");
+                return true;
+            }
+        }
         if (pushback_char != EOF) {
             ungetc(pushback_char, file);
         }
