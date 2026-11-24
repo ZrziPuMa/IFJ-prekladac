@@ -148,10 +148,11 @@ ErrorCode semantic_visit(ASTNode **node, SemanticContext *ctx, const TypeInfo *e
  * @param ctx Kontext sémantické analýzy
  * @param expected_type Očekávaný typ hodnoty bloku, nebo NULL
  * @param used_ad_value určuje, jestli se používá jako výraz nebo příkaz
+ * @param create_scope true jestli chceme pro blok vytvořit nový blok
  * @return ErrorCode chybový kód podle ierror.h
  */
 ErrorCode semantic_check_block(ASTNode *block, SemanticContext *ctx, const TypeInfo *expected_type,
-                               bool used_as_value);
+                               bool used_as_value, bool create_scope);
 
 /* ==================================================
  * FUNKCE PRO VÝRAZOVÉ UZLY AST
