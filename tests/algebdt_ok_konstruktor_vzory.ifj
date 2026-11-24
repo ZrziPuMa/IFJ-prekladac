@@ -1,0 +1,45 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: vzory konstruktoru dvou trid, straz nad vazanymi promennymi, typovy vzor tridy p: Point (spec 5.5)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+case class Circle(r: Int)
+type Shape = Point | Circle
+
+def area(s: Shape): Int =
+  s match
+    case Point(a, b) => 0
+    case Circle(r) => r * r
+    case _ => -1
+
+def popis(s: Shape): String =
+  s match
+    case Circle(r) if r > 10 => "velky kruh"
+    case Circle(r) => "kruh"
+    case Point(x, y) if x == y => "bod na diagonale"
+    case p: Point => "bod"
+    case _ => "?"
+
+@main def main(): Unit =
+  val c1 = Circle(3)
+  val c2 = Circle(20)
+  val p1 = Point(2, 2)
+  val p2 = Point(1, 5)
+  val a1 = area(c1)
+  val a2 = area(p1)
+  print(a1)
+  print(" ")
+  print(a2)
+  print("\n")
+  val d1 = popis(c2)
+  val d2 = popis(c1)
+  val d3 = popis(p1)
+  val d4 = popis(p2)
+  print(d1)
+  print("|")
+  print(d2)
+  print("|")
+  print(d3)
+  print("|")
+  print(d4)
+  print("\n")

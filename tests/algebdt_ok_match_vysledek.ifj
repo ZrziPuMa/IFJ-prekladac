@@ -1,0 +1,37 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: match jako inicializace, prevod vetve Int na Double, match jako prikaz, match v cyklu (spec 5.5)
+import ifj26.*
+
+def hodnota(n: Int): Double =
+  n match
+    case 1 => 1
+    case _ => 2.5
+
+@main def main(): Unit =
+  val a = hodnota(1)
+  val b = hodnota(2)
+  val sa = toStr(a)
+  val sb = toStr(b)
+  print(sa)
+  print(" ")
+  print(sb)
+  print("\n")
+  val k = 3
+  val res = k match
+    case 3 => "tri"
+    case _ => "jine"
+  print(res)
+  print("\n")
+  k match
+    case 3 => print("A")
+    case _ => print("B")
+  print("\n")
+  var i = 0
+  while i < 4 do
+    val t = i match
+      case 0 => "a"
+      case 1 => "b"
+      case _ => "c"
+    print(t)
+    i = i + 1
+  print("\n")

@@ -1,0 +1,14 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// VALMEM + BOOLTHEN: toString nad Boolean hodnotou (spec 5.2 a 5.4)
+import ifj26.*
+
+@main def main(): Unit =
+  val t = true.toString
+  val c = (1 < 2).toString
+  val f = (!true).toString
+  print(t)
+  print(" ")
+  print(c)
+  print(" ")
+  print(f)
+  print("\n")

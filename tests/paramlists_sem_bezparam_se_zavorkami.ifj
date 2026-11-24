@@ -1,0 +1,10 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// PARAMLISTS: funkce bez seznamu parametru se vola bez zavorek (spec 5.10)
+import ifj26.*
+
+def answer: Int = 42
+
+@main def main(): Unit =
+  val x = answer()
+  print(x)

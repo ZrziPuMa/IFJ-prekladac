@@ -1,0 +1,11 @@
+// expect: 2
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// podminka if bez klicoveho slova then (spec 2.4)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 1
+  if x < 2
+    print("a")
+  else
+    print("b")

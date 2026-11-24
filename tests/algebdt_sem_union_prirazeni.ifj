@@ -1,0 +1,9 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: do Int | String nelze priradit Double (spec 5.5 a 2.2)
+import ifj26.*
+
+@main def main(): Unit =
+  var a: Int | String = 1
+  a = 2.5
+  print(a)

@@ -1,0 +1,31 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// rekurze s return ve vetvich if, navratovy typ uveden (spec 2.3)
+import ifj26.*
+
+def fact(n: Int): Int =
+  if n <= 1 then
+    return 1
+  else
+    val m = n - 1
+    val sub = fact(m)
+    return n * sub
+
+def fib(n: Int): Int =
+  if n < 2 then
+    return n
+  else
+    val a = n - 1
+    val b = n - 2
+    val fa = fib(a)
+    val fb = fib(b)
+    return fa + fb
+
+@main def main(): Unit =
+  val ten = 10
+  val f = fact(ten)
+  print(f)
+  print("\n")
+  val fifteen = 15
+  val r = fib(fifteen)
+  print(r)
+  print("\n")

@@ -1,0 +1,15 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: seznam seznamu, vypis a indexace (spec 5.8, T je libovolny podporovany typ)
+import ifj26.*
+
+@main def main(): Unit =
+  val ll = List(List(1, 2), List(3))
+  print(ll)
+  print("\n")
+  val inner = ll(1)
+  val v = inner(0)
+  print(v)
+  print("\n")
+  val h = ll.head
+  print(h)
+  print("\n")

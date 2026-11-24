@@ -1,0 +1,16 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL + ALGEBDT: if-vyraz jako telo vetve match, match volany v cyklu for (spec 5.3 a 5.5)
+import ifj26.*
+
+def kind(n: Int): String =
+  n match
+    case 0 => "nula"
+    case x: Int if x < 0 => "zap"
+    case _ => if n > 5 then "velke" else "male"
+
+@main def main(): Unit =
+  for i <- -1 to 7 by 4 do
+    val k = kind(i)
+    print(k)
+    print(" ")
+  print("\n")

@@ -1,0 +1,17 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// VALMEM: clen se vaze tesneji nez unarni minus a binarni operatory (spec 5.4)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 2.5
+  val a = -x.floor
+  val b = (-x).floor
+  val sa = toStr(a)
+  val sb = toStr(b)
+  print(sa)
+  print(" ")
+  print(sb)
+  print("\n")
+  val c = 1 + "abc".length * 2
+  print(c)
+  print("\n")

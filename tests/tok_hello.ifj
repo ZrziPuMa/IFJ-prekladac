@@ -1,0 +1,5 @@
+// tok: prolog, @main, retezec s escape sekvenci a ')' hned za retezcem
+import ifj26.*
+
+@main def main(): Unit =
+  print("ahoj\n")

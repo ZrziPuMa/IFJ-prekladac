@@ -1,0 +1,14 @@
+// tok: LF uvnitr zavorek je bily znak (zadny NEWLINE, INDENT ani DEDENT)
+import ifj26.*
+
+def add(a: Int,
+        b: Int): Int =
+  a + b
+
+@main def main(): Unit =
+  val one = 1
+  val two = 2
+  val s = add(one,
+    two)
+  print(s)
+  print("\n")

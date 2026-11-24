@@ -1,0 +1,11 @@
+// expect: tokens
+// tok: cisla, retezce, Boolean, typy a podtrzitko (jen lexer, program nemusi byt platny)
+import ifj26.*
+
+@main def main(): Unit =
+  a = f(0, 7, 1_000, 4.5, .5, 1.5e-3, 2E3, 1e+5, 2.5d, 0.0)
+  b = g("", "a\tb", "\"q\"", "\\", """x
+"y" z""")
+  c = true || false
+  d = h(_, _x, x1)
+  e = k(Int, Double, String, Unit, Boolean)

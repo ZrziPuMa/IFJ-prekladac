@@ -1,0 +1,13 @@
+// expect: tokens
+// tok: operatory a oddelovace, nejdelsi shoda (jen lexer, program nemusi byt platny)
+import ifj26.*
+
+@main def main(): Unit =
+  a = b + c - d * e / f
+  g = !h && i || j
+  k = l ++ m
+  n = o < p <= q > r >= s == t != u
+  v = x<-1
+  w = (y: Int) => y
+  z = q | r; t.u
+  l = xs[0]

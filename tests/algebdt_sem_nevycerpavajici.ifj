@@ -1,0 +1,13 @@
+// expect: 10
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: match bez case _ a nepokryvajici zaporna cisla neni vycerpavajici (spec 5.5 a 6)
+import ifj26.*
+
+def f(n: Int): String =
+  n match
+    case 0 => "nula"
+    case x: Int if x > 0 => "kladne"
+
+@main def main(): Unit =
+  val r = f(1)
+  print(r)

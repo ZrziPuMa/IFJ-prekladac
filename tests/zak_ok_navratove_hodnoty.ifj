@@ -1,0 +1,37 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// navratove hodnoty: posledni vyraz bloku, jednoradkova tela, odvozene typy, explicitni Unit zahodi hodnotu (spec 2.3)
+import ifj26.*
+
+def twice(x: Int) = x * 2
+def half(x: Int) = x / 2.0
+def greet(name: String): String = "ahoj " + name
+def last(): Int =
+  val a = 5
+  a + 1
+def ignored(): Unit = 42
+def early(n: Int): Int =
+  var k = 0
+  while k < 100 do
+    if k == n then
+      return k * 10
+    else
+      ()
+    k = k + 1
+  val notFound = -1
+  notFound
+def nothing() = print("")
+
+@main def main(): Unit =
+  val three = 3
+  val t = twice(three)
+  val h = half(three)
+  val hs = toStr(h)
+  val bob = "Bob"
+  val g = greet(bob)
+  val l = last()
+  val u = ignored()
+  val e = early(three)
+  val n = nothing()
+  print(t); print(" "); print(hs); print(" "); print(g); print(" ")
+  print(l); print(" "); print(u); print(" "); print(e); print(" "); print(n)
+  print("\n")

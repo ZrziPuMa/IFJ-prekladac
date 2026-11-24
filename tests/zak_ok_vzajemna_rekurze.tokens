@@ -1,0 +1,149 @@
+Token: IMPORT, line: 3, value: N/A
+Token: ID, line: 3, value: ifj26
+Token: DOT, line: 3, value: N/A
+Token: MUL, line: 3, value: N/A
+Token: NEWLINE, line: 4, value: newline
+Token: AT_MAIN, line: 5, value: N/A
+Token: NEWLINE, line: 5, value: newline
+Token: DEF, line: 6, value: N/A
+Token: ID, line: 6, value: start
+Token: LPAR, line: 6, value: N/A
+Token: RPAR, line: 6, value: N/A
+Token: COLON, line: 6, value: N/A
+Token: TYPE, line: 6, value: Unit
+Token: ASSIGN, line: 6, value: N/A
+Token: NEWLINE, line: 6, value: newline
+Token: INDENT, line: 7, value: 2x větší odsazení
+Token: VAL, line: 7, value: N/A
+Token: ID, line: 7, value: seven
+Token: ASSIGN, line: 7, value: N/A
+Token: INT, line: 7, value: 7
+Token: NEWLINE, line: 7, value: newline
+Token: VAL, line: 8, value: N/A
+Token: ID, line: 8, value: e
+Token: ASSIGN, line: 8, value: N/A
+Token: ID, line: 8, value: isEven
+Token: LPAR, line: 8, value: N/A
+Token: ID, line: 8, value: seven
+Token: RPAR, line: 8, value: N/A
+Token: NEWLINE, line: 8, value: newline
+Token: VAL, line: 9, value: N/A
+Token: ID, line: 9, value: o
+Token: ASSIGN, line: 9, value: N/A
+Token: ID, line: 9, value: isOdd
+Token: LPAR, line: 9, value: N/A
+Token: ID, line: 9, value: seven
+Token: RPAR, line: 9, value: N/A
+Token: NEWLINE, line: 9, value: newline
+Token: ID, line: 10, value: print
+Token: LPAR, line: 10, value: N/A
+Token: ID, line: 10, value: e
+Token: RPAR, line: 10, value: N/A
+Token: NEWLINE, line: 10, value: newline
+Token: ID, line: 11, value: print
+Token: LPAR, line: 11, value: N/A
+Token: STRING, line: 11, value: " "
+Token: RPAR, line: 11, value: N/A
+Token: NEWLINE, line: 11, value: newline
+Token: ID, line: 12, value: print
+Token: LPAR, line: 12, value: N/A
+Token: ID, line: 12, value: o
+Token: RPAR, line: 12, value: N/A
+Token: NEWLINE, line: 12, value: newline
+Token: ID, line: 13, value: print
+Token: LPAR, line: 13, value: N/A
+Token: STRING, line: 13, value: "
+"
+Token: RPAR, line: 13, value: N/A
+Token: NEWLINE, line: 14, value: newline
+Token: DEDENT, line: 15, value: 0x menší odsazení
+Token: NEWLINE, line: 15, value: newline
+Token: DEF, line: 15, value: N/A
+Token: ID, line: 15, value: isEven
+Token: LPAR, line: 15, value: N/A
+Token: ID, line: 15, value: n
+Token: COLON, line: 15, value: N/A
+Token: TYPE, line: 15, value: Int
+Token: RPAR, line: 15, value: N/A
+Token: COLON, line: 15, value: N/A
+Token: TYPE, line: 15, value: Int
+Token: ASSIGN, line: 15, value: N/A
+Token: NEWLINE, line: 15, value: newline
+Token: INDENT, line: 16, value: 2x větší odsazení
+Token: IF, line: 16, value: N/A
+Token: ID, line: 16, value: n
+Token: EQ, line: 16, value: N/A
+Token: INT, line: 16, value: 0
+Token: THEN, line: 16, value: N/A
+Token: NEWLINE, line: 16, value: newline
+Token: INDENT, line: 17, value: 4x větší odsazení
+Token: RETURN, line: 17, value: N/A
+Token: INT, line: 17, value: 1
+Token: NEWLINE, line: 17, value: newline
+Token: DEDENT, line: 18, value: 0x menší odsazení
+Token: NEWLINE, line: 18, value: newline
+Token: ELSE, line: 18, value: N/A
+Token: NEWLINE, line: 18, value: newline
+Token: INDENT, line: 19, value: 4x větší odsazení
+Token: VAL, line: 19, value: N/A
+Token: ID, line: 19, value: m
+Token: ASSIGN, line: 19, value: N/A
+Token: ID, line: 19, value: n
+Token: MINUS, line: 19, value: N/A
+Token: INT, line: 19, value: 1
+Token: NEWLINE, line: 19, value: newline
+Token: RETURN, line: 20, value: N/A
+Token: ID, line: 20, value: isOdd
+Token: LPAR, line: 20, value: N/A
+Token: ID, line: 20, value: m
+Token: RPAR, line: 20, value: N/A
+Token: NEWLINE, line: 21, value: newline
+Token: DEDENT, line: 22, value: 0x menší odsazení
+Token: NEWLINE, line: 22, value: newline
+Token: DEDENT, line: 22, value: 0x menší odsazení
+Token: NEWLINE, line: 22, value: newline
+Token: DEF, line: 22, value: N/A
+Token: ID, line: 22, value: isOdd
+Token: LPAR, line: 22, value: N/A
+Token: ID, line: 22, value: n
+Token: COLON, line: 22, value: N/A
+Token: TYPE, line: 22, value: Int
+Token: RPAR, line: 22, value: N/A
+Token: COLON, line: 22, value: N/A
+Token: TYPE, line: 22, value: Int
+Token: ASSIGN, line: 22, value: N/A
+Token: NEWLINE, line: 22, value: newline
+Token: INDENT, line: 23, value: 2x větší odsazení
+Token: IF, line: 23, value: N/A
+Token: ID, line: 23, value: n
+Token: EQ, line: 23, value: N/A
+Token: INT, line: 23, value: 0
+Token: THEN, line: 23, value: N/A
+Token: NEWLINE, line: 23, value: newline
+Token: INDENT, line: 24, value: 4x větší odsazení
+Token: RETURN, line: 24, value: N/A
+Token: INT, line: 24, value: 0
+Token: NEWLINE, line: 24, value: newline
+Token: DEDENT, line: 25, value: 0x menší odsazení
+Token: NEWLINE, line: 25, value: newline
+Token: ELSE, line: 25, value: N/A
+Token: NEWLINE, line: 25, value: newline
+Token: INDENT, line: 26, value: 4x větší odsazení
+Token: VAL, line: 26, value: N/A
+Token: ID, line: 26, value: m
+Token: ASSIGN, line: 26, value: N/A
+Token: ID, line: 26, value: n
+Token: MINUS, line: 26, value: N/A
+Token: INT, line: 26, value: 1
+Token: NEWLINE, line: 26, value: newline
+Token: RETURN, line: 27, value: N/A
+Token: ID, line: 27, value: isEven
+Token: LPAR, line: 27, value: N/A
+Token: ID, line: 27, value: m
+Token: RPAR, line: 27, value: N/A
+Token: NEWLINE, line: 28, value: newline
+Token: DEDENT, line: 28, value: 0x menší odsazení
+Token: NEWLINE, line: 28, value: newline
+Token: DEDENT, line: 28, value: 0x menší odsazení
+Token: NEWLINE, line: 28, value: newline
+Token: EOF, line: 28, value: EOF

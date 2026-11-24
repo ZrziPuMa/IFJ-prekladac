@@ -1,0 +1,9 @@
+// expect: 7
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// prirazeni do nemodifikovatelne promenne val (spec 2.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 1
+  x = 2
+  print(x)

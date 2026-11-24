@@ -1,0 +1,19 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: meze i krok se vyhodnoti prave jednou pred prvni iteraci (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  var n = 3
+  for i <- 1 to n do
+    n = n + 1
+    print(i)
+  print(" ")
+  print(n)
+  print("\n")
+  var st = 1
+  for i <- 1 to 5 by st do
+    st = st + 1
+    print(i)
+  print(" ")
+  print(st)
+  print("\n")

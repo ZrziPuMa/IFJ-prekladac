@@ -1,0 +1,11 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: vsechny vetve match musi byt typove kompatibilni s Int (spec 5.5)
+import ifj26.*
+
+@main def main(): Unit =
+  val n = 1
+  val r: Int = n match
+    case 1 => 1
+    case _ => "a"
+  print(r)

@@ -1,0 +1,6 @@
+// expect: 1
+// tok: tabulator na zacatku neprazdneho radku je lexikalni chyba (spec 1.2)
+import ifj26.*
+
+@main def main(): Unit =
+	print("x")

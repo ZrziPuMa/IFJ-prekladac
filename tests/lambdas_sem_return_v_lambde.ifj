@@ -1,0 +1,10 @@
+// expect: 10
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: blokove telo lambdy nesmi obsahovat return, nepovoleny return je chyba 10 (spec 5.7 a 6)
+import ifj26.*
+
+@main def main(): Unit =
+  val f = (x: Int) =>
+    val y = x + 1
+    return y
+  print(f(1))

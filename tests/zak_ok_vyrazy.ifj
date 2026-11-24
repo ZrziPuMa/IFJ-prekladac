@@ -1,0 +1,38 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// celociselne vyrazy: priorita, zavorky, unarni minus, deleni k nule, relacni operatory (spec kap. 3)
+import ifj26.*
+
+def show(x: Int): Unit =
+  print(x)
+  print(" ")
+
+@main def main(): Unit =
+  val a = 7
+  val b = 2
+  val c = -3
+  val r1 = a + b * c // 7 + (2 * -3) = 1
+  val r2 = (a + b) * c // 9 * -3 = -27
+  val r3 = a - b - c // (7 - 2) - -3 = 8
+  val r4 = a / b // 3
+  val r5 = c / b // -3 / 2 = -1, zaokrouhleni k nule
+  val m = -a
+  val r6 = m / b // -7 / 2 = -3
+  val r7 = a / b * b // (7 / 2) * 2 = 6
+  val r8 = -(a - 10) // 3
+  val r9 = 1_000 + 24 // 1024
+  show(r1); show(r2); show(r3); show(r4); show(r5)
+  show(r6); show(r7); show(r8); show(r9)
+  print("\n")
+  if a > b then
+    print("gt ")
+  else
+    print("le ")
+  if a <= 7 then
+    print("le7 ")
+  else
+    print("gt7 ")
+  if c != -3 then
+    print("ne")
+  else
+    print("eq")
+  print("\n")

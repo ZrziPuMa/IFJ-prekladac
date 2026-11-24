@@ -262,13 +262,20 @@ pack:
 # ==============================================================================
 IC26INT ?= ic26int
 
-# End-to-end testy: make e2e, jen jedna skupina: make e2e FILTER=sem_
-e2e: build
-	COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+# Pomocný výpis tokenů pro testy lexeru (tests/tokdump.c, token_dump z token.c).
+# Překlad: make tokdump, použití: ./tokdump < program.ifj
+TOKDUMP_OBJS = lexer.o token.o dynamic_string.o error.o
 
-# Totéž, ale překladač běží pod valgrindem
-e2e-valgrind: build
-	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+tokdump: $(TEST_DIR)/tokdump.c $(TOKDUMP_OBJS)
+	$(CC) $(CFLAGS) -I. $^ -o $@
+
+# End-to-end testy: make e2e, jen jedna skupina: make e2e FILTER=tok_
+e2e: build tokdump
+	COMPILER=./$(TARGET) IC26INT=$(IC26INT) TOKDUMP=./tokdump $(TEST_DIR)/run_e2e.sh $(FILTER)
+
+# Totéž, ale překladač i tokdump běží pod valgrindem
+e2e-valgrind: build tokdump
+	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) TOKDUMP=./tokdump $(TEST_DIR)/run_e2e.sh $(FILTER)
 
 .PHONY: e2e e2e-valgrind
 
@@ -276,7 +283,7 @@ e2e-valgrind: build
 # 8. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
 clean:
-	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS)
+	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS) tokdump
 
 
 # ------------------------------------------------------------------------------

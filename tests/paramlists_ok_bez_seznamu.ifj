@@ -1,0 +1,20 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// PARAMLISTS: funkce bez seznamu parametru se pri kazdem pouziti vyhodnoti znovu, i ve vyrazu (spec 5.10)
+import ifj26.*
+
+def next: Int = readInt()
+def hello: Unit = print("hi")
+
+@main def main(): Unit =
+  val a = next
+  val b = next
+  val c = next + next
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print("\n")
+  hello
+  hello
+  print("\n")

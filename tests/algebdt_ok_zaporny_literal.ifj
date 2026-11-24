@@ -1,0 +1,18 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: zaporny celociselny literal ve vzoru case -1 (spec 5.5, literaly)
+import ifj26.*
+
+def f(n: Int): String =
+  n match
+    case -1 => "minus jedna"
+    case 1 => "jedna"
+    case _ => "jine"
+
+@main def main(): Unit =
+  val a = -1
+  val r1 = f(a)
+  val r2 = f(1)
+  print(r1)
+  print("|")
+  print(r2)
+  print("\n")

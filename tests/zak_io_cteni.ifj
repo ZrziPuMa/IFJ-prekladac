@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// cteni vstupu: readInt a readDouble, platne hodnoty, okolni mezery, podtrzitka, chybny format, EOF (spec kap. 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = readInt() // 42
+  val b = readInt() // -7
+  val c = readInt() // mezera pred 13: 0, okolni bile znaky se neignoruji
+  val d = readInt() // 1_000: 0, podtrzitka na vstupu nejsou povolena
+  val e = readInt() // abc: 0
+  val f = readDouble() // 2.5
+  val g = readDouble() // 1e3
+  val h = readDouble() // x: 0
+  val i = readInt() // EOF: 0
+  val j = readDouble() // EOF: 0
+  val fs = toStr(f)
+  val gs = toStr(g)
+  val hs = toStr(h)
+  val js = toStr(j)
+  print(a); print(" "); print(b); print(" "); print(c); print(" "); print(d); print(" ")
+  print(e); print(" "); print(fs); print(" "); print(gs); print(" "); print(hs); print(" ")
+  print(i); print(" "); print(js)
+  print("\n")

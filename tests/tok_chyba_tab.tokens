@@ -1,0 +1,14 @@
+Token: IMPORT, line: 3, value: N/A
+Token: ID, line: 3, value: ifj26
+Token: DOT, line: 3, value: N/A
+Token: MUL, line: 3, value: N/A
+Token: NEWLINE, line: 4, value: newline
+Token: AT_MAIN, line: 5, value: N/A
+Token: DEF, line: 5, value: N/A
+Token: ID, line: 5, value: main
+Token: LPAR, line: 5, value: N/A
+Token: RPAR, line: 5, value: N/A
+Token: COLON, line: 5, value: N/A
+Token: TYPE, line: 5, value: Unit
+Token: ASSIGN, line: 5, value: N/A
+Token: ERROR, line: 6, value: ERROR line: 6

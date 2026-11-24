@@ -1,0 +1,36 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: priklad ze specifikace 5.7 (foo, bar, goo, add, positive, addFive) doplneny o vypisy
+import ifj26.*
+
+def foo(x: Int) = x + 5
+
+def bar(a: Int, f: (Int) => Boolean) =
+  val result = f(a)
+  if result then
+    print("f uspelo")
+  else
+    print("f neuspelo")
+
+def goo(): (Int) => String =
+  return (a: Int) =>
+    val strA = toStr(a)
+    "cislo" + strA
+
+@main def main(): Unit =
+  val add: (Int, Int) => Int =
+    (left: Int, right: Int) => left + right
+  val positive = (value: Int) => value > 0
+  val addFive: (Int) => Int = foo
+  val x = add(10, 8)
+  val y = addFive(x)
+  bar(y, positive)
+  print("\n")
+  print(y)
+  print("\n")
+  val g = goo()
+  val s = g(7)
+  print(s)
+  print("\n")
+  val neg = -3
+  bar(neg, positive)
+  print("\n")

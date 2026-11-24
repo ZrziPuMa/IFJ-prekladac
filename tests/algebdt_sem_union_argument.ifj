@@ -1,0 +1,15 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: priklad ze specifikace, Scalar neni kompatibilni s Double | String (spec 5.5 a 4)
+import ifj26.*
+
+type Scalar = Int | Double | String
+
+def foo(x: Double | String): String =
+  return toStr(x)
+
+@main def main(): Unit =
+  var anything: Scalar = 5
+  anything = "hello"
+  val r = foo(anything)
+  print(r)

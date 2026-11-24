@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: operator ++ vc. leve asociativity a prazdnych seznamu (spec 5.8)
+import ifj26.*
+
+@main def main(): Unit =
+  val a = List(1, 2)
+  val b = List(3)
+  val e: List[Int] = List()
+  val r1 = a ++ b
+  val r2 = a ++ b ++ a
+  val r3 = e ++ a
+  val r4 = a ++ e
+  val r5 = e ++ e
+  val r6 = List("x") ++ List("y", "z")
+  print(r1)
+  print("\n")
+  print(r2)
+  print("\n")
+  print(r3)
+  print("\n")
+  print(r4)
+  print("\n")
+  print(r5)
+  print("\n")
+  print(r6)
+  print("\n")

@@ -1,0 +1,27 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// vzajemna rekurze, volani pred definici, @main na samostatnem radku, vstupni funkce start (spec kap. 2, 2.3)
+import ifj26.*
+
+@main
+def start(): Unit =
+  val seven = 7
+  val e = isEven(seven)
+  val o = isOdd(seven)
+  print(e)
+  print(" ")
+  print(o)
+  print("\n")
+
+def isEven(n: Int): Int =
+  if n == 0 then
+    return 1
+  else
+    val m = n - 1
+    return isOdd(m)
+
+def isOdd(n: Int): Int =
+  if n == 0 then
+    return 0
+  else
+    val m = n - 1
+    return isEven(m)

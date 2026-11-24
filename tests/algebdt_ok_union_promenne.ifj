@@ -1,0 +1,36 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: alias type, promenna typu sjednoceni meni typ hodnoty, Int | Unit s hodnotou () (spec 5.5)
+import ifj26.*
+
+type Scalar = Int | Double | String
+
+def kind(v: Scalar): String =
+  v match
+    case i: Int => "int"
+    case d: Double => "double"
+    case s: String => "string"
+    case _ => "?"
+
+@main def main(): Unit =
+  var anything: Scalar = 5
+  print(anything)
+  print(" ")
+  val k1 = kind(anything)
+  print(k1)
+  print("\n")
+  anything = "hello"
+  print(anything)
+  print(" ")
+  val k2 = kind(anything)
+  print(k2)
+  print("\n")
+  anything = 2.5
+  val k3 = kind(anything)
+  print(k3)
+  print("\n")
+  var maybe: Int | Unit = ()
+  print(maybe)
+  print(" ")
+  maybe = 7
+  print(maybe)
+  print("\n")

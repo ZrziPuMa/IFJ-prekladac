@@ -1,0 +1,9 @@
+// expect: run 57
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: celociselne deleni nulou z vysledku volani je behova chyba interpretu 57 (spec 3)
+import ifj26.*
+
+def zero(): Int = 0
+
+@main def main(): Unit =
+  print(10 / zero())

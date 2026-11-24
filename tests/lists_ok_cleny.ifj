@@ -1,0 +1,39 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: drop, take, slice, head, tail vc. hranicnich hodnot (spec 5.8)
+import ifj26.*
+
+def show(l: List[Int]): Unit =
+  print(l)
+  print("\n")
+
+@main def main(): Unit =
+  val l = List(1, 2, 3, 4, 5)
+  val a = l.drop(2)
+  show(a)
+  val b = l.take(2)
+  show(b)
+  val c = l.take(10)
+  show(c)
+  val d = l.drop(10)
+  show(d)
+  val e = l.drop(0)
+  show(e)
+  val f = l.take(0)
+  show(f)
+  val g = l.slice(1, 3)
+  show(g)
+  val h = l.slice(4, 10)
+  show(h)
+  val i = l.slice(3, 1)
+  show(i)
+  val j = l.head
+  print(j)
+  print("\n")
+  val k = l.tail
+  show(k)
+  val m = l.tail.tail.head
+  print(m)
+  print("\n")
+  val one = List(9)
+  val n = one.tail
+  show(n)

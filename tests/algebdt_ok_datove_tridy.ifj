@@ -1,0 +1,46 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: datove tridy, atributy, trida jako parametr i navratova hodnota, Int na Double v konstruktoru, vnorena trida (spec 5.5)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+case class Person(name: String, age: Int)
+case class Wrap(d: Double)
+case class Line(a: Point, b: Point)
+
+def shift(p: Point, dx: Int): Point =
+  val nx = p.x + dx
+  val ny = p.y
+  Point(nx, ny)
+
+@main def main(): Unit =
+  val p = Point(10, 20)
+  val px = p.x
+  val py = p.y
+  print(px)
+  print(" ")
+  print(py)
+  print("\n")
+  val five = 5
+  val q = shift(p, five)
+  val qx = q.x
+  print(qx)
+  print("\n")
+  val per = Person("Eva", 30)
+  val nm = per.name
+  val ag = per.age
+  print(nm)
+  print(" ")
+  print(ag)
+  print("\n")
+  val w = Wrap(1)
+  val wd = w.d
+  val wds = toStr(wd)
+  print(wds)
+  print("\n")
+  val l = Line(p, q)
+  val lbx = l.b.x
+  val sum = l.a.x + l.b.y
+  print(lbx)
+  print(" ")
+  print(sum)
+  print("\n")

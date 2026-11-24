@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: argumenty i operandy se vyhodnocuji zleva doprava (spec 3 a 5.1)
+import ifj26.*
+
+def tag(name: String, value: Int): Int =
+  print(name)
+  value
+
+def sub3(a: Int, b: Int, c: Int): Int = a - b - c
+
+@main def main(): Unit =
+  val r = sub3(tag("a", 10), tag("b", 3), tag("c", 2))
+  print(" ")
+  print(r)
+  print("\n")
+  val s = tag("x", 7) - tag("y", 4)
+  print(" ")
+  print(s)
+  print("\n")
+  val t = tag("p", 1) + tag("q", 2) * tag("r", 3)
+  print(" ")
+  print(t)
+  print("\n")

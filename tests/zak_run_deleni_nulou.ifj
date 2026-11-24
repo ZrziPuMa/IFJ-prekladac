@@ -1,0 +1,10 @@
+// expect: run 57
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// celociselne deleni nulou je behova chyba 57 (spec kap. 3, instrukce IDIV)
+import ifj26.*
+
+@main def main(): Unit =
+  val z = 0
+  print("pred\n")
+  val q = 10 / z
+  print(q)

@@ -1,0 +1,11 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// VALMEM: clen primo na celociselnem literalu (5.toString neni desetinny literal) a na prazdnem retezci (spec 5.4 a 1.1)
+import ifj26.*
+
+@main def main(): Unit =
+  val s = 5.toString
+  print(s)
+  print("\n")
+  val l = "".length
+  print(l)
+  print("\n")

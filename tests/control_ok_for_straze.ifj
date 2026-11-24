@@ -1,0 +1,23 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: viceradkovy for se strazemi, ukazka ze specifikace, telo na radku s do (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val limit = 10
+  for
+    i <- 0 until limit
+    if i != 3
+    if i < 8
+  do
+    print(i)
+  print("\n")
+  for
+    i <- 1 to 20
+    if i / 3 * 3 == i
+  do print(i)
+  print("\n")
+  for
+    i <- 1 to 5
+    if i > 2 && i != 4
+  do print(i)
+  print("\n")

@@ -1,0 +1,44 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// PARAMLISTS: poradi vyhodnoceni seznamu argumentu, prazdny seznam uprostred, rekurze (spec 5.10)
+import ifj26.*
+
+def a1: Int =
+  print("a")
+  1
+
+def b2: Int =
+  print("b")
+  2
+
+def c3: Int =
+  print("c")
+  3
+
+def add(a: Int)(b: Int)(c: Int): Int = a * 100 + b * 10 + c
+
+def f(a: Int)()(b: Int): Int = a - b
+
+def g()(): Int = 5
+
+def sumTo(n: Int)(acc: Int): Int =
+  if n == 0 then
+    return acc
+  else
+    val m = n - 1
+    val na = acc + n
+    return sumTo(m)(na)
+
+@main def main(): Unit =
+  val r = add(a1)(b2)(c3)
+  print(" ")
+  print(r)
+  print("\n")
+  val s = f(10)()(3)
+  val t = g()()
+  print(s)
+  print(" ")
+  print(t)
+  print("\n")
+  val u = sumTo(4)(0)
+  print(u)
+  print("\n")
