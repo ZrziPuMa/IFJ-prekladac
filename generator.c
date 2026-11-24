@@ -5,6 +5,21 @@
  * @author Martin Chlubna (<xchlubm00>), pomocný autor pro ALGEBDT Frantisek Bilavčík (<xbilavf00>),
  * který používal Github Copilot Inline suggestion a Claude Opus 5.5 pro pomoc opravením.
  *
+ *
+ * Využití AI (Martin Chlubna):
+ * - Byly použity modely Google Gemini (Flash, Hydrogen, Argon) v rámci webového chatovacího
+ *   prostředí.
+ *
+ * - Chatbot byl použit jako konzultační nástroj pro návrh architektury, zodpovídání dotazů a
+ *   ladění, a také ke generování kratších bloků kódu (cykly, switch, if podmínky, bloky printfů) až
+ *   po pomocné funkce.
+ *
+ * - Bloky kódu vygenerované s pomocí AI jsou v souboru označeny komentářem "// AI help".
+ *
+ * - Někde je u těchto bloků uveden konkrétní prompt a jinde ne, protože část úprav vznikala
+ * postupným vývojem a diskusí, kde nelze uvést jeden určitý prompt.
+ *
+ * - Veškerý kód je autorem zrevidován.
  */
 
 #include "generator.h"
@@ -116,13 +131,30 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
      * a její propojení s parametrem keep_result v gen_block tak, aby každá funkce
      * zanechala na datovém zásobníku právě jednu návratovou hodnotu (u Unit nil@nil).
      */
+
     const TypeInfo *fn_type = func->expr_type;
-    stt->func_name = func->data.func_def.name;
+    // AI help
+    /*
+     * Claude (Opus 5.5), prompt: „Navrhni mi změny pro ten generátor kodu, aby prošel těmi testy
+     * a byl v pořádku.“ Úpravy F.B. v create_func_def, gen_expr (AST_FUNC_CALL),
+     * gen_block (AST_RETURN, AST_FOR) a create_lambda_def.
+     */
+    // F.B.: koncové návěští musí být unikátní i pro metody stejného jména pro různé typy
+    // (describe v extension (v: Int) i (v: String)), proto číslo z l_cnt. stt->func_name
+    // drží jméno tohoto návěští bez '$', skáče na něj return.
+    char end_label[256];
+    snprintf(end_label, sizeof end_label, "func_%s$end_%d", func->data.func_def.name, stt->l_cnt++);
+    stt->func_name = end_label;
     stt->stack_on_extra =
         0; // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
-    stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
-                    fn_type->data.func_type.return_type != NULL &&
-                    fn_type->data.func_type.return_type->type_class == TYPE_UNIT);
+    // F.B. PARAMLISTS: návratový typ je až za všemi seznamy parametrů
+    // (def hello: Unit -> Unit, def f(a: Int)(b: Int): Unit -> (Int) => (Int) => Unit)
+    const TypeInfo *ret_type = fn_type;
+    for (const ASTNode *g = func->data.func_def.param_groups;
+         g != NULL && ret_type != NULL && ret_type->type_class == TYPE_FUNCTION; g = g->next) {
+        ret_type = ret_type->data.func_type.return_type;
+    }
+    stt->is_unit = (ret_type != NULL && ret_type->type_class == TYPE_UNIT);
 
     gen_block(func->data.func_def.body->data.block.statements, stt, !stt->is_unit);
     if (stt->is_unit) {
@@ -131,7 +163,7 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
         printf("INT2FLOATS\n");
     }
 
-    printf("LABEL $func_%s$end\n", func->data.func_def.name);
+    printf("LABEL $%s\n", stt->func_name);
     printf("POPFRAME\n");
     printf("RETURN\n");
     printf("\n");
@@ -494,7 +526,7 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             const ASTNode *curr_arg_group = expr->data.func_call.arg_groups;
 
             // AI help
-            if (expr->data.func_call.own_groups == 0) {
+            if (expr->data.func_call.call_kind == CALL_VALUE) {
                 gen_expr(target, stt);
             } else {
 
@@ -767,6 +799,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                 } else {
                     printf("PUSHS nil@nil\n");
                 }
+
                 if (stt->stack_on_extra > 0) {
                     printf("POPS GF@%%tmp1\n");
                     for (int k = 0; k < stt->stack_on_extra; k++) {
@@ -774,7 +807,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     }
                     printf("PUSHS GF@%%tmp1\n");
                 }
-                printf("JUMP $func_%s$end\n", stt->func_name);
+                printf("JUMP $%s\n", stt->func_name);
 
                 break;
             // AI help
@@ -904,7 +937,10 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                         curr_guard = curr_guard->next;
                     }
 
+                    // F.B.: end a step leží během těla na zásobníku, return uvnitř je musí uklidit
+                    stt->stack_on_extra += 2;
                     gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
+                    stt->stack_on_extra -= 2;
 
                     // AI help
                     /*
@@ -1034,7 +1070,7 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
 
     // AI help
     char lambda_name[32];
-    snprintf(lambda_name, sizeof(lambda_name), "lambda_%d", id);
+    snprintf(lambda_name, sizeof(lambda_name), "lambda_%d$end", id);
     const char *prev_func_name = stt->func_name;
     stt->func_name = lambda_name;
 
@@ -1049,7 +1085,7 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
     }
 
     // AI help
-    printf("LABEL $func_%s$end\n", lambda_name);
+    printf("LABEL $%s\n", lambda_name);
     stt->func_name = prev_func_name;
 
     stt->is_unit = prev_is_unit;
