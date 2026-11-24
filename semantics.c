@@ -84,6 +84,7 @@ ErrorCode check_semantics(ASTNode *root) {
     ctx.current_function = NULL;
     ctx.next_var_id = 1;
     ctx.inside_lambda = false;
+    ctx.expected_type_error = ERR_SEM_TYPE;
 
     // registrace vestavěných funkcí
     res = register_buildin_func(&ctx);
@@ -2325,7 +2326,7 @@ ErrorCode semantic_list_literal(ASTNode *node, SemanticContext *ctx,
             } else { // expected_list  je zadán, stačí ověřit kompatibilitu prvku s ním
                 if (!semantic_types_compatible(expected_list->data.list_element_type,
                                                (*actual)->expr_type)) {
-                    return semantic_error(ctx, ERR_SEM_TYPE, node);
+                    return semantic_error(ctx, ctx->expected_type_error, node);
                 }
             }
             actual = &(*actual)->next;
@@ -3258,7 +3259,7 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
     // kontrola kompatibility s expected
     if (expected_type != NULL && !semantic_types_compatible(expected_type, ret_type)) {
         type_info_free(ret_type);
-        return semantic_error(ctx, ERR_SEM_TYPE, node);
+        return semantic_error(ctx, ctx->expected_type_error, node);
     }
 
     // znovu projdu všechny větve a ověřím, jestli nejsou potřeba konverze
@@ -3373,8 +3374,14 @@ ErrorCode semantic_check_agr_list(ASTNode *node, SemanticContext *ctx,
 
     // projde seznam argumentů
     while (*actual != NULL && expected != NULL) {
+        // nastaví že jde o argumenty, předchozí stav se uloží a pak obnoví
+        ErrorCode saved_error = ctx->expected_type_error;
+        ctx->expected_type_error = ERR_SEM_ARGS;
+
         // každý argument zpracuje
         ErrorCode res = semantic_visit(actual, ctx, expected);
+
+        ctx->expected_type_error = saved_error;
         if (res != ERR_OK) {
             return semantic_error(ctx, res, node);
         }
@@ -3661,6 +3668,30 @@ ErrorCode semantic_pattern(ASTNode *node, SemanticContext *ctx, const TypeInfo *
     return ERR_OK;
 }
 
+/**
+ * @brief funkce pro step u range, ověří, jestli má literál hodnotu nula
+ *
+ * @param node uzel tylu literal, který kontrolujeme
+ * @return true pokud je 0, jinak false
+ */
+static bool semantic_is_literal_zero(const ASTNode *node) {
+    if (node == NULL) {
+        return false;
+    }
+
+    if (node->type == AST_LITERAL) {
+        return node->data.literal.kind == LIT_INT && node->data.literal.value.i_val == 0;
+    }
+
+    if (node->type == AST_UNARY_OP && (node->data.unary_op.operator_token == TOK_MINUS ||
+                                       node->data.unary_op.operator_token == TOK_PLUS)) {
+
+        return semantic_is_literal_zero(node->data.unary_op.operand);
+    }
+
+    return false;
+}
+
 ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx) {
     if (node == NULL || ctx == NULL || node->type != AST_RANGE) {
         return semantic_error(ctx, ERR_INTERNAL, node);
@@ -3697,7 +3728,7 @@ ErrorCode semantic_range(ASTNode *node, SemanticContext *ctx) {
             return semantic_error(ctx, ERR_SEM_TYPE, node);
         }
         if (node->data.range.step->type == AST_LITERAL &&
-            node->data.range.step->data.literal.value.i_val == 0) {
+            semantic_is_literal_zero(node->data.range.step)) {
             return semantic_error(ctx, ERR_SEM_OTHER, node);
         }
     }

@@ -77,6 +77,7 @@ typedef struct SemanticContext {
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
     int error_line;            // pro záznam řádku, kde nastala chyba v průběhu sémantiky
+    ErrorCode expected_type_error; // kvůli rozlišení typových a argumentových chyb
 } SemanticContext;
 
 /* ==================================================
