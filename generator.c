@@ -2,7 +2,8 @@
  * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file generator.c
  * @brief Implementační soubor genrátoru cílového kódu
- * @author Martin Chlubna (<xchlubm00>)
+ * @author Martin Chlubna (<xchlubm00>), pomocný autor pro ALGEBDT Frantisek Bilavčík (<xbilavf00>),
+ * který používal Github Copilot Inline suggestion a Claude Opus 5.5 pro pomoc opravením.
  *
  */
 
@@ -1162,11 +1163,136 @@ ErrorCode generate_code(const ASTNode *root) {
     return ERR_OK;
 }
 
+// ==== Rozsireni ALGEBDT ==== //
+// Claude (Opus 5.5), prompt: „Navrhni potřebné pomocné funkce pro implementaci ALGEBDT, používám 3
+// funkce: gen_match, gen_field_access a gen_constructor navržené v generator.h. Jaké funkce budu
+// potřebovat a co bude jejich cílem?“ AI help, použit AI při navrhování pomocných funkcí pro
+// rozšíření a opravování chyb ve psaní kodu
+
+/**
+ * @brief Pomocná funkce pro vyhledání definice třídy podle jména v rámci programu.
+ *
+ * @param stt Ukazatel na stav generátoru kódu.
+ * @param name Jméno třídy, kterou hledáme.
+ * @return Ukazatel na uzel AST reprezentující definici třídy, pokud byla nalezena, jinak NULL.
+ */
+static const ASTNode *adt_find_class(const GenState *stt, const char *name) {
+    if (stt->program == NULL || name == NULL) {
+        return NULL;
+    }
+    for (const ASTNode *def = stt->program->data.program.definitions; def != NULL;
+         def = def->next) {
+        if (def->type == AST_CLASS_DEF && strcmp(def->data.class_def.name, name) == 0) {
+            return def;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Pomocná funkce pro získání počtu polí v třídě.
+ *
+ * @param class_def Ukazatel na uzel AST reprezentující definici třídy.
+ * @return Počet polí v třídě.
+ */
+static int adt_field_count(const ASTNode *class_def) {
+    int count = 0;
+    for (const ASTNode *f = class_def->data.class_def.fields; f != NULL; f = f->next) {
+        count++;
+    }
+    return count;
+}
+
+/**
+ * @brief Pomocná funkce pro získání indexu pole v třídě podle jeho jména.
+ *
+ * @param class_def Ukazatel na uzel AST reprezentující definici třídy.
+ * @param field_name Jméno pole, jehož index hledáme.
+ * @return Index pole v třídě, pokud bylo nalezeno, jinak -1.
+ */
+static int adt_field_index(const ASTNode *class_def, const char *field_name) {
+    int index = 1;
+    for (const ASTNode *f = class_def->data.class_def.fields; f != NULL; f = f->next) {
+        if (f->data.var_def.identifier != NULL &&
+            strcmp(f->data.var_def.identifier, field_name) == 0) {
+            return index;
+        }
+        index++;
+    }
+    return -1;
+}
+
+/**
+ * @brief Pomocná funkce pro získání jména třídy z typu výrazu.
+ *
+ * @param type Ukazatel na strukturu TypeInfo reprezentující typ výrazu.
+ * @return Jméno třídy, pokud typ odpovídá vlastnímu typu (TYPE_CUSTOM), jinak NULL.
+ */
+static const char *adt_class_name(const TypeInfo *type) {
+    if (type != NULL && type->type_class == TYPE_CUSTOM) {
+        return type->data.custom_name;
+    }
+    return NULL;
+}
+
 void gen_constructor(const ASTNode *expr, GenState *stt) {
+    const char *name =
+        adt_class_name(expr->expr_type); // F.B. ALGEBDT: získání jména třídy z typu výrazu
+    const ASTNode *target =
+        expr->data.func_call
+            .target; // F.B. ALGEBDT: získání cílového uzlu volání funkce (konstruktoru)
+
+    // Pokud jméno třídy není přímo dostupné, zkusíme ho získat z cílového uzlu volání funkce
+    if (name == NULL && target != NULL && target->type == AST_IDENTIFIER) {
+        name = target->data.identifier.name;
+    }
+
+    // Pokud jméno třídy stále není dostupné, nelze pokračovat
+    const ASTNode *class_def = adt_find_class(stt, name);
+
+    // Pokud definice třídy nebyla nalezena, nelze pokračovat
+    if (class_def == NULL) {
+        return;
+    }
+
+    // Argumenty jsou na zásobníku v pořadí atributů, nahoře je poslední
+    const int n = adt_field_count(class_def);
+
+    // Vytvoření pole pro uložení hodnot atributů a inicializace prvního prvku na jméno třídy
+    printf("NEWARRAY GF@%%tmp1 int@%d\n", n + 1);
+    printf("ARRAYSET GF@%%tmp1 int@0 string@%s\n", name);
+
+    // Uložení hodnot atributů do pole v opačném pořadí, protože jsou na zásobníku v opačném pořadí
+    for (int i = n; i >= 1; i--) {
+        printf("POPS GF@%%tmp2\n");
+        printf("ARRAYSET GF@%%tmp1 int@%d GF@%%tmp2\n", i);
+    }
+
+    // Uložení pole do GF@%tmp1, které bude reprezentovat instanci třídy
+    printf("PUSHS GF@%%tmp1\n");
 }
 
 void gen_field_access(const ASTNode *expr, GenState *stt) {
+    const ASTNode *object = expr->data.member_access.object;
+    const ASTNode *class_def = adt_find_class(stt, adt_class_name(object->expr_type));
+
+    // Pokud definice třídy nebyla nalezena, nelze pokračovat
+    if (class_def == NULL) {
+        return;
+    }
+    // Získání indexu pole podle jména člena
+    const int index = adt_field_index(class_def, expr->data.member_access.member_name);
+
+    // Generování kódu pro vyhodnocení objektu (instance třídy) a uložení do GF@%tmp1
+    gen_expr(object, stt);
+    // Uložení objektu (pole) do GF@%tmp1
+    printf("POPS GF@%%tmp1\n");
+    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@%d\n", index);
+    printf("PUSHS GF@%%tmp2\n");
 }
 
 void gen_match(const ASTNode *expr, GenState *stt) {
+    // TODO
+    (void)expr;
+    (void)stt;
 }
