@@ -71,7 +71,7 @@ typedef struct {
 typedef struct SemanticContext {
     tBtNode *symbols; // Tabulka symbolů
     tBtNode *ext_symbols;
-    tStack *scope_stack; // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
+    tStack *scope_stack;       // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
     ASTNode *current_function; // Aktuálně analyzovaná funkce (AST_FUNC_DEF); mimo funkci NULL
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
@@ -709,8 +709,9 @@ SemanticFunctionSymbol *find_extension_symbol(ASTNode *function, SemanticContext
 bool alias_in_path(const AliasPath *path, const char *name);
 
 /**
- * @brief ostraní duplikátní typy z union, pokud po odstranění zbývá pouze jeden typ, union se zruší a je to normální typ
- * 
+ * @brief ostraní duplikátní typy z union (v levostranném tvaru), pokud po odstranění zbývá pouze
+ * jeden typ, union se zruší a je to normální typ
+ *
  * @param slot typ který upravujeme
  */
 void remove_union_duplicates(TypeInfo **slot);

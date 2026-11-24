@@ -4,8 +4,9 @@
  * semantics.h
  * @author Natalie Morávková (<xmoravn00>)
  *
- * při vývoji byla použita AI (ChatGPT, github copilot) pro kontrolu kódu, pomoc s opravami 
- * funkcionality kódu, pomoc s implementací složitějších částí a vyhledávání informací ke kontrole ze specifikace IFJ26
+ * při vývoji byla použita AI (ChatGPT, github copilot) pro kontrolu kódu, pomoc s opravami
+ * funkcionality kódu, pomoc s implementací složitějších částí a vyhledávání informací ke kontrole
+ * ze specifikace IFJ26
  */
 
 #include "semantics.h"
@@ -2845,7 +2846,7 @@ cleanup:
     if (function_type != NULL) {
         type_info_free(function_type);
     }
-    while (stack_empty(&lambda_stack)) {
+    while (!stack_empty(&lambda_stack)) {
         ErrorCode pop_res = symtable_pop_scope(&lambda_stack);
         if (return_value == ERR_OK) {
             return_value = pop_res;
@@ -3734,7 +3735,6 @@ bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type
 
     return semantic_types_equal(match_type, case_type);
 }
-
 
 bool semantics_compare_union_with_type(const TypeInfo *un, const TypeInfo *type) {
     if (un == NULL || type == NULL) {
