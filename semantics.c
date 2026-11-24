@@ -5,7 +5,8 @@
  * @author Natalie Morávková (<xmoravn00>)
  *
  * při vývoji byla použita AI (ChatGPT, github copilot) pro kontrolu kódu, pomoc s opravami
- * funkcionality kódu a vyhledávání informací ke kontrole ze specifikace IFJ26
+ * funkcionality kódu, pomoc s implementací složitějších částí a vyhledávání informací ke kontrole
+ * ze specifikace IFJ26
  */
 
 #include "semantics.h"
@@ -963,7 +964,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
     if (res != ERR_OK) {
         goto cleanup;
     }
-    if (function_stack.top == NULL) {
+    if (stack_empty(&function_stack)) {
         res = ERR_INTERNAL;
         goto cleanup;
     }
@@ -1004,7 +1005,7 @@ ErrorCode semantic_func_def(SemanticFunctionSymbol *func_sym, SemanticContext *c
 
         // vloží do tabulky
         tBtNodeData receiver_data = {.type = VARIABLE, .value = receiver};
-        res = symtable_insert(&function_stack.top->scope, receiver->data.var_def.identifier,
+        res = symtable_insert(&stack_top(&function_stack)->scope, receiver->data.var_def.identifier,
                               receiver_data);
         if (res != ERR_OK) {
             goto cleanup;
@@ -1131,7 +1132,7 @@ cleanup:
         type_info_free(function_type);
     }
 
-    while (function_stack.top != NULL) {
+    while (!stack_empty(&function_stack)) {
         ErrorCode pop_res = symtable_pop_scope(&function_stack);
         if (res == ERR_OK) {
             res = pop_res;
@@ -2727,7 +2728,7 @@ ErrorCode semantic_lambda(ASTNode *node, SemanticContext *ctx, const TypeInfo *e
     if (return_value != ERR_OK) {
         goto cleanup;
     }
-    if (lambda_stack.top == NULL) {
+    if (stack_empty(&lambda_stack)) {
         return_value = ERR_INTERNAL;
         goto cleanup;
     }
@@ -2845,7 +2846,7 @@ cleanup:
     if (function_type != NULL) {
         type_info_free(function_type);
     }
-    while (lambda_stack.top) {
+    while (!stack_empty(&lambda_stack)) {
         ErrorCode pop_res = symtable_pop_scope(&lambda_stack);
         if (return_value == ERR_OK) {
             return_value = pop_res;
@@ -2945,7 +2946,6 @@ ErrorCode semantic_fill_unit_else(ASTNode *node) {
     return semantic_fill_unit_else(node->data.if_expr.else_block);
 }
 
-// asi hotovo
 ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *expected_type,
                            bool used_as_value) {
     if (node == NULL || ctx == NULL || node->type != AST_IF_EXPR) {
@@ -2985,7 +2985,7 @@ ErrorCode semantic_if_expr(ASTNode *node, SemanticContext *ctx, const TypeInfo *
     }
 
     TypeInfo *ret_type = NULL;
-    // irčí návratový typ
+    // určí návratový typ
     if (used_as_value) {
         // if jako výraz: musí být společný typ obou větví
         // společný typ se nastaví jako ret_type
@@ -3701,7 +3701,7 @@ ErrorCode semantic_find_symbol(tStack *stack, char *name, SemanticContext *ctx,
     }
     *location = NULL;
 
-    tStackElem *scope = stack->top;
+    tStackElem *scope = stack_top(stack);
 
     // projde všechny tabulky symbolů v zásobníku, pokud najde odpovídající uzel, vrátí ho
     while (scope != NULL) {
@@ -3736,13 +3736,6 @@ bool pattern_types_overlap(const TypeInfo *match_type, const TypeInfo *case_type
     return semantic_types_equal(match_type, case_type);
 }
 
-/**
- * @brief Vyhledá, jestli parametru "un" obsahuje typ y parametru "type"
- *
- * @param un Typeinfo ve kterém se hledá typ
- * @param type Typeinfo, který se hledá v parametru "un"
- * @return true pokud je typ z parametru "type" obsažen v parametru "un", jinak false
- */
 bool semantics_compare_union_with_type(const TypeInfo *un, const TypeInfo *type) {
     if (un == NULL || type == NULL) {
         return false;
@@ -3766,13 +3759,6 @@ bool semantics_compare_union_with_type(const TypeInfo *un, const TypeInfo *type)
     return type_in_union;
 }
 
-/**
- * @brief Porovná, jestli union parametru 'b' obsahuje všechny typy z union parametru 'a'
- *
- * @param a TypeInfo typu union, ze kterého se porovnávají typy
- * @param b TypeInfo typu union, ve kterém se hledají typy z parametru 'a'
- * @return true pokud všechny typy z parametru 'a' jsou obsaženy v parametru 'b', jinak false
- */
 bool compare_unions(const TypeInfo *a, const TypeInfo *b) {
     if (a == NULL || b == NULL) {
         return false;
@@ -3936,6 +3922,48 @@ ErrorCode semantic_check_conversion(ASTNode *expression, const TypeInfo *expecte
     return ERR_OK; // Úspěch
 }
 
+void remove_union_duplicates(TypeInfo **slot) {
+    if (slot == NULL || *slot == NULL) {
+        return;
+    }
+
+    TypeInfo *type = *slot;
+    switch (type->type_class) {
+        case TYPE_UNION:
+            // odstraní duplicity z obou podstromů
+            remove_union_duplicates(&type->data.union_type.left);
+            remove_union_duplicates(&type->data.union_type.right);
+
+            // po normalizaci je pravá větev jediný člen unionu
+            if (type->data.union_type.right->type_class != TYPE_UNION &&
+                semantics_compare_union_with_type(type->data.union_type.left,
+                                                  type->data.union_type.right)) {
+
+                // ponechá levou větev a odstraní nadbytečný pravý člen
+                TypeInfo *left = type->data.union_type.left;
+                type->data.union_type.left = NULL;
+                type_replace(slot, left);
+            }
+            break;
+
+        case TYPE_LIST:
+            // vyřeší vnitřek listu
+            remove_union_duplicates(&type->data.list_element_type);
+            break;
+
+        case TYPE_FUNCTION:
+            for (TypeInfo **param = &type->data.func_type.param_types; *param != NULL;
+                 param = &(*param)->next) {
+                remove_union_duplicates(param);
+            }
+            remove_union_duplicates(&type->data.func_type.return_type);
+            break;
+
+        default:
+            break;
+    }
+}
+
 void normalise_union_tree(TypeInfo *type) {
     if (type == NULL) {
         return;
@@ -4009,14 +4037,6 @@ void normalise_union_tree(TypeInfo *type) {
     }
 }
 
-/**
- * @brief projde cestu aliasů path a zjistí, jestli se nějaký alias na cestě neopakuje (vyskytly
- * by se cykly)
- *
- * @param path cesta aliasů
- * @param name jméno aliasu, který se hledá v path
- * @return true pokud se alias s jménem namu už na cestě vyskytuje, jinak false
- */
 bool alias_in_path(const AliasPath *path, const char *name) {
     const AliasPath *path_pos = path;
     while (path_pos != NULL) {
@@ -4028,7 +4048,7 @@ bool alias_in_path(const AliasPath *path, const char *name) {
     return false;
 }
 
-static ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath *path) {
+ErrorCode expand_aliases(TypeInfo **slot, SemanticContext *ctx, const AliasPath *path) {
     if (slot == NULL || *slot == NULL || ctx == NULL) {
         return semantic_error(ctx, ERR_INTERNAL, NULL);
     }
@@ -4163,6 +4183,7 @@ ErrorCode semantic_resolve_type_alias(const TypeInfo *type, SemanticContext *ctx
     // rozvinutím se můžou objevit množiny v jjiném tvaru než je očekáván podle ast, funkce ho
     // upraví do správného tvaru
     normalise_union_tree(*result);
+    remove_union_duplicates(result);
 
     return ERR_OK;
 }
