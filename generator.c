@@ -114,6 +114,8 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
      */
     const TypeInfo *fn_type = func->expr_type;
     stt->func_name = func->data.func_def.name;
+    stt->stack_on_extra =
+        0; // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
     stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
                     fn_type->data.func_type.return_type != NULL &&
                     fn_type->data.func_type.return_type->type_class == TYPE_UNIT);
@@ -519,6 +521,10 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     }
                     break;
 
+                case CALL_CONSTRUCTOR: // F.B. ALGEBDT: Point(10, 20)
+                    gen_constructor(expr, stt);
+                    break;
+
                 default:
                     break;
             }
@@ -565,7 +571,8 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             gen_block(expr->data.block.statements, stt, true);
             break;
 
-        case AST_MATCH_EXPR:
+        case AST_MATCH_EXPR: // F.B. ALGEBDT
+            gen_match(expr, stt);
             break;
         case AST_LAMBDA:
             break;
@@ -597,7 +604,8 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     }
                     break;
 
-                case MEMBER_FIELD:
+                case MEMBER_FIELD: // F.B. ALGEBDT: p.x
+                    gen_field_access(expr, stt);
                     break;
 
                 case MEMBER_LIST_BUILTIN:
@@ -697,6 +705,13 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     }
                 } else {
                     printf("PUSHS nil@nil\n");
+                }
+                if (stt->stack_on_extra > 0) {
+                    printf("POPS GF@%%tmp1\n");
+                    for (int k = 0; k < stt->stack_on_extra; k++) {
+                        printf("POPS GF@%%tmp2\n");
+                    }
+                    printf("PUSHS GF@%%tmp1\n");
                 }
                 printf("JUMP $func_%s$end\n", stt->func_name);
 
@@ -923,6 +938,17 @@ void create_builtin_functions() {
     printf("PUSHS GF@%%tmp1\n");
     printf("RETURN\n\n");
 
+    // F.B. ALGEBDT readIntMaybe(), readDoubleMaybe() : při chybě i EOF vrací (), => nil
+    printf("LABEL $builtin_readIntMaybe\n");
+    printf("READ GF@%%tmp1 int\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
+    printf("LABEL $builtin_readDoubleMaybe\n");
+    printf("READ GF@%%tmp1 float\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("RETURN\n\n");
+
     // print():
     printf("LABEL $builtin_print\n");
     printf("POPS GF@%%tmp1\n");
@@ -1079,6 +1105,7 @@ ErrorCode generate_code(const ASTNode *root) {
     }
 
     GenState stt = {.l_cnt = 0};
+    stt.program = root; // F.B. pro ALGEBDT
 
     ASTNode *curr_def = root->data.program.definitions;
     ASTNode *main_def = NULL;
@@ -1133,4 +1160,13 @@ ErrorCode generate_code(const ASTNode *root) {
     create_builtin_functions();
 
     return ERR_OK;
+}
+
+void gen_constructor(const ASTNode *expr, GenState *stt) {
+}
+
+void gen_field_access(const ASTNode *expr, GenState *stt) {
+}
+
+void gen_match(const ASTNode *expr, GenState *stt) {
 }
