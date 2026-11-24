@@ -58,13 +58,15 @@ void check_keyword(tToken *token, sStr *str) {
     } else if (strcmp(str->string, "false") == 0) {
         token->type = TOK_BOOL;
         token->val.i_val = 0;
+    } else if (strcmp(str->string, "List") == 0) {
+        token->type = TOK_LIST;
     }
 }
 
 int check_var_type(tToken *token, sStr *str) {
     if (strcmp(str->string, "Int") == 0 || strcmp(str->string, "Double") == 0 ||
         strcmp(str->string, "String") == 0 || strcmp(str->string, "Unit") == 0 ||
-        strcmp(str->string, "Boolean") == 0 || strcmp(str->string, "List") == 0) {
+        strcmp(str->string, "Boolean") == 0) {
         token->type = TOK_TYPE;
         return 1;
     }
