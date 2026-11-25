@@ -142,11 +142,11 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
     // F.B.: koncové návěští musí být unikátní i pro metody stejného jména pro různé typy
     // (describe v extension (v: Int) i (v: String)), proto číslo z l_cnt. stt->func_name
     // drží jméno tohoto návěští bez '$', skáče na něj return.
-    char end_label[256];
-    snprintf(end_label, sizeof end_label, "func_%s$end_%d", func->data.func_def.name, stt->l_cnt++);
+    char end_label[32];
+    snprintf(end_label, sizeof end_label, "func_%d$end", stt->l_cnt++);
     stt->func_name = end_label;
-    stt->stack_on_extra =
-        0; // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
+    stt->stack_on_extra = 0;
+    // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
     // F.B. PARAMLISTS: návratový typ je až za všemi seznamy parametrů
     // (def hello: Unit -> Unit, def f(a: Int)(b: Int): Unit -> (Int) => (Int) => Unit)
     const TypeInfo *ret_type = fn_type;
