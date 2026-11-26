@@ -1331,38 +1331,83 @@ void create_builtin_functions() {
     printf("PUSHS int@-1\n");
     printf("RETURN\n\n");
 
+    // AI help
+    /*
+     * Prompt: uprav mi funkci toStr() nasledovne: pridej navesti pro typ array, pokud se bude
+     * jednat o array, tak se precte jeho delka z indexu 0 a pote se bude od indexu nula az do
+     * konce prochazet pole a rekurzivne se na kazdy prvek zavola funkce toStr(). pole je v
+     * retezci napsano takto: "Lists(p1, ...)", takze ty prvky musis takto obalit. nezapomen
+     * vytvorit lokalni ramec pro veskere promenne, protoze pokud se budeme rekurzivne zanorovat,
+     * tak bychom si prepsali ty globalni.
+     */
     // toStr():
     printf("LABEL $builtin_toStr\n");
-    printf("POPS GF@%%tmp1\n");
-    printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
 
-    printf("JUMPIFEQ $builtin_toStr_end GF@%%tmp2 string@string\n");
-    printf("JUMPIFEQ $builtin_toStr_int GF@%%tmp2 string@int\n");
-    printf("JUMPIFEQ $builtin_toStr_float GF@%%tmp2 string@float\n");
-    printf("JUMPIFEQ $builtin_toStr_bool GF@%%tmp2 string@bool\n");
-    printf("JUMPIFEQ $builtin_toStr_nil GF@%%tmp2 string@nil\n");
+    printf("DEFVAR LF@val\n");
+    printf("DEFVAR LF@type\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@val\n");
+    printf("TYPE LF@type LF@val\n");
+
+    printf("JUMPIFEQ $builtin_toStr_end LF@type string@string\n");
+    printf("JUMPIFEQ $builtin_toStr_int LF@type string@int\n");
+    printf("JUMPIFEQ $builtin_toStr_float LF@type string@float\n");
+    printf("JUMPIFEQ $builtin_toStr_bool LF@type string@bool\n");
+    printf("JUMPIFEQ $builtin_toStr_nil LF@type string@nil\n");
+    printf("JUMPIFEQ $builtin_toStr_list LF@type string@array\n");
 
     printf("LABEL $builtin_toStr_int\n");
-    printf("INT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("INT2STR LF@val LF@val\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_float\n");
-    printf("FLOAT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("FLOAT2STR LF@val LF@val\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_bool\n");
-    printf("JUMPIFEQ $builtin_toStr_bool_true GF@%%tmp1 bool@true\n");
-    printf("MOVE GF@%%tmp1 string@false\n");
+    printf("JUMPIFEQ $builtin_toStr_bool_true LF@val bool@true\n");
+    printf("MOVE LF@val string@false\n");
     printf("JUMP $builtin_toStr_end\n");
     printf("LABEL $builtin_toStr_bool_true\n");
-    printf("MOVE GF@%%tmp1 string@true\n");
+    printf("MOVE LF@val string@true\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_nil\n");
-    printf("MOVE GF@%%tmp1 string@()\n");
+    printf("MOVE LF@val string@()\n");
+    printf("JUMP $builtin_toStr_end\n");
+
+    printf("LABEL $builtin_toStr_list\n");
+    printf("ARRAYGET LF@len LF@val int@0\n");
+    printf("MOVE LF@i int@1\n");
+    printf("MOVE LF@res string@List(\n");
+
+    printf("LABEL $builtin_toStr_list_loop\n");
+    printf("GT LF@cmp LF@i LF@len\n");
+    printf("JUMPIFEQ $builtin_toStr_list_end LF@cmp bool@true\n");
+    printf("JUMPIFEQ $builtin_toStr_list_first LF@i int@1\n");
+    printf("CONCAT LF@res LF@res string@,\\032\n");
+    printf("LABEL $builtin_toStr_list_first\n");
+    printf("ARRAYGET LF@elem LF@val LF@i\n");
+    printf("PUSHS LF@elem\n");
+    printf("CALL $builtin_toStr\n");
+    printf("POPS LF@elem\n");
+    printf("CONCAT LF@res LF@res LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_toStr_list_loop\n");
+
+    printf("LABEL $builtin_toStr_list_end\n");
+    printf("CONCAT LF@val LF@res string@)\n");
 
     printf("LABEL $builtin_toStr_end\n");
-    printf("PUSHS GF@%%tmp1\n");
+    printf("PUSHS LF@val\n");
+    printf("POPFRAME\n");
     printf("RETURN\n\n");
 
     // subStr():
