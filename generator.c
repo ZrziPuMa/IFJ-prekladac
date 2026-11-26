@@ -564,7 +564,24 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
                     case CALL_BUILTIN:
                         if (target != NULL && target->type == AST_IDENTIFIER) {
-                            printf("CALL $builtin_%s\n", target->data.identifier.name);
+                            // AI help
+                            if (strcmp(target->data.identifier.name, "List.range") == 0) {
+                                int arg_cnt = 0;
+                                if (expr->data.func_call.arg_groups != NULL) {
+                                    for (const ASTNode *it =
+                                             expr->data.func_call.arg_groups->data.list.items;
+                                         it != NULL; it = it->next) {
+                                        arg_cnt++;
+                                    }
+                                }
+                                if (arg_cnt == 2) {
+                                    printf("PUSHS int@1\n");
+                                }
+                                printf("PUSHS bool@true\n");
+                                printf("CALL $builtin_range_to_list\n");
+                            } else {
+                                printf("CALL $builtin_%s\n", target->data.identifier.name);
+                            }
                         }
                         break;
 
@@ -741,8 +758,16 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     break;
                 }
 
-                case MEMBER_RANGE_TOLIST:
+                // AI help
+                case MEMBER_RANGE_TOLIST: {
+                    const ASTNode *range_obj = expr->data.member_access.object;
+                    gen_expr(range_obj, stt);
+                    bool is_until = (range_obj != NULL && range_obj->type == AST_RANGE &&
+                                     range_obj->data.range.is_until);
+                    printf("PUSHS bool@%s\n", is_until ? "true" : "false");
+                    printf("CALL $builtin_range_to_list\n");
                     break;
+                }
 
                 case MEMBER_EXTENSION:
                     break;
@@ -1507,6 +1532,81 @@ void create_builtin_functions() {
     printf("SUB GF@%%tmp2 GF@%%tmp2 float@0x1p+0\n");
     printf("LABEL $builtin_floor_end\n");
     printf("PUSHS GF@%%tmp2\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    // range_to_list(start, end, step, is_until):
+    printf("LABEL $builtin_range_to_list\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@start\n");
+    printf("DEFVAR LF@end\n");
+    printf("DEFVAR LF@step\n");
+    printf("DEFVAR LF@is_until\n");
+    printf("DEFVAR LF@count\n");
+    printf("DEFVAR LF@diff\n");
+    printf("DEFVAR LF@step_abs\n");
+    printf("DEFVAR LF@arr\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@is_until\n");
+    printf("POPS LF@step\n");
+    printf("POPS LF@end\n");
+    printf("POPS LF@start\n");
+
+    printf("JUMPIFNEQ $builtin_range_step_ok LF@step int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_range_step_ok\n");
+
+    printf("MOVE LF@count int@0\n");
+    printf("LT LF@cmp LF@step int@0\n");
+    printf("JUMPIFEQ $builtin_range_neg LF@cmp bool@true\n");
+
+    // Kladný krok (step > 0): převedeme 'to' na 'until' přičtením 1 k end
+    printf("JUMPIFEQ $builtin_range_pos_calc LF@is_until bool@true\n");
+    printf("ADD LF@end LF@end int@1\n");
+    printf("LABEL $builtin_range_pos_calc\n");
+    printf("LT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_range_alloc LF@cmp bool@false\n");
+    printf("SUB LF@diff LF@end LF@start\n");
+    printf("SUB LF@diff LF@diff int@1\n");
+    printf("IDIV LF@count LF@diff LF@step\n");
+    printf("ADD LF@count LF@count int@1\n");
+    printf("JUMP $builtin_range_alloc\n");
+
+    // Záporný krok (step < 0): převedeme 'to' na 'until' odečtením 1 od end
+    printf("LABEL $builtin_range_neg\n");
+    printf("JUMPIFEQ $builtin_range_neg_calc LF@is_until bool@true\n");
+    printf("SUB LF@end LF@end int@1\n");
+    printf("LABEL $builtin_range_neg_calc\n");
+    printf("GT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_range_alloc LF@cmp bool@false\n");
+    printf("SUB LF@diff LF@start LF@end\n");
+    printf("SUB LF@diff LF@diff int@1\n");
+    printf("SUB LF@step_abs int@0 LF@step\n");
+    printf("IDIV LF@count LF@diff LF@step_abs\n");
+    printf("ADD LF@count LF@count int@1\n");
+
+    // Alokace a naplnění pole
+    printf("LABEL $builtin_range_alloc\n");
+    printf("ADD LF@i LF@count int@1\n");
+    printf("NEWARRAY LF@arr LF@i\n");
+    printf("ARRAYSET LF@arr int@0 LF@count\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_range_loop\n");
+    printf("GT LF@cmp LF@i LF@count\n");
+    printf("JUMPIFEQ $builtin_range_end LF@cmp bool@true\n");
+    printf("ARRAYSET LF@arr LF@i LF@start\n");
+    printf("ADD LF@start LF@start LF@step\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_range_loop\n");
+
+    printf("LABEL $builtin_range_end\n");
+    printf("PUSHS LF@arr\n");
+    printf("POPFRAME\n");
     printf("RETURN\n\n");
 }
 
