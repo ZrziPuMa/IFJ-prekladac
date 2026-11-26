@@ -1060,8 +1060,48 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("POPS GF@%%tmp1\n");
                     printf("POPS GF@%%tmp1\n");
 
-                } else {
-                    // TODO: LISTS
+                } else if (source != NULL) {
+                    // AI help
+                    int id = stt->l_cnt++;
+                    ASTNode *iter_var = statement->data.for_loop.iter_var;
+
+                    gen_expr(source, stt);
+                    printf("PUSHS int@1\n");
+
+                    printf("LABEL $for_list_start_%d\n", id);
+                    printf("POPS GF@%%tmp2\n");
+                    printf("POPS GF@%%tmp1\n");
+                    printf("PUSHS GF@%%tmp1\n");
+                    printf("PUSHS GF@%%tmp2\n");
+
+                    printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 int@0\n");
+                    printf("GT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
+                    printf("JUMPIFEQ $for_list_end_%d GF@%%tmp3 bool@true\n", id);
+
+                    printf("ARRAYGET LF@%s$%d GF@%%tmp1 GF@%%tmp2\n",
+                           iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+
+                    const ASTNode *curr_guard = statement->data.for_loop.guards;
+                    while (curr_guard != NULL) {
+                        gen_expr(curr_guard, stt);
+                        printf("PUSHS bool@false\n");
+                        printf("JUMPIFEQS $for_list_next_%d\n", id);
+                        curr_guard = curr_guard->next;
+                    }
+
+                    stt->stack_on_extra += 2;
+                    gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
+                    stt->stack_on_extra -= 2;
+
+                    printf("LABEL $for_list_next_%d\n", id);
+                    printf("POPS GF@%%tmp2\n");
+                    printf("ADD GF@%%tmp2 GF@%%tmp2 int@1\n");
+                    printf("PUSHS GF@%%tmp2\n");
+                    printf("JUMP $for_list_start_%d\n", id);
+
+                    printf("LABEL $for_list_end_%d\n", id);
+                    printf("POPS GF@%%tmp1\n");
+                    printf("POPS GF@%%tmp1\n");
                 }
 
                 if (val_on_stack) {
