@@ -142,11 +142,11 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
     // F.B.: koncové návěští musí být unikátní i pro metody stejného jména pro různé typy
     // (describe v extension (v: Int) i (v: String)), proto číslo z l_cnt. stt->func_name
     // drží jméno tohoto návěští bez '$', skáče na něj return.
-    char end_label[256];
-    snprintf(end_label, sizeof end_label, "func_%s$end_%d", func->data.func_def.name, stt->l_cnt++);
+    char end_label[32];
+    snprintf(end_label, sizeof end_label, "func_%d$end", stt->l_cnt++);
     stt->func_name = end_label;
-    stt->stack_on_extra =
-        0; // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
+    stt->stack_on_extra = 0;
+    // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
     // F.B. PARAMLISTS: návratový typ je až za všemi seznamy parametrů
     // (def hello: Unit -> Unit, def f(a: Int)(b: Int): Unit -> (Int) => (Int) => Unit)
     const TypeInfo *ret_type = fn_type;
@@ -515,9 +515,14 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     break;
 
                 default:
+                    // AI help
+                    if (expr->expr_type != NULL && expr->expr_type->type_class == TYPE_LIST) {
+                        printf("CALL $builtin_list_concat\n");
+                    }
                     break;
             }
             break;
+
         case AST_FUNC_CALL: {
             // Rozšíření EXTKW: pokud se jedná o metodu z extension, musíme na zásobník nejdříve
             // pushnout hodnotu příjemce (Hodnota nalevo od tečky)
@@ -530,7 +535,8 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                 gen_expr(target, stt);
             } else {
 
-                if (target != NULL && expr->data.func_call.call_kind == CALL_EXTENSION) {
+                if (target != NULL && (expr->data.func_call.call_kind == CALL_EXTENSION ||
+                                       expr->data.func_call.call_kind == CALL_LIST_METHOD)) {
                     gen_expr(target->data.member_access.object, stt);
                 }
 
@@ -564,7 +570,24 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
                     case CALL_BUILTIN:
                         if (target != NULL && target->type == AST_IDENTIFIER) {
-                            printf("CALL $builtin_%s\n", target->data.identifier.name);
+                            // AI help
+                            if (strcmp(target->data.identifier.name, "List.range") == 0) {
+                                int arg_cnt = 0;
+                                if (expr->data.func_call.arg_groups != NULL) {
+                                    for (const ASTNode *it =
+                                             expr->data.func_call.arg_groups->data.list.items;
+                                         it != NULL; it = it->next) {
+                                        arg_cnt++;
+                                    }
+                                }
+                                if (arg_cnt == 2) {
+                                    printf("PUSHS int@1\n");
+                                }
+                                printf("PUSHS bool@true\n");
+                                printf("CALL $builtin_range_to_list\n");
+                            } else {
+                                printf("CALL $builtin_%s\n", target->data.identifier.name);
+                            }
                         }
                         break;
 
@@ -581,12 +604,20 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                         gen_constructor(expr, stt);
                         break;
 
+                    case CALL_LIST_METHOD: // AI help
+                        if (target != NULL && target->type == AST_MEMBER_ACCESS) {
+                            printf("CALL $builtin_list_%s\n",
+                                   target->data.member_access.member_name);
+                        }
+                        break;
+
                     default:
                         break;
                 }
             }
             // AI help
             while (curr_arg_group != NULL) {
+                int id = stt->l_cnt++;
                 printf("POPS GF@%%tmp1\n");
                 printf("NEWARRAY GF@%%tmp2 int@2\n");
                 printf("ARRAYSET GF@%%tmp2 int@0 GF@%%fstack\n");
@@ -601,7 +632,26 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
                 printf("ARRAYGET GF@%%tmp1 GF@%%fstack int@1\n");
                 printf("ARRAYGET GF@%%fstack GF@%%fstack int@0\n");
+                printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+                printf("JUMPIFEQ $call_list_%d GF@%%tmp2 string@array\n", id);
                 printf("CALL GF@%%tmp1\n");
+                printf("JUMP $call_group_end_%d\n", id);
+
+                printf("LABEL $call_list_%d\n", id);
+                printf("POPS GF@%%tmp2\n");
+                printf("LT GF@%%tmp3 GF@%%tmp2 int@0\n");
+                printf("JUMPIFEQ $call_list_err_%d GF@%%tmp3 bool@true\n", id);
+                printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 int@0\n");
+                printf("LT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
+                printf("JUMPIFEQ $call_list_err_%d GF@%%tmp3 bool@false\n", id);
+                printf("ADD GF@%%tmp2 GF@%%tmp2 int@1\n");
+                printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 GF@%%tmp2\n");
+                printf("PUSHS GF@%%tmp3\n");
+                printf("JUMP $call_group_end_%d\n", id);
+
+                printf("LABEL $call_list_err_%d\n", id);
+                printf("EXIT int@40\n");
+                printf("LABEL $call_group_end_%d\n", id);
 
                 curr_arg_group = curr_arg_group->next;
             }
@@ -668,8 +718,38 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         }
 
         break;
-        case AST_LIST_LITERAL:
+
+        case AST_LIST_LITERAL: {
+            // AI help
+            /*
+             * Prompt: Napis mi blok kodu do case AST_LIST_LITERAL v gen_expr(), ktery pres
+             * gen_expr() vyhodnoti veskere prvky z pole na zasobnik a zaroven spocita delku
+             * seznamu. pote vytvori nove pole v IFJCODE26 o 1 prvek delsi nez je delka pole
+             * definovaneho v AST (referenci ulozi do pomocne promenne) a na nultou pozici v tomto
+             * poli ulozi delku pole. Nasledne napis smycku ktera postupne vyzvedne hodnoty ze
+             * zasobniku a nasklada je do pole odzadu. nakonec se musi reference pushnout na
+             * zasobnik
+             */
+            int count = 0;
+            const ASTNode *curr_item = expr->data.list.items;
+            while (curr_item != NULL) {
+                gen_expr(curr_item, stt);
+                count++;
+                curr_item = curr_item->next;
+            }
+
+            printf("NEWARRAY GF@%%tmp1 int@%d\n", count + 1);
+            printf("ARRAYSET GF@%%tmp1 int@0 int@%d\n", count);
+
+            for (int i = count; i >= 1; i--) {
+                printf("POPS GF@%%tmp2\n");
+                printf("ARRAYSET GF@%%tmp1 int@%d GF@%%tmp2\n", i);
+            }
+
+            printf("PUSHS GF@%%tmp1\n");
             break;
+        }
+
         // AI help
         /*
          * Prompty:
@@ -700,11 +780,31 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     gen_field_access(expr, stt);
                     break;
 
-                case MEMBER_LIST_BUILTIN:
-                    break;
+                // AI help
+                case MEMBER_LIST_BUILTIN: {
+                    gen_expr(expr->data.member_access.object, stt);
 
-                case MEMBER_RANGE_TOLIST:
+                    const char *member_name = expr->data.member_access.member_name;
+                    if (strcmp(member_name, "toString") == 0) {
+                        printf("CALL $builtin_toStr\n");
+                    } else if (strcmp(member_name, "head") == 0) {
+                        printf("CALL $builtin_list_head\n");
+                    } else if (strcmp(member_name, "tail") == 0) {
+                        printf("CALL $builtin_list_tail\n");
+                    }
                     break;
+                }
+
+                // AI help
+                case MEMBER_RANGE_TOLIST: {
+                    const ASTNode *range_obj = expr->data.member_access.object;
+                    gen_expr(range_obj, stt);
+                    bool is_until = (range_obj != NULL && range_obj->type == AST_RANGE &&
+                                     range_obj->data.range.is_until);
+                    printf("PUSHS bool@%s\n", is_until ? "true" : "false");
+                    printf("CALL $builtin_range_to_list\n");
+                    break;
+                }
 
                 case MEMBER_EXTENSION:
                     break;
@@ -960,8 +1060,48 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("POPS GF@%%tmp1\n");
                     printf("POPS GF@%%tmp1\n");
 
-                } else {
-                    // TODO: LISTS
+                } else if (source != NULL) {
+                    // AI help
+                    int id = stt->l_cnt++;
+                    ASTNode *iter_var = statement->data.for_loop.iter_var;
+
+                    gen_expr(source, stt);
+                    printf("PUSHS int@1\n");
+
+                    printf("LABEL $for_list_start_%d\n", id);
+                    printf("POPS GF@%%tmp2\n");
+                    printf("POPS GF@%%tmp1\n");
+                    printf("PUSHS GF@%%tmp1\n");
+                    printf("PUSHS GF@%%tmp2\n");
+
+                    printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 int@0\n");
+                    printf("GT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
+                    printf("JUMPIFEQ $for_list_end_%d GF@%%tmp3 bool@true\n", id);
+
+                    printf("ARRAYGET LF@%s$%d GF@%%tmp1 GF@%%tmp2\n",
+                           iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
+
+                    const ASTNode *curr_guard = statement->data.for_loop.guards;
+                    while (curr_guard != NULL) {
+                        gen_expr(curr_guard, stt);
+                        printf("PUSHS bool@false\n");
+                        printf("JUMPIFEQS $for_list_next_%d\n", id);
+                        curr_guard = curr_guard->next;
+                    }
+
+                    stt->stack_on_extra += 2;
+                    gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
+                    stt->stack_on_extra -= 2;
+
+                    printf("LABEL $for_list_next_%d\n", id);
+                    printf("POPS GF@%%tmp2\n");
+                    printf("ADD GF@%%tmp2 GF@%%tmp2 int@1\n");
+                    printf("PUSHS GF@%%tmp2\n");
+                    printf("JUMP $for_list_start_%d\n", id);
+
+                    printf("LABEL $for_list_end_%d\n", id);
+                    printf("POPS GF@%%tmp1\n");
+                    printf("POPS GF@%%tmp1\n");
                 }
 
                 if (val_on_stack) {
@@ -1269,14 +1409,26 @@ void create_builtin_functions() {
     printf("PUSHS GF@%%tmp1\n");
     printf("RETURN\n\n");
 
+    // AI help
+    /*
+     * Prompt: Uprav funkci print() tak, ze pridas navesti pro vypis (skoci se pokud typ bude
+     * array) v tomto navesti vlozis na zasobnik referenci na to pole a zavolas funkci toStr,
+     * ktera ti na zasobnik vrati string co se ma vytisknout. pak uz ho staci ulozit do GF@tmp1 a
+     * WRITE
+     */
     // print():
     printf("LABEL $builtin_print\n");
     printf("POPS GF@%%tmp1\n");
     printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+    printf("JUMPIFEQ $builtin_print_list GF@%%tmp2 string@array\n");
     printf("JUMPIFNEQ $builtin_print_end GF@%%tmp2 string@nil\n");
     printf("WRITE string@()\n");
     printf("PUSHS nil@nil\n");
     printf("RETURN\n");
+    printf("LABEL $builtin_print_list\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("CALL $builtin_toStr\n");
+    printf("POPS GF@%%tmp1\n");
     printf("LABEL $builtin_print_end\n");
     printf("WRITE GF@%%tmp1\n");
     printf("PUSHS nil@nil\n");
@@ -1301,38 +1453,83 @@ void create_builtin_functions() {
     printf("PUSHS int@-1\n");
     printf("RETURN\n\n");
 
+    // AI help
+    /*
+     * Prompt: uprav mi funkci toStr() nasledovne: pridej navesti pro typ array, pokud se bude
+     * jednat o array, tak se precte jeho delka z indexu 0 a pote se bude od indexu nula az do
+     * konce prochazet pole a rekurzivne se na kazdy prvek zavola funkce toStr(). pole je v
+     * retezci napsano takto: "Lists(p1, ...)", takze ty prvky musis takto obalit. nezapomen
+     * vytvorit lokalni ramec pro veskere promenne, protoze pokud se budeme rekurzivne zanorovat,
+     * tak bychom si prepsali ty globalni.
+     */
     // toStr():
     printf("LABEL $builtin_toStr\n");
-    printf("POPS GF@%%tmp1\n");
-    printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
 
-    printf("JUMPIFEQ $builtin_toStr_end GF@%%tmp2 string@string\n");
-    printf("JUMPIFEQ $builtin_toStr_int GF@%%tmp2 string@int\n");
-    printf("JUMPIFEQ $builtin_toStr_float GF@%%tmp2 string@float\n");
-    printf("JUMPIFEQ $builtin_toStr_bool GF@%%tmp2 string@bool\n");
-    printf("JUMPIFEQ $builtin_toStr_nil GF@%%tmp2 string@nil\n");
+    printf("DEFVAR LF@val\n");
+    printf("DEFVAR LF@type\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@val\n");
+    printf("TYPE LF@type LF@val\n");
+
+    printf("JUMPIFEQ $builtin_toStr_end LF@type string@string\n");
+    printf("JUMPIFEQ $builtin_toStr_int LF@type string@int\n");
+    printf("JUMPIFEQ $builtin_toStr_float LF@type string@float\n");
+    printf("JUMPIFEQ $builtin_toStr_bool LF@type string@bool\n");
+    printf("JUMPIFEQ $builtin_toStr_nil LF@type string@nil\n");
+    printf("JUMPIFEQ $builtin_toStr_list LF@type string@array\n");
 
     printf("LABEL $builtin_toStr_int\n");
-    printf("INT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("INT2STR LF@val LF@val\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_float\n");
-    printf("FLOAT2STR GF@%%tmp1 GF@%%tmp1\n");
+    printf("FLOAT2STR LF@val LF@val\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_bool\n");
-    printf("JUMPIFEQ $builtin_toStr_bool_true GF@%%tmp1 bool@true\n");
-    printf("MOVE GF@%%tmp1 string@false\n");
+    printf("JUMPIFEQ $builtin_toStr_bool_true LF@val bool@true\n");
+    printf("MOVE LF@val string@false\n");
     printf("JUMP $builtin_toStr_end\n");
     printf("LABEL $builtin_toStr_bool_true\n");
-    printf("MOVE GF@%%tmp1 string@true\n");
+    printf("MOVE LF@val string@true\n");
     printf("JUMP $builtin_toStr_end\n");
 
     printf("LABEL $builtin_toStr_nil\n");
-    printf("MOVE GF@%%tmp1 string@()\n");
+    printf("MOVE LF@val string@()\n");
+    printf("JUMP $builtin_toStr_end\n");
+
+    printf("LABEL $builtin_toStr_list\n");
+    printf("ARRAYGET LF@len LF@val int@0\n");
+    printf("MOVE LF@i int@1\n");
+    printf("MOVE LF@res string@List(\n");
+
+    printf("LABEL $builtin_toStr_list_loop\n");
+    printf("GT LF@cmp LF@i LF@len\n");
+    printf("JUMPIFEQ $builtin_toStr_list_end LF@cmp bool@true\n");
+    printf("JUMPIFEQ $builtin_toStr_list_first LF@i int@1\n");
+    printf("CONCAT LF@res LF@res string@,\\032\n");
+    printf("LABEL $builtin_toStr_list_first\n");
+    printf("ARRAYGET LF@elem LF@val LF@i\n");
+    printf("PUSHS LF@elem\n");
+    printf("CALL $builtin_toStr\n");
+    printf("POPS LF@elem\n");
+    printf("CONCAT LF@res LF@res LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_toStr_list_loop\n");
+
+    printf("LABEL $builtin_toStr_list_end\n");
+    printf("CONCAT LF@val LF@res string@)\n");
 
     printf("LABEL $builtin_toStr_end\n");
-    printf("PUSHS GF@%%tmp1\n");
+    printf("PUSHS LF@val\n");
+    printf("POPFRAME\n");
     printf("RETURN\n\n");
 
     // subStr():
@@ -1412,6 +1609,405 @@ void create_builtin_functions() {
     printf("SUB GF@%%tmp2 GF@%%tmp2 float@0x1p+0\n");
     printf("LABEL $builtin_floor_end\n");
     printf("PUSHS GF@%%tmp2\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    // range_to_list(start, end, step, is_until):
+    printf("LABEL $builtin_range_to_list\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@start\n");
+    printf("DEFVAR LF@end\n");
+    printf("DEFVAR LF@step\n");
+    printf("DEFVAR LF@is_until\n");
+    printf("DEFVAR LF@count\n");
+    printf("DEFVAR LF@diff\n");
+    printf("DEFVAR LF@step_abs\n");
+    printf("DEFVAR LF@arr\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@is_until\n");
+    printf("POPS LF@step\n");
+    printf("POPS LF@end\n");
+    printf("POPS LF@start\n");
+
+    printf("JUMPIFNEQ $builtin_range_step_ok LF@step int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_range_step_ok\n");
+
+    printf("MOVE LF@count int@0\n");
+    printf("LT LF@cmp LF@step int@0\n");
+    printf("JUMPIFEQ $builtin_range_neg LF@cmp bool@true\n");
+
+    // Kladný krok (step > 0): převedeme 'to' na 'until' přičtením 1 k end
+    printf("JUMPIFEQ $builtin_range_pos_calc LF@is_until bool@true\n");
+    printf("ADD LF@end LF@end int@1\n");
+    printf("LABEL $builtin_range_pos_calc\n");
+    printf("LT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_range_alloc LF@cmp bool@false\n");
+    printf("SUB LF@diff LF@end LF@start\n");
+    printf("SUB LF@diff LF@diff int@1\n");
+    printf("IDIV LF@count LF@diff LF@step\n");
+    printf("ADD LF@count LF@count int@1\n");
+    printf("JUMP $builtin_range_alloc\n");
+
+    // Záporný krok (step < 0): převedeme 'to' na 'until' odečtením 1 od end
+    printf("LABEL $builtin_range_neg\n");
+    printf("JUMPIFEQ $builtin_range_neg_calc LF@is_until bool@true\n");
+    printf("SUB LF@end LF@end int@1\n");
+    printf("LABEL $builtin_range_neg_calc\n");
+    printf("GT LF@cmp LF@start LF@end\n");
+    printf("JUMPIFEQ $builtin_range_alloc LF@cmp bool@false\n");
+    printf("SUB LF@diff LF@start LF@end\n");
+    printf("SUB LF@diff LF@diff int@1\n");
+    printf("SUB LF@step_abs int@0 LF@step\n");
+    printf("IDIV LF@count LF@diff LF@step_abs\n");
+    printf("ADD LF@count LF@count int@1\n");
+
+    // Alokace a naplnění pole
+    printf("LABEL $builtin_range_alloc\n");
+    printf("ADD LF@i LF@count int@1\n");
+    printf("NEWARRAY LF@arr LF@i\n");
+    printf("ARRAYSET LF@arr int@0 LF@count\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_range_loop\n");
+    printf("GT LF@cmp LF@i LF@count\n");
+    printf("JUMPIFEQ $builtin_range_end LF@cmp bool@true\n");
+    printf("ARRAYSET LF@arr LF@i LF@start\n");
+    printf("ADD LF@start LF@start LF@step\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_range_loop\n");
+
+    printf("LABEL $builtin_range_end\n");
+    printf("PUSHS LF@arr\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    // list_concat(list1, list2):
+    printf("LABEL $builtin_list_concat\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@l1\n");
+    printf("DEFVAR LF@l2\n");
+    printf("DEFVAR LF@len1\n");
+    printf("DEFVAR LF@len2\n");
+    printf("DEFVAR LF@total\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@dst\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@l2\n");
+    printf("POPS LF@l1\n");
+    printf("ARRAYGET LF@len1 LF@l1 int@0\n");
+    printf("ARRAYGET LF@len2 LF@l2 int@0\n");
+    printf("ADD LF@total LF@len1 LF@len2\n");
+    printf("ADD LF@dst LF@total int@1\n");
+    printf("NEWARRAY LF@res LF@dst\n");
+    printf("ARRAYSET LF@res int@0 LF@total\n");
+
+    printf("MOVE LF@i int@1\n");
+    printf("LABEL $builtin_concat_loop1\n");
+    printf("GT LF@cmp LF@i LF@len1\n");
+    printf("JUMPIFEQ $builtin_concat_loop2_init LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@l1 LF@i\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_concat_loop1\n");
+
+    printf("LABEL $builtin_concat_loop2_init\n");
+    printf("MOVE LF@i int@1\n");
+    printf("LABEL $builtin_concat_loop2\n");
+    printf("GT LF@cmp LF@i LF@len2\n");
+    printf("JUMPIFEQ $builtin_concat_end LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@l2 LF@i\n");
+    printf("ADD LF@dst LF@len1 LF@i\n");
+    printf("ARRAYSET LF@res LF@dst LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_concat_loop2\n");
+
+    printf("LABEL $builtin_concat_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    // list_head(list):
+    printf("LABEL $builtin_list_head\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@0\n");
+    printf("JUMPIFNEQ $builtin_list_head_ok GF@%%tmp2 int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_list_head_ok\n");
+    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@1\n");
+    printf("PUSHS GF@%%tmp2\n");
+    printf("RETURN\n\n");
+
+    // list_tail(list):
+    printf("LABEL $builtin_list_tail\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@new_len\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+    printf("JUMPIFNEQ $builtin_list_tail_ok LF@len int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_list_tail_ok\n");
+
+    printf("SUB LF@new_len LF@len int@1\n");
+    printf("NEWARRAY LF@res LF@len\n");
+    printf("ARRAYSET LF@res int@0 LF@new_len\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_list_tail_loop\n");
+    printf("GT LF@cmp LF@i LF@new_len\n");
+    printf("JUMPIFEQ $builtin_list_tail_end LF@cmp bool@true\n");
+    printf("ADD LF@elem LF@i int@1\n");
+    printf("ARRAYGET LF@elem LF@src LF@elem\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_list_tail_loop\n");
+
+    printf("LABEL $builtin_list_tail_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+
+    // AI help
+    // list_drop(list, n) -> slice(list, n, len):
+    printf("LABEL $builtin_list_drop\n");
+    printf("POPS GF@%%tmp2\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 int@0\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("PUSHS GF@%%tmp2\n");
+    printf("PUSHS GF@%%tmp3\n");
+    printf("JUMP $builtin_list_slice\n\n");
+
+    // list_take(list, n) -> slice(list, 0, n):
+    printf("LABEL $builtin_list_take\n");
+    printf("POPS GF@%%tmp2\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("PUSHS int@0\n");
+    printf("PUSHS GF@%%tmp2\n");
+    printf("JUMP $builtin_list_slice\n\n");
+
+    // list_slice(list, from, until):
+    printf("LABEL $builtin_list_slice\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@from\n");
+    printf("DEFVAR LF@until\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@new_len\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@idx\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@until\n");
+    printf("POPS LF@from\n");
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+
+    // Ořezání from do <0, len>
+    printf("LT LF@cmp LF@from int@0\n");
+    printf("JUMPIFEQ $builtin_slice_from_0 LF@cmp bool@true\n");
+    printf("GT LF@cmp LF@from LF@len\n");
+    printf("JUMPIFEQ $builtin_slice_from_len LF@cmp bool@true\n");
+    printf("JUMP $builtin_slice_check_until\n");
+    printf("LABEL $builtin_slice_from_0\n");
+    printf("MOVE LF@from int@0\n");
+    printf("JUMP $builtin_slice_check_until\n");
+    printf("LABEL $builtin_slice_from_len\n");
+    printf("MOVE LF@from LF@len\n");
+
+    // Ořezání until do <0, len>
+    printf("LABEL $builtin_slice_check_until\n");
+    printf("LT LF@cmp LF@until int@0\n");
+    printf("JUMPIFEQ $builtin_slice_until_0 LF@cmp bool@true\n");
+    printf("GT LF@cmp LF@until LF@len\n");
+    printf("JUMPIFEQ $builtin_slice_until_len LF@cmp bool@true\n");
+    printf("JUMP $builtin_slice_calc\n");
+    printf("LABEL $builtin_slice_until_0\n");
+    printf("MOVE LF@until int@0\n");
+    printf("JUMP $builtin_slice_calc\n");
+    printf("LABEL $builtin_slice_until_len\n");
+    printf("MOVE LF@until LF@len\n");
+
+    // Alokace a kopie prvků
+    printf("LABEL $builtin_slice_calc\n");
+    printf("MOVE LF@new_len int@0\n");
+    printf("GT LF@cmp LF@until LF@from\n");
+    printf("JUMPIFEQ $builtin_slice_alloc LF@cmp bool@false\n");
+    printf("SUB LF@new_len LF@until LF@from\n");
+
+    printf("LABEL $builtin_slice_alloc\n");
+    printf("ADD LF@i LF@new_len int@1\n");
+    printf("NEWARRAY LF@res LF@i\n");
+    printf("ARRAYSET LF@res int@0 LF@new_len\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_slice_loop\n");
+    printf("GT LF@cmp LF@i LF@new_len\n");
+    printf("JUMPIFEQ $builtin_slice_end LF@cmp bool@true\n");
+    printf("ADD LF@idx LF@from LF@i\n");
+    printf("ARRAYGET LF@elem LF@src LF@idx\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_slice_loop\n");
+
+    printf("LABEL $builtin_slice_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+
+    // list_takeWhile(list, pred) -> slice(list, 0, cnt):
+    printf("LABEL $builtin_list_takeWhile\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@pred\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@cnt\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@keep\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@pred\n");
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+    printf("MOVE LF@i int@1\n");
+    printf("MOVE LF@cnt int@0\n");
+
+    printf("LABEL $builtin_takeWhile_loop\n");
+    printf("GT LF@cmp LF@i LF@len\n");
+    printf("JUMPIFEQ $builtin_takeWhile_done LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@src LF@i\n");
+    printf("PUSHS LF@elem\n");
+    printf("CALL LF@pred\n");
+    printf("POPS LF@keep\n");
+    printf("JUMPIFNEQ $builtin_takeWhile_done LF@keep bool@true\n");
+    printf("ADD LF@cnt LF@cnt int@1\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_takeWhile_loop\n");
+
+    printf("LABEL $builtin_takeWhile_done\n");
+    printf("PUSHS LF@src\n");
+    printf("PUSHS int@0\n");
+    printf("PUSHS LF@cnt\n");
+    printf("POPFRAME\n");
+    printf("JUMP $builtin_list_slice\n\n");
+
+    // list_dropWhile(list, pred) -> slice(list, i - 1, len):
+    printf("LABEL $builtin_list_dropWhile\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@pred\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@keep\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@pred\n");
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_dropWhile_loop\n");
+    printf("GT LF@cmp LF@i LF@len\n");
+    printf("JUMPIFEQ $builtin_dropWhile_done LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@src LF@i\n");
+    printf("PUSHS LF@elem\n");
+    printf("CALL LF@pred\n");
+    printf("POPS LF@keep\n");
+    printf("JUMPIFNEQ $builtin_dropWhile_done LF@keep bool@true\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_dropWhile_loop\n");
+
+    printf("LABEL $builtin_dropWhile_done\n");
+    printf("SUB LF@i LF@i int@1\n");
+    printf("PUSHS LF@src\n");
+    printf("PUSHS LF@i\n");
+    printf("PUSHS LF@len\n");
+    printf("POPFRAME\n");
+    printf("JUMP $builtin_list_slice\n\n");
+
+    // list_filter(list, pred):
+    printf("LABEL $builtin_list_filter\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@pred\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@tmp\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@cnt\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@keep\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@pred\n");
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+    printf("ADD LF@i LF@len int@1\n");
+    printf("NEWARRAY LF@tmp LF@i\n");
+
+    printf("MOVE LF@i int@1\n");
+    printf("MOVE LF@cnt int@0\n");
+
+    printf("LABEL $builtin_filter_loop\n");
+    printf("GT LF@cmp LF@i LF@len\n");
+    printf("JUMPIFEQ $builtin_filter_copy_init LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@src LF@i\n");
+    printf("PUSHS LF@elem\n");
+    printf("CALL LF@pred\n");
+    printf("POPS LF@keep\n");
+    printf("JUMPIFNEQ $builtin_filter_next LF@keep bool@true\n");
+    printf("ADD LF@cnt LF@cnt int@1\n");
+    printf("ARRAYSET LF@tmp LF@cnt LF@elem\n");
+    printf("LABEL $builtin_filter_next\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_filter_loop\n");
+
+    printf("LABEL $builtin_filter_copy_init\n");
+    printf("ADD LF@i LF@cnt int@1\n");
+    printf("NEWARRAY LF@res LF@i\n");
+    printf("ARRAYSET LF@res int@0 LF@cnt\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_filter_copy_loop\n");
+    printf("GT LF@cmp LF@i LF@cnt\n");
+    printf("JUMPIFEQ $builtin_filter_end LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@tmp LF@i\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_filter_copy_loop\n");
+
+    printf("LABEL $builtin_filter_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
     printf("RETURN\n\n");
 }
 
