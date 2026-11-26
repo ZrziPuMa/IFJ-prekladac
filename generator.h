@@ -41,9 +41,9 @@ typedef enum {
  *
  */
 typedef struct {
-    int l_cnt;             // Čítač návěští
-    const char *func_name; // Název aktuální funkce se kterou se pracuje
-    bool is_unit;
+    int l_cnt;              // Čítač návěští
+    const char *func_name;  // Název aktuální funkce se kterou se pracuje
+    bool is_unit;           // Příznak, zda má aktuální funkce návratový typ Unit
     int stack_on_extra;     // Počet prvků na zásobníku, které se mají uklidit // AI help
     const ASTNode *program; // ALGEBDT: kořen programu, v něm se hledají definice tříd // AI help
 
@@ -67,7 +67,7 @@ void create_prolog(const ASTNode *main_def);
  * @brief Vypíše definici předané funkce
  *
  * @param func Ukazatel na uzel AST_FUNC_DEF
- * @param receiver
+ * @param receiver Ukazatel na příjemce metody (pro extension, jinak NULL)
  * @param stt Struktura pro aktualní stav generátoru
  */
 void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt);
@@ -75,43 +75,45 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
 /**
  * @brief Funkce pro prochazání všech param_groups a zavolání define_params() nad nimi
  *
- * @param param_groups
+ * @param param_groups Ukazatel na seznam skupin parametrů funkce
  */
 void define_param_groups(const ASTNode *param_groups);
 
 /**
  * @brief Připraví proměnné v LF pro argumenty funkce a vloží do nich hodnoty ze zásobníku
  *
- * @param items
+ * @param items Ukazatel na první parametr v rámci jedné skupiny parametrů
  */
 void define_params(const ASTNode *items);
 
 /**
  * @brief Vypíše deklarace všech lokálních proměnných ve funkci (hoisting)
  *
- * @param command
+ * @param command Ukazatel na první uzel v těle funkce
  */
 void declare_local_vars(const ASTNode *command);
 
 /**
  * @brief Vyhodnotí zadaný výraz a nechá ho na vrcholu zásobníku
  *
- * @param expr
+ * @param expr Ukazatel na uzel výrazu v AST
+ * @param stt Struktura pro aktuální stav generátoru
  */
 void gen_expr(const ASTNode *expr, GenState *stt);
 
 /**
  * @brief Pomocná funkce pro výpis instrukce PUSHS pro literál typu string
  *
- * @param string
+ * @param string Vstupní řetězec k převedení do formátu IFJcode26
  */
 void string_lit_pushs(const char *string);
 
 /**
- * @brief
+ * @brief Vygeneruje cílový kód pro posloupnost příkazů v bloku
  *
- * @param statement
- * @param stt
+ * @param statement Ukazatel na první příkaz v bloku
+ * @param stt Struktura pro aktuální stav generátoru
+ * @param keep_result Určuje, zda má výsledek posledního výrazu zůstat na vrcholu zásobníku
  */
 void gen_block(const ASTNode *statement, GenState *stt, bool keep_result);
 
@@ -124,8 +126,8 @@ void create_builtin_functions();
 /**
  * @brief Vytvoří návěští pro metodu z extension (EXTKW)
  *
- * @param receiver_type
- * @param method_name
+ * @param receiver_type Typ příjemce metody (hodnoty nalevo od tečky)
+ * @param method_name Název volané metody
  */
 void create_ext_func_label(const TypeInfo *receiver_type, const char *method_name);
 
@@ -154,43 +156,43 @@ void gen_field_access(const ASTNode *expr, GenState *stt);
 void gen_match(const ASTNode *expr, GenState *stt);
 
 /**
- * @brief
+ * @brief Zaregistruje uzel lambda funkce do dynamického pole a přidělí jí unikátní ID
  *
- * @param stt
- * @param lambda
- * @return int
+ * @param stt Struktura pro aktuální stav generátoru
+ * @param lambda Ukazatel na uzel AST_LAMBDA
+ * @return Přidělené ID lambda funkce, nebo -1 při chybě
  */
 int register_lambda(GenState *stt, const ASTNode *lambda);
 
 /**
- * @brief Get the lambda id object
+ * @brief Vyhledá a vrátí přidělené ID pro zadaný uzel lambda funkce
  *
- * @param stt
- * @param lambda
- * @return int
+ * @param stt Struktura pro aktuální stav generátoru
+ * @param lambda Ukazatel na uzel AST_LAMBDA
+ * @return ID lambda funkce, nebo -1 pokud nebyla nalezena
  */
 int get_lambda_id(const GenState *stt, const ASTNode *lambda);
 
 /**
- * @brief
+ * @brief Uvolní dynamické pole s ukazateli na lambda funkce
  *
- * @param stt
+ * @param stt Struktura pro aktuální stav generátoru
  */
 void free_lambdas(GenState *stt);
 
 /**
- * @brief Create a lambda def object
+ * @brief Vypíše definici zadané lambda funkce v IFJcode26
  *
- * @param lambda
- * @param stt
+ * @param lambda Ukazatel na uzel AST_LAMBDA
+ * @param stt Struktura pro aktuální stav generátoru
  */
 void create_lambda_def(const ASTNode *lambda, GenState *stt);
 
 /**
- * @brief Create a all lambdas object
+ * @brief Projde celý program, zaregistruje všechny lambda funkce a vygeneruje jejich těla
  *
- * @param node
- * @param stt
+ * @param node Ukazatel na první definici nejvyšší úrovně v AST
+ * @param stt Struktura pro aktuální stav generátoru
  */
 void create_all_lambdas(const ASTNode *node, GenState *stt);
 
