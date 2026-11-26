@@ -3371,8 +3371,28 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
             return semantic_error(ctx, ERR_INTERNAL, node);
         }
 
-        // nastavení ret_type u první větve
-        if (ret_type == NULL) {
+        if (expected_type != NULL && expected_type->type_class == TYPE_UNION) {
+            // pro případ kdy má dát union se kompatibilita kontroluje zvlášť
+
+            // porovnáí kompatibilitu s expected_type
+            if (!semantic_types_compatible(expected_type, branch_type)) {
+                if (ret_type != NULL) {
+                    type_info_free(ret_type);
+                }
+                return semantic_error(ctx, ctx->expected_type_error, node);
+            }
+
+            // u první větve nastaví výsledný typ match
+            // na očekávaný sjednocený typ
+            if (ret_type == NULL) {
+                ret_type = type_info_clone(expected_type);
+
+                if (ret_type == NULL) {
+                    return semantic_error(ctx, ERR_INTERNAL, node);
+                }
+            }
+
+        } else if (ret_type == NULL) { // nastavení ret_type u první větve
             ret_type = type_info_clone(branch_type);
 
             if (ret_type == NULL) {
