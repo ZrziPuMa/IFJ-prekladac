@@ -1299,14 +1299,26 @@ void create_builtin_functions() {
     printf("PUSHS GF@%%tmp1\n");
     printf("RETURN\n\n");
 
+    // AI help
+    /*
+     * Prompt: Uprav funkci print() tak, ze pridas navesti pro vypis (skoci se pokud typ bude
+     * array) v tomto navesti vlozis na zasobnik referenci na to pole a zavolas funkci toStr,
+     * ktera ti na zasobnik vrati string co se ma vytisknout. pak uz ho staci ulozit do GF@tmp1 a
+     * WRITE
+     */
     // print():
     printf("LABEL $builtin_print\n");
     printf("POPS GF@%%tmp1\n");
     printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+    printf("JUMPIFEQ $builtin_print_list GF@%%tmp2 string@array\n");
     printf("JUMPIFNEQ $builtin_print_end GF@%%tmp2 string@nil\n");
     printf("WRITE string@()\n");
     printf("PUSHS nil@nil\n");
     printf("RETURN\n");
+    printf("LABEL $builtin_print_list\n");
+    printf("PUSHS GF@%%tmp1\n");
+    printf("CALL $builtin_toStr\n");
+    printf("POPS GF@%%tmp1\n");
     printf("LABEL $builtin_print_end\n");
     printf("WRITE GF@%%tmp1\n");
     printf("PUSHS nil@nil\n");
