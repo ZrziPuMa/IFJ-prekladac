@@ -402,7 +402,9 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     } else {
                         printf("PUSHS int@0\n");
                     }
+                    stt->stack_on_extra++;
                     gen_expr(expr->data.unary_op.operand, stt);
+                    stt->stack_on_extra--;
                     printf("SUBS\n");
                     break;
 
@@ -450,7 +452,9 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
             // Normální operátory:
             gen_expr(expr->data.bin_op.left, stt);
+            stt->stack_on_extra++;
             gen_expr(expr->data.bin_op.right, stt);
+            stt->stack_on_extra--;
 
             switch (expr->data.bin_op.operator_token) {
                 case OP_PLUS:
@@ -534,10 +538,12 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             if (expr->data.func_call.call_kind == CALL_VALUE) {
                 gen_expr(target, stt);
             } else {
+                int pushed = 0;
 
                 if (target != NULL && (expr->data.func_call.call_kind == CALL_EXTENSION ||
                                        expr->data.func_call.call_kind == CALL_LIST_METHOD)) {
                     gen_expr(target->data.member_access.object, stt);
+                    pushed++;
                 }
 
                 for (int i = 0; i < expr->data.func_call.own_groups && curr_arg_group != NULL;
@@ -545,7 +551,10 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     const ASTNode *curr_item = curr_arg_group->data.list.items;
 
                     while (curr_item != NULL) {
+                        stt->stack_on_extra += pushed;
                         gen_expr(curr_item, stt);
+                        stt->stack_on_extra -= pushed;
+                        pushed++;
                         curr_item = curr_item->next;
                     }
                     curr_arg_group = curr_arg_group->next;
@@ -624,9 +633,13 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                 printf("ARRAYSET GF@%%tmp2 int@1 GF@%%tmp1\n");
                 printf("MOVE GF@%%fstack GF@%%tmp2\n");
 
+                int group_pushed = 0;
                 const ASTNode *curr_item = curr_arg_group->data.list.items;
                 while (curr_item != NULL) {
+                    stt->stack_on_extra += group_pushed;
                     gen_expr(curr_item, stt);
+                    stt->stack_on_extra -= group_pushed;
+                    group_pushed++;
                     curr_item = curr_item->next;
                 }
 
@@ -733,7 +746,9 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             int count = 0;
             const ASTNode *curr_item = expr->data.list.items;
             while (curr_item != NULL) {
+                stt->stack_on_extra += count;
                 gen_expr(curr_item, stt);
+                stt->stack_on_extra -= count;
                 count++;
                 curr_item = curr_item->next;
             }
@@ -819,10 +834,14 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         case AST_RANGE:
             // Dostaneme hodnoty start, end a step na zásobník:
             gen_expr(expr->data.range.start, stt);
+            stt->stack_on_extra++;
             gen_expr(expr->data.range.end, stt);
+            stt->stack_on_extra--;
 
             if (expr->data.range.step != NULL) {
+                stt->stack_on_extra += 2;
                 gen_expr(expr->data.range.step, stt);
+                stt->stack_on_extra -= 2;
             } else {
                 printf("PUSHS int@1\n");
             }
@@ -1028,6 +1047,10 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
 
                     printf("LABEL $for_body_%d\n", id);
 
+                    // F.B.: end a step leží během stráží i těla na zásobníku, return uvnitř je musí
+                    // uklidit
+                    stt->stack_on_extra += 2;
+
                     // Kontrola stráží (Guards):
                     const ASTNode *curr_guard = statement->data.for_loop.guards;
                     while (curr_guard != NULL) {
@@ -1037,8 +1060,6 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                         curr_guard = curr_guard->next;
                     }
 
-                    // F.B.: end a step leží během těla na zásobníku, return uvnitř je musí uklidit
-                    stt->stack_on_extra += 2;
                     gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
                     stt->stack_on_extra -= 2;
 
@@ -1081,6 +1102,7 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("ARRAYGET LF@%s$%d GF@%%tmp1 GF@%%tmp2\n",
                            iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
 
+                    stt->stack_on_extra += 2;
                     const ASTNode *curr_guard = statement->data.for_loop.guards;
                     while (curr_guard != NULL) {
                         gen_expr(curr_guard, stt);
@@ -1089,7 +1111,6 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                         curr_guard = curr_guard->next;
                     }
 
-                    stt->stack_on_extra += 2;
                     gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
                     stt->stack_on_extra -= 2;
 
