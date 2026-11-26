@@ -14,7 +14,7 @@
 
 # --- Základní nastavení překladu ---
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -pedantic -std=c11 -g
+CFLAGS = -Wall -Wextra -pedantic -std=c11 -g
 # Poznámka: -Werror doporučujeme odstranit před finálním odevzdáním
 
 DEPFLAGS = -MMD -MP
@@ -32,7 +32,6 @@ DEPS = $(SRCS:.c=.d)
 # ==============================================================================
 
 FORMAT_STYLE = file
-TEST_INPUT = factorial.scala
 
 # Nastavení pro testování na školním serveru Merlin:
 FIT_LOGIN = xbilavf00
@@ -121,83 +120,12 @@ memcheck: build
 	$(VALGRIND) ./$(TARGET) < $(MEM_INPUT) > /dev/null
 	@echo "✅ Valgrind nezjistil žádné úniky paměti v překladači!"
 
-server-test:
-	@test "$(FIT_LOGIN)" != "xlogin00" || \
-		{ echo "❌ CHYBA: Zadejte FIT_LOGIN (např. make server-test FIT_LOGIN=xnovak00)"; exit 1; }
-	@echo "--> Odesílám soubory na server Merlin..."
-	ssh $(REMOTE) "mkdir -p $(REMOTE_DIR)"
-	scp Makefile $(SRCS) $(HDRS) $(wildcard $(TEST_INPUT)) $(REMOTE):$(REMOTE_DIR)/
-	@echo "--> Spouštím překlad a test na serveru Merlin..."
-	ssh $(REMOTE) "cd $(REMOTE_DIR) && make clean build && ./$(TARGET) < $(MEM_INPUT) > /dev/null"
-	@echo "✅ Test překladu na serveru Merlin úspěšně prošel!"
-
 # ==============================================================================
-# 5. GOOGLE TEST (Jednotkové a izolované testy)
-# ==============================================================================
-CXX ?= g++
-CXXFLAGS ?= -std=c++17 -Wall -Wextra -g -I.
-GTEST_LIBS = -lgtest -lgtest_main -pthread
-
-TEST_DIR = tests
-TEST_SRCS = $(wildcard $(TEST_DIR)/test_*.cpp)
-TEST_BINS = $(patsubst $(TEST_DIR)/test_%.cpp, bin_test_%, $(TEST_SRCS))
-
-# Spuštění všech existujících testů najednou: make test
-test: $(TEST_BINS)
-	@if [ -z "$(TEST_BINS)" ]; then \
-		echo "⚠️  Žádné testy k dispozici (v '$(TEST_DIR)/' nebyl nalezen žádný 'test_*.cpp')."; \
-	else \
-		for bin in $(TEST_BINS); do \
-			echo "--> Spouštím test: $$bin"; \
-			./$$bin || exit 1; \
-		done; \
-		echo "✅ Všechny jednotkové testy úspěšně prošly!"; \
-	fi
-
-# Vnitřní překlad testovací binárky: bin_test_<modul>
-bin_test_%: $(TEST_DIR)/test_%.cpp
-	$(CXX) $(CXXFLAGS) $^ $(GTEST_LIBS) -o $@
-
-# Spuštění jednoho testu (funguje jak 'make test-stack', tak 'make test_stack')
-test-%: bin_test_%
-	./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
-
-test_%: bin_test_%
-	./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
-
-# Kontrola paměti izolovaného testu pod Valgrindem: make memcheck-<nazev>
-memcheck-%: bin_test_%
-	@echo "--> Spouštím Valgrind nad testem $<..."
-	$(VALGRIND) ./$< $(if $(FILTER),--gtest_filter="$(FILTER)",)
-	@echo "✅ Modul $< prošel bez úniků paměti!"
-
-# ------------------------------------------------------------------------------
-# NÁVOD PRO TÝM: JAK PŘIDAT TEST PRO NOVÝ MODUL
-# ------------------------------------------------------------------------------
-# 1. Ve složce tests/ vytvořte soubor test_<nazev>.cpp (např. tests/test_stack.cpp).
-#    Uvnitř includujte hlavičky překladače v bloku: extern "C" { #include "stack.h" }
-# 2. Sem dolů připište jeden řádek se seznamem .o souborů, které modul potřebuje:
-#       bin_test_<nazev>: <modul>.o error.o
-# 3. Spusťte: make test-<nazev> nebo make memcheck-<nazev>
-# ------------------------------------------------------------------------------
-
-# ZDE PŘIPISUJTE ZÁVISLOSTI PRO VAŠE TESTY:
-# bin_test_dynamic_string: dynamic_string.o error.o
-# bin_test_stack:          stack.o error.o
-
-# Příklady pro další vrstvy (odkomentujte a upravte při implementaci):
-# bin_test_token:        token.o dynamic_string.o error.o
-# bin_test_lexer:        lexer.o token.o dynamic_string.o error.o
-# bin_test_symtable:     symtable.o dynamic_string.o error.o
-# bin_test_expression:   expression.o stack.o token.o ast.o dynamic_string.o error.o
-# bin_test_parser:       parser.o expression.o ast.o symtable.o lexer.o token.o dynamic_string.o error.o
-# bin_test_generator:    generator.o ast.o symtable.o dynamic_string.o error.o
-
-# ==============================================================================
-# 6. ZABALENÍ PROJEKTU K ODEVZDÁNÍ (dle sekcí 5 a 6 zadání)
+# 5. ZABALENÍ PROJEKTU K ODEVZDÁNÍ (dle sekcí 5 a 6 zadání)
 # ==============================================================================
 ARCHIVE ?= $(FIT_LOGIN).zip
 INCLUDE_TESTS ?= 1
+TEST_DIR ?= tests
 
 zip: pack
 
@@ -257,8 +185,9 @@ pack:
 	else \
 		echo "ℹ️  Tip: Ověřte výsledný archiv skriptem is_it_ok.sh z e-learningu IFJ."; \
 	fi
+
 # ==============================================================================
-# 7. END TO END TESTY
+# 6. END TO END TESTY
 # ==============================================================================
 IC26INT ?= ic26int
 TOKDUMP = tokdump
@@ -278,7 +207,7 @@ e2e-valgrind: build $(TOKDUMP)
 .PHONY: e2e e2e-valgrind
 
 # ==============================================================================
-# 8. ÚKLID PŘELOŽENÝCH SOUBORŮ
+# 7. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
 clean:
 	rm -f *.o *.d $(TARGET) $(TEST_BINS) bin_test_* $(TOKDUMP)
@@ -294,38 +223,34 @@ help:
 	@echo ""
 	@echo "1. PŘEKLAD A SESTAVENÍ:"
 	@echo "  make (nebo make build)     Přeloží celý překladač (výchozí cíl)"
-	@echo "  make clean                 Smaže všechny .o, .d a přeložené binárky"
+	@echo "  make all                   Alias pro make build"
+	@echo "  make clean                 Smaže všechny .o, .d soubory a binárku prekladac"
 	@echo "  make build-check           Nejprve provede kontrolu kvality, poté překlad"
 	@echo ""
-	@echo "2. JEDNOTKOVÉ TESTY (Google Test):"
-	@echo "  make test                  Zkompiluje a spustí všechny testy v tests/"
-	@echo "  make test-<modul>          Izolovaně přeloží a spustí test jednoho modulu"
-	@echo "                             (Příklad: make test-stack nebo make test-lexer)"
-	@echo "  make test-<modul> FILTER=\"<vzor>\""
-	@echo "                             Spustí jen konkrétní test z daného modulu"
-	@echo "                             (Příklad: make test-stack FILTER=\"StackTest.Push*\")"
+	@echo "2. END-TO-END TESTY:"
+	@echo "  make e2e                   Spustí všechny E2E testy (tests/run_e2e.sh)"
+	@echo "  make e2e FILTER=<vzor>     Spustí jen vybranou skupinu testů (např. FILTER=sem_)"
+	@echo "  make e2e-valgrind          Spustí E2E testy pod nástrojem Valgrind"
+	@echo "                             (lze kombinovat s FILTER=<vzor> a IC26INT=<cesta>)"
 	@echo ""
 	@echo "3. KONTROLY KVALITY KÓDU:"
 	@echo "  make check                 Spustí clang-format, clang-tidy a cppcheck"
-	@echo "  make check FILE=<soubor>   Zkontroluje pouze jeden soubor (např. FILE=stack.c)"
+	@echo "  make check-format          Pouze ověří formátování (clang-format --dry-run)"
+	@echo "  make check-tidy            Pouze statická analýza clang-tidy"
+	@echo "  make check-cppcheck        Pouze statická analýza cppcheck"
 	@echo "  make format                Automaticky naformátuje všechny soubory"
-	@echo "  make format FILE=<soubor>  Naformátuje pouze jeden zadaný soubor"
+	@echo "  (Všechny cíle v sekci 3 podporují omezení na jeden soubor: FILE=<soubor>)"
 	@echo ""
 	@echo "4. KONTROLA PAMĚTI (Valgrind):"
-	@echo "  make memcheck              Zkontroluje celý překladač se vstupem <soubor>.scala"
-	@echo "  make memcheck-<modul>      Otestuje úniky paměti v izolovaném testu modulu"
-	@echo "                             (Příklad: make memcheck-stack)"
+	@echo "  make memcheck              Spustí překladač pod Valgrindem (výchozí vstup /dev/null)"
+	@echo "  make memcheck TEST_INPUT=<soubor>"
+	@echo "                             Otestuje překladač pod Valgrindem se zadaným vstupem"
 	@echo ""
-	@echo "5. ŠKOLNÍ SERVER MERLIN:"
-	@echo "  make server-test FIT_LOGIN=<váš_login>"
-	@echo "                             Odešle kód na Merlin a ověří čistý překlad"
-	@echo ""
-	@echo "6. END TO END TESTY (tests/*.ifj):"
-	@echo "  make e2e                   Přeloží překladač a tokdump a spustí všechny E2E testy"
-	@echo "  make e2e FILTER=<část>     Jen testy, jejichž jméno obsahuje <část> (např. FILTER=algebdt)"
-	@echo "  make e2e IC26INT=<cesta>   Interpret ic26int, který není v PATH"
-	@echo "  make e2e-valgrind          Totéž pod valgrindem"
-	@echo "  make tokdump               Jen pomocný výpis tokenů pro testy *.tokens"
+	@echo "5. ZABALENÍ K ODEVZDÁNÍ:"
+	@echo "  make pack FIT_LOGIN=<login>"
+	@echo "                             Ověří povinné soubory a vytvoří archiv <login>.zip"
+	@echo "                             (volitelně: INCLUDE_TESTS=0 pro vynechání testů)"
+	@echo "  make zip FIT_LOGIN=<login> Alias pro make pack"
 	@echo "======================================================================"
 
 -include $(DEPS)
