@@ -2,5 +2,5 @@ Token: IMPORT, line: 4, value: N/A
 Token: ID, line: 4, value: ifj26
 Token: DOT, line: 4, value: N/A
 Token: MUL, line: 4, value: N/A
-Token: NEWLINE, line: 5, value: newline
+Token: NEWLINE, line: 4, value: newline
 Token: ERROR, line: 6, value: ERROR line: 6

@@ -2,7 +2,7 @@ Token: IMPORT, line: 3, value: N/A
 Token: ID, line: 3, value: ifj26
 Token: DOT, line: 3, value: N/A
 Token: MUL, line: 3, value: N/A
-Token: NEWLINE, line: 4, value: newline
+Token: NEWLINE, line: 3, value: newline
 Token: AT_MAIN, line: 5, value: N/A
 Token: DEF, line: 5, value: N/A
 Token: ID, line: 5, value: main

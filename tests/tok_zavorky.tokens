@@ -2,7 +2,7 @@ Token: IMPORT, line: 2, value: N/A
 Token: ID, line: 2, value: ifj26
 Token: DOT, line: 2, value: N/A
 Token: MUL, line: 2, value: N/A
-Token: NEWLINE, line: 3, value: newline
+Token: NEWLINE, line: 2, value: newline
 Token: DEF, line: 4, value: N/A
 Token: ID, line: 4, value: add
 Token: LPAR, line: 4, value: N/A
@@ -22,7 +22,7 @@ Token: INDENT, line: 6, value: 2x větší odsazení
 Token: ID, line: 6, value: a
 Token: PLUS, line: 6, value: N/A
 Token: ID, line: 6, value: b
-Token: NEWLINE, line: 7, value: newline
+Token: NEWLINE, line: 6, value: newline
 Token: DEDENT, line: 8, value: 0x menší odsazení
 Token: NEWLINE, line: 8, value: newline
 Token: AT_MAIN, line: 8, value: N/A
@@ -65,7 +65,7 @@ Token: LPAR, line: 14, value: N/A
 Token: STRING, line: 14, value: "
 "
 Token: RPAR, line: 14, value: N/A
-Token: NEWLINE, line: 15, value: newline
+Token: NEWLINE, line: 14, value: newline
 Token: DEDENT, line: 15, value: 0x menší odsazení
 Token: NEWLINE, line: 15, value: newline
 Token: EOF, line: 15, value: EOF

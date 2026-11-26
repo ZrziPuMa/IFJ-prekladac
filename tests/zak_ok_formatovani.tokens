@@ -28,7 +28,7 @@ Token: PLUS, line: 12, value: N/A
 Token: ID, line: 12, value: b
 Token: PLUS, line: 12, value: N/A
 Token: ID, line: 12, value: c
-Token: NEWLINE, line: 13, value: newline
+Token: NEWLINE, line: 12, value: newline
 Token: DEDENT, line: 14, value: 0x menší odsazení
 Token: NEWLINE, line: 14, value: newline
 Token: AT_MAIN, line: 14, value: N/A
@@ -40,7 +40,7 @@ Token: RPAR, line: 15, value: N/A
 Token: COLON, line: 15, value: N/A
 Token: TYPE, line: 15, value: Unit
 Token: ASSIGN, line: 15, value: N/A
-Token: NEWLINE, line: 18, value: newline
+Token: NEWLINE, line: 17, value: newline
 Token: INDENT, line: 19, value: 2x větší odsazení
 Token: VAL, line: 19, value: N/A
 Token: ID, line: 19, value: one
@@ -75,7 +75,7 @@ Token: LPAR, line: 26, value: N/A
 Token: STRING, line: 26, value: "
 "
 Token: RPAR, line: 26, value: N/A
-Token: NEWLINE, line: 27, value: newline
+Token: NEWLINE, line: 26, value: newline
 Token: DEDENT, line: 27, value: 0x menší odsazení
 Token: NEWLINE, line: 27, value: newline
 Token: EOF, line: 27, value: EOF
