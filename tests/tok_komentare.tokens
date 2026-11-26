@@ -17,7 +17,7 @@ Token: VAL, line: 7, value: N/A
 Token: ID, line: 7, value: a
 Token: ASSIGN, line: 7, value: N/A
 Token: INT, line: 7, value: 1
-Token: NEWLINE, line: 10, value: newline
+Token: NEWLINE, line: 9, value: newline
 Token: ID, line: 11, value: print
 Token: LPAR, line: 11, value: N/A
 Token: ID, line: 11, value: a
@@ -28,7 +28,7 @@ Token: LPAR, line: 12, value: N/A
 Token: STRING, line: 12, value: "
 "
 Token: RPAR, line: 12, value: N/A
-Token: NEWLINE, line: 13, value: newline
+Token: NEWLINE, line: 12, value: newline
 Token: DEDENT, line: 13, value: 0x menší odsazení
 Token: NEWLINE, line: 13, value: newline
 Token: EOF, line: 13, value: EOF

@@ -16,7 +16,8 @@
 # Volitelné soubory vedle testu:
 #   tests/<jméno>.in      standardní vstup programu (jinak prázdný)
 #   tests/<jméno>.out     očekávaný standardní výstup (porovnává se přesně)
-#   tests/<jméno>.tokens  očekávaný výpis ./tokdump (token_dump z token.c), porovnává se přesně
+#   tests/<jméno>.tokens  očekávaný výpis ./tokdump (token_dump z token.c), porovnává se přesně;
+#                         nesoulad se nahlásí, překlad a běh se přesto provedou
 # Výstupy posledního běhu se ukládají mimo repozitář: $E2E_OUT/<jméno>.{tokens,tokerr,code,stdout,stderr}
 #
 # [AI] Claude (Opus 5.5), prompty: „Tyto testy chci dělat postupně ve složce tests a to mohou
@@ -75,6 +76,7 @@ for src in "$CASES"/*.ifj; do
     fi
 
     msg=""
+    tokmsg=""
     : >"$res.stderr"
     : >"$res.tokerr"
     : >"$res.stdout"
@@ -99,7 +101,7 @@ for src in "$CASES"/*.ifj; do
             if [[ $trc -ne 0 && $trc -ne 1 && $trc -ne 99 ]]; then
                 msg="tokdump vrátil $(describe_rc "$trc")"
             elif ! cmp -s "$base.tokens" "$res.tokens"; then
-                msg="tokeny se liší od $base.tokens"
+                tokmsg="tokeny se liší od $base.tokens"
             fi
         fi
     fi
@@ -136,6 +138,11 @@ for src in "$CASES"/*.ifj; do
         fi
     fi
 
+    # Nesoulad tokenů nepřeskočí překlad ani běh, ke zprávě se připojí až tady
+    if [[ -n $tokmsg ]]; then
+        msg="${msg:+$msg; }$tokmsg"
+    fi
+
     if [[ -z $msg ]]; then
         pass=$((pass + 1))
         echo "OK    $name"
@@ -150,6 +157,9 @@ for src in "$CASES"/*.ifj; do
             head -n 3 "$res.tokerr" | sed 's/^/        /'
         else
             head -n 3 "$res.stderr" | sed 's/^/        /'
+        fi
+        if [[ -n $tokmsg && $msg != tokeny* ]]; then
+            diff "$base.tokens" "$res.tokens" | head -n 8 | sed 's/^/        /'
         fi
     fi
 done

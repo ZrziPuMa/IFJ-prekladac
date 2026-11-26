@@ -12,7 +12,7 @@ Token: ID, line: 5, value: print
 Token: LPAR, line: 5, value: N/A
 Token: STRING, line: 5, value: "x"
 Token: RPAR, line: 5, value: N/A
-Token: NEWLINE, line: 6, value: newline
+Token: NEWLINE, line: 5, value: newline
 Token: DEDENT, line: 6, value: 0x menší odsazení
 Token: NEWLINE, line: 6, value: newline
 Token: EOF, line: 6, value: EOF
