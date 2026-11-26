@@ -4,7 +4,8 @@
  * @brief Implementace precedenční SA (Bottom-up)
  * @author František Bilavčík (<xbilavf00>)
  *
- * (AI) Použit Claude Opus 5.5 na převedení tabulky z png do C.
+ * (AI) Použit Claude Opus 5.5 na převedení tabulky z png do C. a na kontrolu kódu a návrh struktury
+ * funkcí.
  */
 
 #include "expression.h"
@@ -50,6 +51,13 @@ static const PrecedentRelation prec_table[PREC__COUNT][PREC__COUNT] = {
 #undef X
 #undef OK
 
+/**
+ * @brief Převede token na symbol precedenční analýzy
+ *
+ * @param tok Ukazatel na token
+ * @param expect_operand true = očekává se operand jinak false
+ * @return PrecedentSymbol
+ */
 static PrecedentSymbol token_to_sym(const tToken *tok, bool expect_operand) {
     if (expect_operand) {
         switch (tok->type) {
@@ -103,9 +111,15 @@ static PrecedentSymbol token_to_sym(const tToken *tok, bool expect_operand) {
                 return PREC_END;
         }
     }
-}
+} // token_to_sym
 
-// Index nejvyššího terminálu (PI_TERM) na zásobníku; přeskakuje E i ~. $ na dně je vždy terminál.
+/**
+ * @brief Najde index nejvyššího terminálu (PI_TERM) na zásobníku; přeskakuje E a ~. $ na dně je
+ * vždy terminál
+ *
+ * @param st Ukazatel na zásobník
+ * @return Index nejvyššího terminálu, nebo 0, pokud není žádný nalezen
+ */
 static size_t top_terminal(ParserStack *st) {
     for (size_t i = st->count; i > 0; i--) {
         PrecedentItem *item = pstack_at(st, i - 1);
@@ -114,10 +128,17 @@ static size_t top_terminal(ParserStack *st) {
         }
     }
     return 0; // dno zásobníku $
-}
+} // top_terminal
 
-// Najde nejvyšší zarážku ~. Index uloží do *out a vrátí true; když ~ na zásobníku není, vrátí
-// false.
+/**
+ * @brief Najde nejvyšší zarážku ~. Index uloží do *out a vrátí true; když ~ na zásobníku není,
+ * vrátí false
+ *
+ * @param st Ukazatel na zásobník
+ * @param out Ukazatel na proměnnou, kam se uloží index zarážky ~
+ * @return true = zarážka nalezena, false = zarážka nenalezena
+ * AI help - tahle funkce mi byla navržena Claude Opus 5.5, když jsem navrhoval precedenční analýzu.
+ */
 static bool top_handle(ParserStack *st, size_t *out) {
     for (size_t i = st->count; i > 0; i--) {
         PrecedentItem *item = pstack_at(st, i - 1);
@@ -127,10 +148,8 @@ static bool top_handle(ParserStack *st, size_t *out) {
         }
     }
     return false;
-}
+} // top_handle
 
-// Provede jednu redukci nad nejvyšší ~. false = chyba (už nahlášená přes syntax_error /
-// out_of_memory).
 /**
  * @brief Provede jednu redukci nad nejvyšší ~. false = chyba (už nahlášená přes syntax_error /
  * out_of_memory)
@@ -190,7 +209,7 @@ static bool reduce(ParserState *pstate, ParserStack *st) {
 
     // Přidá na zásobník nový uzel E (Neterminál)
     PrecedentItem e = {.sym = PREC__INVALID, .kind = PI_NONTERM, .node = result, .line = line};
-    // Umístí se Neterminál E na vrchol zásobníku a pokud dojde k chybě, uvolní se ast a nahlásí se
+    // Umístí se Neterminál E na vrchol zásobníku, pokud dojde k chybě, uvolní se ast a nahlásí se
     // chyba.
     if (pstack_push(st, &e) == false) {
         ast_free(result);
@@ -198,7 +217,7 @@ static bool reduce(ParserState *pstate, ParserStack *st) {
         return false;
     }
     return true;
-}
+} // reduce
 
 /**
  * @brief Uvolní uzly (ast_free) ve všech položkách zásobníku; samotný zásobník neuvolní.
@@ -211,7 +230,7 @@ static void free_items(ParserStack *st) {
         ast_free(item->node);
         item->node = NULL;
     }
-}
+} // free_items
 
 ASTNode *parse_op_expr(ParserState *pstate) {
     ASTNode *result = NULL;
@@ -281,7 +300,7 @@ ASTNode *parse_op_expr(ParserState *pstate) {
                     // Pokud přijde operátor, zapamatuje se typ tokenu a posune se na další token
                 } else {
                     // (AI) část kodu byla převzata od Claude Opus 5.5, když jsem ověřoval chyby při
-                    // spuštění.Zde přesněji opět prvky itemu.
+                    // spuštění. Zde přesněji opět prvky itemu.
                     PrecedentItem item = {.sym = input,
                                           .kind = PI_TERM,
                                           .op_token = pstate->current_token.type,
@@ -327,4 +346,4 @@ fail:
     free_items(&st);
     pstack_free(&st);
     return NULL;
-}
+} // parse_op_expr

@@ -34,6 +34,8 @@ static tToken raw(TokenFilter *f);
  *
  * @param f Ukazatel na filtr
  * @return tTokenType Typ tokenu
+ * (AI) help: Tahle funkce mi byla navržena Claude Opus 5.5, když jsem implementoval filtraci
+ * tokenů. Je celá převzatá.
  */
 static tTokenType peek(TokenFilter *f);
 
@@ -198,9 +200,10 @@ static tToken raw(TokenFilter *f) {
     return give_token();
 } // raw
 
-// peek(f):                             // typ dalšího tokenu, nespotřebuje ho
-//    když ne f.has_held: f.held ← give_token(); f.has_held ← true
-//     vrať f.held.type
+/**
+ * (AI) help: Tahle funkce mi byla navržena Claude Opus 5.5, když jsem implementoval filtraci
+ * tokenů. Je celá převzatá.
+ */
 static tTokenType peek(TokenFilter *f) {
     if (!f->has_held) {
         f->held = give_token();
@@ -240,9 +243,11 @@ static void filter_free(TokenFilter *f) {
     // drží Token přečtený dopředu, který parser nedostal
     if (f->has_held)
         token_free(&f->held);
+
     // Tokeny čekající ve frontě out
     for (int i = 0; i < f->out_n; i++)
         token_free(&f->out[i]);
+
     // Vynuluje filtr (stejný stav jako po init_parser_state), druhé volání pak nic neuvolní znovu
     *f = (TokenFilter){0};
 } // filter_free
@@ -265,6 +270,7 @@ tToken read_token(TokenFilter *filter) {
                 }
                 fpush(filter, token);
                 break;
+
             case TOK_INDENT:
             case TOK_DEDENT:
                 // pokud poslední token byl jeden z těchto, tak se token zahodí a pokračuje se ve
@@ -957,7 +963,7 @@ fail:
     return NULL;
 } // parse_if
 
-// Branch je o tom, že se může jednat jak o oblok, tak taky o line expression. Pokud je to line
+// Branch je o tom, že se může jednat jak o blok, tak taky o line expression. Pokud je to line
 // expression, tak se obalí do AST_BLOCK uzlu.
 ASTNode *parse_branch(ParserState *pstate) {
     int line = pstate->current_token.line;
@@ -1119,6 +1125,7 @@ ASTNode *parse_return(ParserState *pstate) {
     int line = pstate->current_token.line;
     next_token(pstate);
     ASTNode *value = NULL;
+    // Může být return s výrazem
     if (is_expr_start(pstate->current_token.type)) {
         value = parse_expr(pstate);
         if (value == NULL)
@@ -1151,7 +1158,7 @@ ASTNode *parse_expr(ParserState *pstate) {
         }
     }
 
-    // všechny ostatní kombinace tokenů povedou na parse_op_expr
+    // všechny ostatní kombinace tokenů povedou na parse_op_expr -> precedenční SA (expression.c)
     ASTNode *expr = parse_op_expr(pstate);
     if (expr == NULL)
         return NULL;
