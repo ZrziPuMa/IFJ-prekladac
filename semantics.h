@@ -83,7 +83,7 @@ typedef struct CallEdge {
 typedef struct SemanticContext {
     tBtNode *symbols; // Tabulka symbolů
     tBtNode *ext_symbols;
-    tStack *scope_stack;       // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
+    tStack *scope_stack; // Zásobník lokálních rozsahů platnosti (scope) pro aktuální funkci
     ASTNode *current_function; // Aktuálně analyzovaná funkce (AST_FUNC_DEF); mimo funkci NULL
     int next_var_id;           // Další volné ID pro přidělení proměnné
     bool inside_lambda;        // True, pokud jsme uvnitř funkce lambda
