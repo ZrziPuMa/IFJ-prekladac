@@ -1,7 +1,7 @@
 /**
  * Projekt: Implementace překladače imperativního jazyka IFJ26
  * @file generator.c
- * @brief Implementační soubor genrátoru cílového kódu
+ * @brief Implementační soubor generátoru cílového kódu
  * @author Martin Chlubna (<xchlubm00>), pomocný autor pro ALGEBDT Frantisek Bilavčík (<xbilavf00>),
  * který používal Github Copilot Inline suggestion a Claude Opus 5.5 pro pomoc opravením.
  *
@@ -13,6 +13,9 @@
  * - Chatbot byl použit jako konzultační nástroj pro návrh architektury, zodpovídání dotazů a
  *   ladění, a také ke generování kratších bloků kódu (cykly, switch, if podmínky, bloky printfů) až
  *   po pomocné funkce.
+ *
+ * - AI byla dále využita k doplnění a sjednocení dokumentačních a vysvětlujících komentářů
+ *   (v souborech generator.c a generator.h).
  *
  * - Bloky kódu vygenerované s pomocí AI jsou v souboru označeny komentářem "// AI help".
  *
@@ -139,6 +142,7 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
      * a byl v pořádku.“ Úpravy F.B. v create_func_def, gen_expr (AST_FUNC_CALL),
      * gen_block (AST_RETURN, AST_FOR) a create_lambda_def.
      */
+
     // F.B.: koncové návěští musí být unikátní i pro metody stejného jména pro různé typy
     // (describe v extension (v: Int) i (v: String)), proto číslo z l_cnt. stt->func_name
     // drží jméno tohoto návěští bez '$', skáče na něj return.
@@ -146,6 +150,7 @@ void create_func_def(const ASTNode *func, const ASTNode *receiver, GenState *stt
     snprintf(end_label, sizeof end_label, "func_%d$end", stt->l_cnt++);
     stt->func_name = end_label;
     stt->stack_on_extra = 0;
+
     // F.B. pro ALGEBDT: počet prvků na zásobníku, které se mají uklidit po návratu z funkce
     // F.B. PARAMLISTS: návratový typ je až za všemi seznamy parametrů
     // (def hello: Unit -> Unit, def f(a: Int)(b: Int): Unit -> (Int) => (Int) => Unit)
@@ -625,14 +630,17 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                 }
             }
             // AI help
+            // Zpracování dodatečných skupin argumentů (currying nebo indexování seznamu):
             while (curr_arg_group != NULL) {
                 int id = stt->l_cnt++;
+                // Uložíme mezivýsledek (funkci nebo seznam) na pomocný zásobník GF@%fstack:
                 printf("POPS GF@%%tmp1\n");
                 printf("NEWARRAY GF@%%tmp2 int@2\n");
                 printf("ARRAYSET GF@%%tmp2 int@0 GF@%%fstack\n");
                 printf("ARRAYSET GF@%%tmp2 int@1 GF@%%tmp1\n");
                 printf("MOVE GF@%%fstack GF@%%tmp2\n");
 
+                // Vyhodnocení argumentů aktuální skupiny:
                 int group_pushed = 0;
                 const ASTNode *curr_item = curr_arg_group->data.list.items;
                 while (curr_item != NULL) {
@@ -643,6 +651,7 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     curr_item = curr_item->next;
                 }
 
+                // Vyzvedneme uložený cíl a podle typu rozhodneme mezi indexováním a voláním:
                 printf("ARRAYGET GF@%%tmp1 GF@%%fstack int@1\n");
                 printf("ARRAYGET GF@%%fstack GF@%%fstack int@0\n");
                 printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
@@ -650,6 +659,7 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                 printf("CALL GF@%%tmp1\n");
                 printf("JUMP $call_group_end_%d\n", id);
 
+                // Indexování seznamu list(i) s kontrolou mezí 0 <= i < len:
                 printf("LABEL $call_list_%d\n", id);
                 printf("POPS GF@%%tmp2\n");
                 printf("LT GF@%%tmp3 GF@%%tmp2 int@0\n");
@@ -729,8 +739,6 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             }
             break;
         }
-
-        break;
 
         case AST_LIST_LITERAL: {
             // AI help
@@ -919,6 +927,8 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("PUSHS nil@nil\n");
                 }
 
+                // Pokud je return uvnitř výrazu nebo cyklu, uklidíme rozpracované hodnoty ze
+                // zásobníku:
                 if (stt->stack_on_extra > 0) {
                     printf("POPS GF@%%tmp1\n");
                     for (int k = 0; k < stt->stack_on_extra; k++) {
@@ -927,7 +937,6 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("PUSHS GF@%%tmp1\n");
                 }
                 printf("JUMP $%s\n", stt->func_name);
-
                 break;
             // AI help
             /*
@@ -1086,9 +1095,11 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     int id = stt->l_cnt++;
                     ASTNode *iter_var = statement->data.for_loop.iter_var;
 
+                    // Dostaneme referenci na seznam a počáteční index 1 na zásobník:
                     gen_expr(source, stt);
                     printf("PUSHS int@1\n");
 
+                    // Kontrola konce seznamu (index > délka pole):
                     printf("LABEL $for_list_start_%d\n", id);
                     printf("POPS GF@%%tmp2\n");
                     printf("POPS GF@%%tmp1\n");
@@ -1099,9 +1110,11 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     printf("GT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
                     printf("JUMPIFEQ $for_list_end_%d GF@%%tmp3 bool@true\n", id);
 
+                    // Načtení aktuálního prvku do řídicí proměnné:
                     printf("ARRAYGET LF@%s$%d GF@%%tmp1 GF@%%tmp2\n",
                            iter_var->data.var_def.identifier, iter_var->data.var_def.var_id);
 
+                    // Kontrola stráží (Guards):
                     stt->stack_on_extra += 2;
                     const ASTNode *curr_guard = statement->data.for_loop.guards;
                     while (curr_guard != NULL) {
@@ -1114,12 +1127,14 @@ void gen_block(const ASTNode *statement, GenState *stt, bool keep_result) {
                     gen_block(statement->data.for_loop.body->data.block.statements, stt, false);
                     stt->stack_on_extra -= 2;
 
+                    // Inkrementace indexu a skok na další iteraci:
                     printf("LABEL $for_list_next_%d\n", id);
                     printf("POPS GF@%%tmp2\n");
                     printf("ADD GF@%%tmp2 GF@%%tmp2 int@1\n");
                     printf("PUSHS GF@%%tmp2\n");
                     printf("JUMP $for_list_start_%d\n", id);
 
+                    // Úklid reference na seznam a indexu ze zásobníku:
                     printf("LABEL $for_list_end_%d\n", id);
                     printf("POPS GF@%%tmp1\n");
                     printf("POPS GF@%%tmp1\n");
@@ -1217,12 +1232,14 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
     printf("CREATEFRAME\n");
     printf("PUSHFRAME\n");
 
+    // Vyzvednutí parametrů a deklarace lokálních proměnných lambdy:
     if (lambda->data.lambda.param_list != NULL) {
         define_params(lambda->data.lambda.param_list->data.list.items);
     }
 
     declare_local_vars(lambda->data.lambda.body);
 
+    // Uložení kontextu vnější funkce (návratový typ Unit a koncové návěští pro return):
     const TypeInfo *fn_type = lambda->expr_type;
     bool prev_is_unit = stt->is_unit;
     stt->is_unit = (fn_type != NULL && fn_type->type_class == TYPE_FUNCTION &&
@@ -1246,6 +1263,7 @@ void create_lambda_def(const ASTNode *lambda, GenState *stt) {
     }
 
     // AI help
+    // Obnovení původního kontextu vnější funkce a úklid rámce:
     printf("LABEL $%s\n", lambda_name);
     stt->func_name = prev_func_name;
 
@@ -1919,6 +1937,7 @@ void create_builtin_functions() {
     printf("MOVE LF@i int@1\n");
     printf("MOVE LF@cnt int@0\n");
 
+    // Spočítání počátečních prvků splňujících predikát
     printf("LABEL $builtin_takeWhile_loop\n");
     printf("GT LF@cmp LF@i LF@len\n");
     printf("JUMPIFEQ $builtin_takeWhile_done LF@cmp bool@true\n");
@@ -1931,6 +1950,7 @@ void create_builtin_functions() {
     printf("ADD LF@i LF@i int@1\n");
     printf("JUMP $builtin_takeWhile_loop\n");
 
+    // Vytvoření podseznamu slice(src, 0, cnt)
     printf("LABEL $builtin_takeWhile_done\n");
     printf("PUSHS LF@src\n");
     printf("PUSHS int@0\n");
@@ -1955,6 +1975,7 @@ void create_builtin_functions() {
     printf("ARRAYGET LF@len LF@src int@0\n");
     printf("MOVE LF@i int@1\n");
 
+    // Přeskočení počátečních prvků splňujících predikát
     printf("LABEL $builtin_dropWhile_loop\n");
     printf("GT LF@cmp LF@i LF@len\n");
     printf("JUMPIFEQ $builtin_dropWhile_done LF@cmp bool@true\n");
@@ -1966,6 +1987,7 @@ void create_builtin_functions() {
     printf("ADD LF@i LF@i int@1\n");
     printf("JUMP $builtin_dropWhile_loop\n");
 
+    // Vytvoření podseznamu ze zbytku prvků slice(src, i - 1, len)
     printf("LABEL $builtin_dropWhile_done\n");
     printf("SUB LF@i LF@i int@1\n");
     printf("PUSHS LF@src\n");
@@ -1998,6 +2020,7 @@ void create_builtin_functions() {
     printf("MOVE LF@i int@1\n");
     printf("MOVE LF@cnt int@0\n");
 
+    // 1. průchod: uložení vyhovujících prvků do dočasného pole
     printf("LABEL $builtin_filter_loop\n");
     printf("GT LF@cmp LF@i LF@len\n");
     printf("JUMPIFEQ $builtin_filter_copy_init LF@cmp bool@true\n");
@@ -2012,6 +2035,7 @@ void create_builtin_functions() {
     printf("ADD LF@i LF@i int@1\n");
     printf("JUMP $builtin_filter_loop\n");
 
+    // 2. průchod: alokace výsledného pole přesné délky a zkopírování prvků
     printf("LABEL $builtin_filter_copy_init\n");
     printf("ADD LF@i LF@cnt int@1\n");
     printf("NEWARRAY LF@res LF@i\n");
