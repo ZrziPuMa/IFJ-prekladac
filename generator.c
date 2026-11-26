@@ -779,6 +779,10 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     const char *member_name = expr->data.member_access.member_name;
                     if (strcmp(member_name, "toString") == 0) {
                         printf("CALL $builtin_toStr\n");
+                    } else if (strcmp(member_name, "head") == 0) {
+                        printf("CALL $builtin_list_head\n");
+                    } else if (strcmp(member_name, "tail") == 0) {
+                        printf("CALL $builtin_list_tail\n");
                     }
                     break;
                 }
@@ -1684,7 +1688,58 @@ void create_builtin_functions() {
     printf("PUSHS LF@res\n");
     printf("POPFRAME\n");
     printf("RETURN\n\n");
+
+    // AI help
+    // list_head(list):
+    printf("LABEL $builtin_list_head\n");
+    printf("POPS GF@%%tmp1\n");
+    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@0\n");
+    printf("JUMPIFNEQ $builtin_list_head_ok GF@%%tmp2 int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_list_head_ok\n");
+    printf("ARRAYGET GF@%%tmp2 GF@%%tmp1 int@1\n");
+    printf("PUSHS GF@%%tmp2\n");
+    printf("RETURN\n\n");
+
+    // list_tail(list):
+    printf("LABEL $builtin_list_tail\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@src\n");
+    printf("DEFVAR LF@len\n");
+    printf("DEFVAR LF@new_len\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@src\n");
+    printf("ARRAYGET LF@len LF@src int@0\n");
+    printf("JUMPIFNEQ $builtin_list_tail_ok LF@len int@0\n");
+    printf("EXIT int@40\n");
+    printf("LABEL $builtin_list_tail_ok\n");
+
+    printf("SUB LF@new_len LF@len int@1\n");
+    printf("NEWARRAY LF@res LF@len\n");
+    printf("ARRAYSET LF@res int@0 LF@new_len\n");
+    printf("MOVE LF@i int@1\n");
+
+    printf("LABEL $builtin_list_tail_loop\n");
+    printf("GT LF@cmp LF@i LF@new_len\n");
+    printf("JUMPIFEQ $builtin_list_tail_end LF@cmp bool@true\n");
+    printf("ADD LF@elem LF@i int@1\n");
+    printf("ARRAYGET LF@elem LF@src LF@elem\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_list_tail_loop\n");
+
+    printf("LABEL $builtin_list_tail_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
 }
+
 ErrorCode generate_code(const ASTNode *root) {
     if (root == NULL) {
         return print_error(ERR_INTERNAL, -1, "Generátor přijal neplatný kořen stromu.");
