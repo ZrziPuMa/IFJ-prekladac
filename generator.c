@@ -668,8 +668,38 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
         }
 
         break;
-        case AST_LIST_LITERAL:
+
+        case AST_LIST_LITERAL: {
+            // AI help
+            /*
+             * Prompt: Napis mi blok kodu do case AST_LIST_LITERAL v gen_expr(), ktery pres
+             * gen_expr() vyhodnoti veskere prvky z pole na zasobnik a zaroven spocita delku
+             * seznamu. pote vytvori nove pole v IFJCODE26 o 1 prvek delsi nez je delka pole
+             * definovaneho v AST (referenci ulozi do pomocne promenne) a na nultou pozici v tomto
+             * poli ulozi delku pole. Nasledne napis smycku ktera postupne vyzvedne hodnoty ze
+             * zasobniku a nasklada je do pole odzadu. nakonec se musi reference pushnout na
+             * zasobnik
+             */
+            int count = 0;
+            const ASTNode *curr_item = expr->data.list.items;
+            while (curr_item != NULL) {
+                gen_expr(curr_item, stt);
+                count++;
+                curr_item = curr_item->next;
+            }
+
+            printf("NEWARRAY GF@%%tmp1 int@%d\n", count + 1);
+            printf("ARRAYSET GF@%%tmp1 int@0 int@%d\n", count);
+
+            for (int i = count; i >= 1; i--) {
+                printf("POPS GF@%%tmp2\n");
+                printf("ARRAYSET GF@%%tmp1 int@%d GF@%%tmp2\n", i);
+            }
+
+            printf("PUSHS GF@%%tmp1\n");
             break;
+        }
+
         // AI help
         /*
          * Prompty:
