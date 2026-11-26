@@ -49,7 +49,7 @@ typedef struct {
     tToken ahead[2];      ///< Pole pro nutné nahlédnutí
     int ahead_count;      ///< Počet tokenů v ahead
     ErrorCode error_code; ///< první zaregistrovaná chyba, 0 = bez chyby
-    TokenFilter filter; ///< Filtr pro tokeny (pro správné zpracování odsazení a nových řádků)
+    TokenFilter filter;   ///< Filtr pro tokeny (pro správné zpracování odsazení a nových řádků)
 } ParserState;
 
 /*============================
