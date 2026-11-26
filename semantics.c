@@ -3371,8 +3371,7 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
             return semantic_error(ctx, ERR_INTERNAL, node);
         }
 
-        if (expected_type != NULL && expected_type->type_class == TYPE_UNION) {
-            // pro případ kdy má dát union se kompatibilita kontroluje zvlášť
+        if (expected_type != NULL && expected_type->type_class != TYPE_ANY) {
 
             // porovnáí kompatibilitu s expected_type
             if (!semantic_types_compatible(expected_type, branch_type)) {
@@ -3398,7 +3397,7 @@ ErrorCode semantic_match(ASTNode *node, SemanticContext *ctx, const TypeInfo *ex
             if (ret_type == NULL) {
                 return semantic_error(ctx, ERR_INTERNAL, node);
             }
-        } else {
+        } else { // případ kdynemá expected_type
             // větve musí být vzájemně kompatibilní
             TypeInfo *new_ret_type = NULL;
 
