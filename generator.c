@@ -730,8 +730,16 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     gen_field_access(expr, stt);
                     break;
 
-                case MEMBER_LIST_BUILTIN:
+                // AI help
+                case MEMBER_LIST_BUILTIN: {
+                    gen_expr(expr->data.member_access.object, stt);
+
+                    const char *member_name = expr->data.member_access.member_name;
+                    if (strcmp(member_name, "toString") == 0) {
+                        printf("CALL $builtin_toStr\n");
+                    }
                     break;
+                }
 
                 case MEMBER_RANGE_TOLIST:
                     break;
