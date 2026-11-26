@@ -1,0 +1,13 @@
+// tok: komentare radkove, blokove bez LF i s LF, vnorene, posledni radek bez LF
+import ifj26.* // za prologem
+
+/* blokovy komentar
+   pres vice radku */
+@main def main(): Unit =
+  val a = /* uvnitr vyrazu */ 1
+  /* vnoreny /* uvnitr */ komentar */
+  // radkovy komentar v bloku
+
+  print(a) // za prikazem
+  print("\n")
+// posledni radek bez LF

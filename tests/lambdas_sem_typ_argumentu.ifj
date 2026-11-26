@@ -1,0 +1,8 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: volani funkcni hodnoty s argumentem chybneho typu (spec 5.7 a 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val f = (x: Int) => x + 1
+  print(f("a"))

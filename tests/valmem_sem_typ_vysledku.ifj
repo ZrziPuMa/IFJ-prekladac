@@ -1,0 +1,9 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// VALMEM: toString vraci String, nelze ulozit do Int (spec 5.4)
+import ifj26.*
+
+@main def main(): Unit =
+  val n = 5
+  val s: Int = n.toString
+  print(s)

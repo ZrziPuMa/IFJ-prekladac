@@ -1,0 +1,5 @@
+// expect: 2
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// chybejici prolog import ifj26.* (spec kap. 2)
+@main def main(): Unit =
+  print("x")

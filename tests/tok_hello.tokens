@@ -1,0 +1,24 @@
+Token: IMPORT, line: 2, value: N/A
+Token: ID, line: 2, value: ifj26
+Token: DOT, line: 2, value: N/A
+Token: MUL, line: 2, value: N/A
+Token: NEWLINE, line: 2, value: newline
+Token: AT_MAIN, line: 4, value: N/A
+Token: DEF, line: 4, value: N/A
+Token: ID, line: 4, value: main
+Token: LPAR, line: 4, value: N/A
+Token: RPAR, line: 4, value: N/A
+Token: COLON, line: 4, value: N/A
+Token: TYPE, line: 4, value: Unit
+Token: ASSIGN, line: 4, value: N/A
+Token: NEWLINE, line: 4, value: newline
+Token: INDENT, line: 5, value: 2x větší odsazení
+Token: ID, line: 5, value: print
+Token: LPAR, line: 5, value: N/A
+Token: STRING, line: 5, value: "ahoj
+"
+Token: RPAR, line: 5, value: N/A
+Token: NEWLINE, line: 5, value: newline
+Token: DEDENT, line: 6, value: 0x menší odsazení
+Token: NEWLINE, line: 6, value: newline
+Token: EOF, line: 6, value: EOF

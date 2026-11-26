@@ -1,0 +1,33 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: lambda jako argument, pojmenovana funkce jako argument, () => R, var funkcniho typu, Unit lambda, blokove telo (spec 5.7)
+import ifj26.*
+
+def twice(f: (Int) => Int, x: Int): Int = f(f(x))
+
+def apply2(f: (Int, Int) => Int, a: Int, b: Int): Int = f(a, b)
+
+def inc(n: Int): Int = n + 1
+
+@main def main(): Unit =
+  print(twice((n: Int) => n * 3, 2))
+  print("\n")
+  print(twice(inc, 5))
+  print("\n")
+  print(apply2((a: Int, b: Int) => a - b, 10, 4))
+  print("\n")
+  val k: () => Int = () => 42
+  print(k())
+  print("\n")
+  var op: (Int, Int) => Int = (a: Int, b: Int) => a + b
+  print(op(3, 4))
+  op = (a: Int, b: Int) => a * b
+  print(op(3, 4))
+  print("\n")
+  val pr: (String) => Unit = (s: String) => print(s)
+  pr("ahoj")
+  print("\n")
+  val blk = (n: Int) =>
+    val d = n * 2
+    d + 1
+  print(blk(5))
+  print("\n")

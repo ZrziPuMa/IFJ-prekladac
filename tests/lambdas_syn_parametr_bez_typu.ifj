@@ -1,0 +1,8 @@
+// expect: 2
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: parametr lambdy musi mit uvedeny typ (spec 5.7)
+import ifj26.*
+
+@main def main(): Unit =
+  val f = (x) => x + 1
+  print(f(1))

@@ -1,0 +1,32 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL: if jako vyraz, ukazky ze specifikace, implicitni konverze Int na Double (spec 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  var x = -5
+  val absolute = if x < 0 then 0 - x else x
+  val abs2 = if x < 0 then
+    0 - x
+  else
+    x
+  val abs3 = if x < 0 then 0 - x else
+      x
+  print(absolute)
+  print(" ")
+  print(abs2)
+  print(" ")
+  print(abs3)
+  print("\n")
+  x = 3
+  val m = if x > 2 then x * 10 else x
+  print(m)
+  print("\n")
+  val flag = x < 0
+  val d = if flag then 1 else 2.5
+  val ds = toStr(d)
+  print(ds)
+  print("\n")
+  val d2 = if !flag then 1 else 2.5
+  val ds2 = toStr(d2)
+  print(ds2)
+  print("\n")

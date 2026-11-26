@@ -1,0 +1,9 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: podminka if musi byt typu Boolean, ne Int (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val n = 1
+  if n then
+    print("a")

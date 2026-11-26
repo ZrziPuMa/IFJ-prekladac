@@ -1,0 +1,22 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// EXTKW + ALGEBDT: rozsirujici metody datove tridy, metoda vraci tridu, retezeni (spec 5.5 a 5.9)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+
+extension (p: Point)
+  def sum: Int = p.x + p.y
+  def scaled(k: Int): Point = Point(p.x * k, p.y * k)
+
+@main def main(): Unit =
+  val p = Point(2, 3)
+  val s = p.sum
+  val q = p.scaled(10)
+  val qs = q.sum
+  val chained = p.scaled(2).sum
+  print(s)
+  print(" ")
+  print(qs)
+  print(" ")
+  print(chained)
+  print("\n")

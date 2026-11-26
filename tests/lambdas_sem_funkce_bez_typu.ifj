@@ -1,0 +1,10 @@
+// expect: 6
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LAMBDAS: bezna funkce jde ulozit jen do explicitne otypovane promenne (spec 5.7 a 2.2)
+import ifj26.*
+
+def foo(x: Int) = x + 5
+
+@main def main(): Unit =
+  val h = foo
+  print(h(1))

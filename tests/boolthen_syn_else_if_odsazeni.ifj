@@ -1,0 +1,11 @@
+// expect: 2
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: else if musi byt zarovnano s if, tady je odsazene uvnitr vetve then (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 1
+  if x < 0 then
+    print("a")
+    else if x == 0 then
+      print("b")

@@ -1,0 +1,36 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// Double: tvary literalu, prevod Int na Double, deleni, toStr (%.2f), print (%a), toInt (spec 1.1, kap. 3, 4)
+import ifj26.*
+
+@main def main(): Unit =
+  val i = 7
+  val d = 2.0
+  val q = i / d // 3.5, i se prevede na Double
+  val e = 1.5e3
+  val f = 2.5d
+  val g = 1_000.25
+  val h = .5
+  val k: Double = i // implicitni prevod Int na Double
+  val neg = -d
+  val s1 = toStr(q)
+  val s2 = toStr(e)
+  val s3 = toStr(f)
+  val s4 = toStr(g)
+  val s5 = toStr(h)
+  val s6 = toStr(k)
+  val s7 = toStr(neg)
+  val line = s1 + " " + s2 + " " + s3 + " " + s4 + " " + s5 + " " + s6 + " " + s7
+  print(line)
+  print("\n")
+  print(q)
+  print(" ")
+  print(h)
+  print("\n")
+  val big = 9.99
+  val t = toInt(big)
+  val mbig = -big
+  val t2 = toInt(mbig)
+  print(t)
+  print(" ")
+  print(t2)
+  print("\n")

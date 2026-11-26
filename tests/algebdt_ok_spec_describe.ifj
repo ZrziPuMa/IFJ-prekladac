@@ -1,0 +1,42 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: priklad describe ze specifikace 5.5 vc. retezce "0" (literal 0 ho nesmi chytit)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+
+def pointToStr(x: Int, y: Int) =
+  val ptA = toStr(x)
+  val ptB = toStr(y)
+  "point " + ptA + ":" + ptB
+
+def describe(value: Int | String | Point): String =
+  value match
+    case 0 => "zero"
+    case n: Int if n > 0 => "positive"
+    case text: String => text
+    case Point(a, b) => pointToStr(a, b)
+    case _ => "negative"
+
+@main def main(): Unit =
+  val zero = 0
+  val five = 5
+  val neg = -3
+  val p = Point(1, 2)
+  val r1 = describe(zero)
+  val r2 = describe(five)
+  val r3 = describe("abc")
+  val r4 = describe(p)
+  val r5 = describe(neg)
+  val r6 = describe("0")
+  print(r1)
+  print(" ")
+  print(r2)
+  print(" ")
+  print(r3)
+  print(" ")
+  print(r4)
+  print(" ")
+  print(r5)
+  print(" ")
+  print(r6)
+  print("\n")

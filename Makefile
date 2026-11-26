@@ -34,7 +34,7 @@ DEPS = $(SRCS:.c=.d)
 FORMAT_STYLE = file
 
 # Nastavení pro testování na školním serveru Merlin:
-FIT_LOGIN = xlogin00
+FIT_LOGIN = xbilavf00
 SERVER_HOST = merlin.fit.vutbr.cz
 REMOTE_DIR = ifj26_test_build
 REMOTE = $(FIT_LOGIN)@$(SERVER_HOST)
@@ -161,7 +161,7 @@ pack:
 	if [ "$(INCLUDE_TESTS)" = "1" ] && [ -d "$(TEST_DIR)" ]; then \
 		mkdir -p "$$TMP_DIR/$(TEST_DIR)"; \
 		find "$(TEST_DIR)" -maxdepth 1 -type f ! -name '.*' ! -name '*.o' ! -name '*.d' \
-			! -name '*.exe' ! -name '*.out' ! -name 'bin_test_*' \
+			! -name '*.exe' ! -name 'a.out' ! -name 'bin_test_*' \
 			-exec cp {} "$$TMP_DIR/$(TEST_DIR)/" \; ; \
 	fi; \
 	BAD_FILES=$$(cd "$$TMP_DIR" && find . -mindepth 1 \( -name '.*' -o -name '__MACOSX' \)); \
@@ -190,14 +190,19 @@ pack:
 # 6. END TO END TESTY
 # ==============================================================================
 IC26INT ?= ic26int
+TOKDUMP = tokdump
+# tokdump.c má vlastní main(), proto leží v tests/ a nepatří do SRCS překladače
+TOKDUMP_OBJS = lexer.o token.o dynamic_string.o error.o
 
-# End-to-end testy: make e2e, jen jedna skupina: make e2e FILTER=sem_
-e2e: build
-	COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+$(TOKDUMP): $(TEST_DIR)/tokdump.c $(TOKDUMP_OBJS)
+	$(CC) $(CFLAGS) -I. $^ -o $@
 
-# Totéž, ale překladač běží pod valgrindem
-e2e-valgrind: build
-	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) tests/run_e2e.sh $(FILTER)
+# "bash" před skriptem: funguje i bez práva na spuštění (git na Windows ho umí ztratit)
+e2e: build $(TOKDUMP)
+	COMPILER=./$(TARGET) IC26INT=$(IC26INT) TOKDUMP=./$(TOKDUMP) bash $(TEST_DIR)/run_e2e.sh $(FILTER)
+
+e2e-valgrind: build $(TOKDUMP)
+	VALGRIND=1 COMPILER=./$(TARGET) IC26INT=$(IC26INT) TOKDUMP=./$(TOKDUMP) bash $(TEST_DIR)/run_e2e.sh $(FILTER)
 
 .PHONY: e2e e2e-valgrind
 
@@ -205,7 +210,7 @@ e2e-valgrind: build
 # 7. ÚKLID PŘELOŽENÝCH SOUBORŮ
 # ==============================================================================
 clean:
-	rm -f $(OBJS) $(DEPS) $(TARGET) $(TEST_BINS)
+	rm -f *.o *.d $(TARGET) $(TEST_BINS) bin_test_* $(TOKDUMP)
 
 
 # ------------------------------------------------------------------------------

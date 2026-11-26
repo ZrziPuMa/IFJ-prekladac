@@ -1,0 +1,58 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// EXTKW: metody pro String, Int a Double, stejne jmeno pro ruzne typy, pouziti pred definici, retezeni, rekurze (spec 5.9)
+import ifj26.*
+
+@main def main(): Unit =
+  val s = "ahoj"
+  val a = s.shout
+  val b = "ab".shout
+  print(a)
+  print(" ")
+  print(b)
+  print("\n")
+  val n = 3
+  val c = n.describe
+  val d = s.describe
+  print(c)
+  print(" ")
+  print(d)
+  print("\n")
+  val e = (1 + 2).twice
+  val f = n.twice.twice
+  val g = n.quad
+  print(e)
+  print(" ")
+  print(f)
+  print(" ")
+  print(g)
+  print("\n")
+  val h = n.addAll(1, 2)
+  val i = n.fact
+  print(h)
+  print(" ")
+  print(i)
+  print("\n")
+  val dd = 2.5
+  val half = dd.half
+  val hs = toStr(half)
+  print(hs)
+  print("\n")
+
+extension (v: String)
+  def shout: String = v + "!"
+  def describe: String = "string"
+
+extension (v: Int)
+  def twice: Int = v * 2
+  def quad: Int = v.twice.twice
+  def describe: String = "int"
+  def addAll(a: Int, b: Int): Int = v + a + b
+  def fact: Int =
+    if v <= 1 then
+      return 1
+    else
+      val m = v - 1
+      return v * m.fact
+
+extension (d: Double)
+  def half: Double = d / 2

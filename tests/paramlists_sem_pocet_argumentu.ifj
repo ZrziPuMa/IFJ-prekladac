@@ -1,0 +1,10 @@
+// expect: 5
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// PARAMLISTS: chybny pocet argumentu v jednom ze seznamu (spec 5.10)
+import ifj26.*
+
+def add(a: Int)(b: Int)(c: Int): Int = a + b + c
+
+@main def main(): Unit =
+  val x = add(1)(2, 3)(4)
+  print(x)

@@ -1,0 +1,24 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// CONTROL + FUNEXP: meze a krok for jako volani se vyhodnoti jednou, if-vyraz s volanimi (spec 5.3)
+import ifj26.*
+
+def lo(): Int =
+  print("L")
+  1
+
+def hi(): Int =
+  print("H")
+  3
+
+def st(): Int =
+  print("S")
+  1
+
+@main def main(): Unit =
+  for i <- lo() to hi() do print(i)
+  print("\n")
+  for i <- lo() to hi() by st() do print(i)
+  print("\n")
+  val x = if hi() > 2 then lo() else 0
+  print(x)
+  print("\n")

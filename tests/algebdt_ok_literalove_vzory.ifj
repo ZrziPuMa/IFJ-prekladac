@@ -1,0 +1,57 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: literalove vzory Int, String vc. prazdneho, Double a Boolean (spec 5.5)
+import ifj26.*
+
+def nazev(n: Int): String =
+  n match
+    case 0 => "nula"
+    case 1 => "jedna"
+    case _ => "jine"
+
+def pozdrav(s: String): String =
+  s match
+    case "ahoj" => "cau"
+    case "" => "prazdny"
+    case _ => s
+
+def polovina(d: Double): String =
+  d match
+    case 0.5 => "pul"
+    case _ => "jine"
+
+def bit(b: Boolean): Int =
+  b match
+    case true => 1
+    case _ => 0
+
+@main def main(): Unit =
+  val a = nazev(0)
+  val b = nazev(1)
+  val c = nazev(5)
+  print(a)
+  print(" ")
+  print(b)
+  print(" ")
+  print(c)
+  print("\n")
+  val d = pozdrav("ahoj")
+  val e = pozdrav("")
+  val f = pozdrav("x")
+  print(d)
+  print(" ")
+  print(e)
+  print(" ")
+  print(f)
+  print("\n")
+  val g = polovina(0.5)
+  val h = polovina(1.5)
+  print(g)
+  print(" ")
+  print(h)
+  print("\n")
+  val t = true
+  val i = bit(t)
+  val j = bit(false)
+  print(i)
+  print(j)
+  print("\n")

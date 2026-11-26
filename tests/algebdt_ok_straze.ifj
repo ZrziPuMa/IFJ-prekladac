@@ -1,0 +1,28 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: straze vc. slozene (BOOLTHEN), neuspesna straz pokracuje dalsi vetvi (spec 5.5)
+import ifj26.*
+
+def cat(n: Int): String =
+  n match
+    case x: Int if x > 100 => "velke"
+    case x: Int if x > 10 => "stredni"
+    case x: Int if x > 0 && x != 5 => "male"
+    case _ => "ostatni"
+
+@main def main(): Unit =
+  val m = -1
+  val r1 = cat(500)
+  val r2 = cat(50)
+  val r3 = cat(3)
+  val r4 = cat(5)
+  val r5 = cat(m)
+  print(r1)
+  print(" ")
+  print(r2)
+  print(" ")
+  print(r3)
+  print(" ")
+  print(r4)
+  print(" ")
+  print(r5)
+  print("\n")

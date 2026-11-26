@@ -1,0 +1,21 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: seznam jako zdroj generatoru for, straz, prazdny seznam (spec 5.8 a 5.3)
+import ifj26.*
+
+@main def main(): Unit =
+  val l = List(3, 1, 2)
+  for x <- l do print(x)
+  print("\n")
+  var sum = 0
+  for x <- List.range(1, 11) do sum = sum + x
+  print(sum)
+  print("\n")
+  for
+    s <- List("ab", "c", "def")
+    if strLength(s) > 1
+  do print(s)
+  print("\n")
+  val e: List[Int] = List()
+  for x <- e do print(x)
+  print("|")
+  print("\n")

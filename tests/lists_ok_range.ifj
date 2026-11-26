@@ -1,0 +1,27 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// LISTS: List.range se dvema a tremi argumenty, zaporny krok, prazdne rozsahy, toList u to/until (spec 5.8)
+import ifj26.*
+
+def show(l: List[Int]): Unit =
+  print(l)
+  print("\n")
+
+@main def main(): Unit =
+  val a = List.range(0, 5)
+  show(a)
+  val b = List.range(0, 10, 3)
+  show(b)
+  val c = List.range(5, 0, -2)
+  show(c)
+  val d = List.range(3, 3)
+  show(d)
+  val e = List.range(5, 1)
+  show(e)
+  val itemsList: List[Int] = (1 to 5).toList
+  val lstStr = itemsList.toString
+  print(lstStr)
+  print("\n")
+  val f = (1 until 4).toList
+  show(f)
+  val g = (3 to 1).toList
+  show(g)

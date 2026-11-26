@@ -1,0 +1,10 @@
+// expect: run 57
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// desetinne deleni nulou se ridi instrukci DIV jazyka IFJcode26, tj. chyba 57 (spec kap. 3 a 7)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 1.5
+  val z = 0.0
+  val q = x / z
+  print(q)

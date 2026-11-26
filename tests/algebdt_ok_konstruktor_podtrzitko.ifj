@@ -1,0 +1,16 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// ALGEBDT: zastupny vzor _ jako argument vzoru konstruktoru Point(_, y) (spec 5.5)
+import ifj26.*
+
+case class Point(x: Int, y: Int)
+
+def druha(p: Point): Int =
+  p match
+    case Point(_, y) => y
+    case _ => 0
+
+@main def main(): Unit =
+  val p = Point(7, 8)
+  val r = druha(p)
+  print(r)
+  print("\n")

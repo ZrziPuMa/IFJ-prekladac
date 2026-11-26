@@ -1,0 +1,26 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// zapis: komentare pred prologem a vsude, prazdne radky, @main zvlast, zavorky pres radky, koncova carka (spec 1.1, 1.2, kap. 2)
+/* blokovy komentar pred prologem
+   pres vice radku */
+// radkovy komentar pred prologem
+import ifj26.* // komentar za prologem
+
+/* komentar mezi definicemi */
+def sum3(a: Int,
+         b: Int,
+         c: Int): Int =
+  a + b + c /* komentar bez LF */ // a jeste radkovy
+
+@main
+def main(): Unit =
+
+  // prazdne a komentarove radky nemeni odsazeni
+
+  val one = 1; val two = 2
+  val s = sum3(
+      one,
+      two,
+      one,
+    )
+  print(s)
+  print("\n")

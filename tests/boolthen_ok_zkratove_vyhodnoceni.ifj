@@ -1,0 +1,17 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: && a || se vyhodnocuji zkratove, jinak by nastalo deleni nulou (spec 5.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val z = 0
+  val a = z != 0 && 10 / z > 1
+  val b = z == 0 || 10 / z > 1
+  print(a)
+  print(" ")
+  print(b)
+  print("\n")
+  var n = 0
+  while n < 3 && 10 / (3 - n) > 0 do
+    n = n + 1
+  print(n)
+  print("\n")

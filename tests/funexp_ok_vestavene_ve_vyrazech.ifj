@@ -1,0 +1,19 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// FUNEXP: vestavene funkce uvnitr vyrazu vc. ord mimo rozsah (spec 4 a 5.1)
+import ifj26.*
+
+@main def main(): Unit =
+  print(ord("A", 0) + 1)
+  print("\n")
+  print(chr(ord("a", 0) + 1))
+  print("\n")
+  print(toInt(2.9) * 2)
+  print("\n")
+  print(strLength(toStr(12345)))
+  print("\n")
+  print(subStr("hello", 1, strLength("hello") - 1))
+  print("\n")
+  print(toStr(1.5 + toInt(2.7)))
+  print("\n")
+  print(ord("abc", strLength("abc")))
+  print("\n")

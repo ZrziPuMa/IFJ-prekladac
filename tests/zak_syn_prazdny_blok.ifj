@@ -1,0 +1,10 @@
+// expect: 2
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi E2E testy s vypisy TokenDump ze zakladni IFJ26 sestavy ze specifikace bez rozsireni."
+// bloky nemohou byt prazdne (spec 1.2)
+import ifj26.*
+
+@main def main(): Unit =
+  val x = 1
+  if x < 2 then
+  else
+    print("b")

@@ -1,0 +1,37 @@
+// [AI] Claude (Opus 5.5), prompt: "Vytvor mi dalsi testy pokryvajici vsechna rozsireni dle specifikace i okrajove pripady. (Vsechna krom Interpolateds, ty zatim nebudou podporovany)"
+// BOOLTHEN: literaly, promenne, predavani, vraceni, == a != nad Boolean, toStr (spec 5.2)
+import ifj26.*
+
+def neg(b: Boolean): Boolean = !b
+
+def isEven(n: Int): Boolean = n / 2 * 2 == n
+
+@main def main(): Unit =
+  val t = true
+  var f: Boolean = false
+  print(t)
+  print(" ")
+  print(f)
+  print("\n")
+  f = neg(f)
+  print(f)
+  print("\n")
+  val e = t == f
+  val ne = t != f
+  print(e)
+  print(" ")
+  print(ne)
+  print("\n")
+  val s = toStr(ne)
+  val s2 = s + "!"
+  print(s2)
+  print("\n")
+  val ev = isEven(10)
+  val od = isEven(7)
+  print(ev)
+  print(" ")
+  print(od)
+  print("\n")
+  val cmp = 3 < 2
+  print(cmp)
+  print("\n")
