@@ -515,9 +515,14 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
                     break;
 
                 default:
+                    // AI help
+                    if (expr->expr_type != NULL && expr->expr_type->type_class == TYPE_LIST) {
+                        printf("CALL $builtin_list_concat\n");
+                    }
                     break;
             }
             break;
+
         case AST_FUNC_CALL: {
             // Rozšíření EXTKW: pokud se jedná o metodu z extension, musíme na zásobník nejdříve
             // pushnout hodnotu příjemce (Hodnota nalevo od tečky)
@@ -604,6 +609,7 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
             }
             // AI help
             while (curr_arg_group != NULL) {
+                int id = stt->l_cnt++;
                 printf("POPS GF@%%tmp1\n");
                 printf("NEWARRAY GF@%%tmp2 int@2\n");
                 printf("ARRAYSET GF@%%tmp2 int@0 GF@%%fstack\n");
@@ -618,7 +624,26 @@ void gen_expr(const ASTNode *expr, GenState *stt) {
 
                 printf("ARRAYGET GF@%%tmp1 GF@%%fstack int@1\n");
                 printf("ARRAYGET GF@%%fstack GF@%%fstack int@0\n");
+                printf("TYPE GF@%%tmp2 GF@%%tmp1\n");
+                printf("JUMPIFEQ $call_list_%d GF@%%tmp2 string@array\n", id);
                 printf("CALL GF@%%tmp1\n");
+                printf("JUMP $call_group_end_%d\n", id);
+
+                printf("LABEL $call_list_%d\n", id);
+                printf("POPS GF@%%tmp2\n");
+                printf("LT GF@%%tmp3 GF@%%tmp2 int@0\n");
+                printf("JUMPIFEQ $call_list_err_%d GF@%%tmp3 bool@true\n", id);
+                printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 int@0\n");
+                printf("LT GF@%%tmp3 GF@%%tmp2 GF@%%tmp3\n");
+                printf("JUMPIFEQ $call_list_err_%d GF@%%tmp3 bool@false\n", id);
+                printf("ADD GF@%%tmp2 GF@%%tmp2 int@1\n");
+                printf("ARRAYGET GF@%%tmp3 GF@%%tmp1 GF@%%tmp2\n");
+                printf("PUSHS GF@%%tmp3\n");
+                printf("JUMP $call_group_end_%d\n", id);
+
+                printf("LABEL $call_list_err_%d\n", id);
+                printf("EXIT int@40\n");
+                printf("LABEL $call_group_end_%d\n", id);
 
                 curr_arg_group = curr_arg_group->next;
             }
@@ -1608,8 +1633,58 @@ void create_builtin_functions() {
     printf("PUSHS LF@arr\n");
     printf("POPFRAME\n");
     printf("RETURN\n\n");
-}
 
+    // AI help
+    // list_concat(list1, list2):
+    printf("LABEL $builtin_list_concat\n");
+    printf("CREATEFRAME\n");
+    printf("PUSHFRAME\n");
+
+    printf("DEFVAR LF@l1\n");
+    printf("DEFVAR LF@l2\n");
+    printf("DEFVAR LF@len1\n");
+    printf("DEFVAR LF@len2\n");
+    printf("DEFVAR LF@total\n");
+    printf("DEFVAR LF@res\n");
+    printf("DEFVAR LF@i\n");
+    printf("DEFVAR LF@dst\n");
+    printf("DEFVAR LF@elem\n");
+    printf("DEFVAR LF@cmp\n");
+
+    printf("POPS LF@l2\n");
+    printf("POPS LF@l1\n");
+    printf("ARRAYGET LF@len1 LF@l1 int@0\n");
+    printf("ARRAYGET LF@len2 LF@l2 int@0\n");
+    printf("ADD LF@total LF@len1 LF@len2\n");
+    printf("ADD LF@dst LF@total int@1\n");
+    printf("NEWARRAY LF@res LF@dst\n");
+    printf("ARRAYSET LF@res int@0 LF@total\n");
+
+    printf("MOVE LF@i int@1\n");
+    printf("LABEL $builtin_concat_loop1\n");
+    printf("GT LF@cmp LF@i LF@len1\n");
+    printf("JUMPIFEQ $builtin_concat_loop2_init LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@l1 LF@i\n");
+    printf("ARRAYSET LF@res LF@i LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_concat_loop1\n");
+
+    printf("LABEL $builtin_concat_loop2_init\n");
+    printf("MOVE LF@i int@1\n");
+    printf("LABEL $builtin_concat_loop2\n");
+    printf("GT LF@cmp LF@i LF@len2\n");
+    printf("JUMPIFEQ $builtin_concat_end LF@cmp bool@true\n");
+    printf("ARRAYGET LF@elem LF@l2 LF@i\n");
+    printf("ADD LF@dst LF@len1 LF@i\n");
+    printf("ARRAYSET LF@res LF@dst LF@elem\n");
+    printf("ADD LF@i LF@i int@1\n");
+    printf("JUMP $builtin_concat_loop2\n");
+
+    printf("LABEL $builtin_concat_end\n");
+    printf("PUSHS LF@res\n");
+    printf("POPFRAME\n");
+    printf("RETURN\n\n");
+}
 ErrorCode generate_code(const ASTNode *root) {
     if (root == NULL) {
         return print_error(ERR_INTERNAL, -1, "Generátor přijal neplatný kořen stromu.");
